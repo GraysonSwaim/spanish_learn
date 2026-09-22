@@ -166,8 +166,8 @@ const STAGES=[
 let S=load();
 const ui={view:'home',session:null,q:'',detail:null,confirm:null,restoreDraft:null};
 
-function fresh(){return {v:1,settings:{newPerDay:15,autoSpeak:true},cards:{},order:[],days:{},lastBackup:null};}
-function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.cards)return Object.assign(fresh(),s);}}catch(e){}return fresh();}
+function fresh(){return {v:1,settings:{newPerDay:15,autoSpeak:true,backupMode:'share',shortcutName:'Save Cinco Backup'},cards:{},order:[],days:{},lastBackup:null};}
+function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.cards){const f=fresh();s.settings=Object.assign(f.settings,s.settings||{});return Object.assign(f,s);}}}catch(e){}return fresh();}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast('Could not save. Storage may be full.');}}
 function todayKey(d=new Date()){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function startOfDay(t){const d=new Date(t);d.setHours(0,0,0,0);return d.getTime();}
@@ -322,7 +322,17 @@ async function shareFile(name,text,type){
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);return true;
 }
 async function backup(){
-  const ok=await shareFile('cinco-backup-'+todayKey()+'.json',JSON.stringify(S,null,1),'application/json');
+  const json=JSON.stringify(S,null,1);
+  if(S.settings.backupMode==='shortcut'){
+    // Copy the backup to the clipboard, then hand it to a Shortcut that saves it to a fixed iCloud path.
+    try{
+      await navigator.clipboard.writeText(json);
+      S.lastBackup=Date.now();save();render();
+      location.href='shortcuts://run-shortcut?name='+encodeURIComponent(S.settings.shortcutName)+'&input=clipboard';
+      return;
+    }catch(e){toast('Could not copy. Using the share sheet instead.');}
+  }
+  const ok=await shareFile('cinco-backup-'+todayKey()+'.json',json,'application/json');
   if(ok){S.lastBackup=Date.now();save();render();}
 }
 
@@ -358,7 +368,7 @@ function homeView(){
   ${stale?`<div class="note">Your progress lives on this phone. Back it up to iCloud Drive every few days.</div>`:''}
   <div class="menu">
     <button data-act="import"><span>Import cards<small>CSV from iCloud Drive or Anki export</small></span></button>
-    <button data-act="backup"><span>Back up progress<small>Save a file to iCloud Drive</small></span></button>
+    <button data-act="backup"><span>Back up progress<small>${S.settings.backupMode==='shortcut'?'One tap, saved by your Shortcut':'Save a file to iCloud Drive'}</small></span></button>
     <button data-act="restore"><span>Restore from backup</span></button>
     <button data-act="go" data-v="browse"><span>Browse cards</span></button>
     <button data-act="go" data-v="settings"><span>Settings</span></button>
@@ -449,6 +459,11 @@ function settingsView(){
     <div class="setrow"><div>Speak Spanish aloud<small>When a Spanish word appears</small></div><button class="switch ${S.settings.autoSpeak?'on':''}" data-act="toggleSpeak" role="switch" aria-checked="${S.settings.autoSpeak}" aria-label="Speak Spanish aloud"></button></div>
   </div>
   <div class="menu">
+    <div class="setrow"><div>Back up with a Shortcut<small>One tap saves to a fixed iCloud Drive path. Needs a one-time setup.</small></div><button class="switch ${S.settings.backupMode==='shortcut'?'on':''}" data-act="toggleBackup" role="switch" aria-checked="${S.settings.backupMode==='shortcut'}" aria-label="Back up with a Shortcut"></button></div>
+    ${S.settings.backupMode==='shortcut'?`<div class="setrow"><div>Shortcut name<small>Must match exactly</small></div><input id="scName" type="text" value="${esc(S.settings.shortcutName)}" style="font-size:16px;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);width:46%"></div>
+    <button data-act="go" data-v="how"><span>How to set up the Shortcut</span></button>`:''}
+  </div>
+  <div class="menu">
     <button data-act="exportCsv"><span>Export cards as CSV<small>Includes stage and next review date, for editing on your Mac</small></span></button>
     <button class="danger" data-act="erase"><span>${ui.confirm==='erase'?'Tap again to erase everything':'Erase all cards and progress'}</span></button>
   </div>
@@ -477,6 +492,14 @@ function howView(){
   <p>Cards and progress are stored on this phone. Import decks as CSV from iCloud Drive. Tap Back up to save a file you can restore from later.</p>
   <p>CSV columns: <code>spanish,english,example,notes,tags</code>. Only the first two are required. Re-importing a file updates existing cards without losing their progress. Cards are matched on the Spanish text.</p>
   <p>Alternatives in the Spanish column separated by <code>/</code> are all accepted when typing, for example <code>el coche / el carro</code>.</p>
+  <h3>One-tap backups with a Shortcut</h3>
+  <p>Safari cannot write to a folder on its own, so the normal backup goes through the share sheet. A Shortcut removes that step: Cinco copies the backup and asks the Shortcut to save it to the same file every time.</p>
+  <p>Set it up once, in the Shortcuts app:</p>
+  <p>1. Tap + to make a new shortcut. Name it exactly <code>Save Cinco Backup</code>.</p>
+  <p>2. Add the action <b>Save File</b>. Set its input to <b>Shortcut Input</b>.</p>
+  <p>3. In that action, turn off <b>Ask Where to Save</b>, turn on <b>Overwrite If File Exists</b>, and set the destination path to <code>Spanish/backups/cinco-backup.json</code>.</p>
+  <p>4. Back in Cinco, turn on <b>Back up with a Shortcut</b> in Settings.</p>
+  <p>Now Back up copies your progress and opens the Shortcut, which saves it to iCloud Drive › Shortcuts › Spanish › backups. Swipe back to Cinco afterwards. To restore, use Restore from backup and pick that file.</p>
   </div>`;
 }
 
@@ -486,6 +509,7 @@ function render(){
   const v=ui.view;
   app.innerHTML=v==='study'?studyView():v==='done'?doneView():v==='browse'?browseView():v==='settings'?settingsView():v==='how'?howView():v==='restore'?restoreView():homeView();
   const inp=document.getElementById('ans');if(inp){inp.focus();}
+  const sc=document.getElementById('scName');if(sc){sc.onchange=()=>{S.settings.shortcutName=sc.value.trim()||'Save Cinco Backup';save();};}
   const q=document.getElementById('q');if(q){q.oninput=()=>{ui.q=q.value;const pos=q.selectionStart;render();const nq=document.getElementById('q');nq.focus();nq.setSelectionRange(pos,pos);};}
   window.scrollTo(0,0);
 }
@@ -519,6 +543,7 @@ app.addEventListener('click',e=>{
     case 'detail':ui.detail=b.dataset.id||null;render();break;
     case 'npd':S.settings.newPerDay=Math.max(5,Math.min(60,S.settings.newPerDay+ +b.dataset.d));save();render();break;
     case 'toggleSpeak':S.settings.autoSpeak=!S.settings.autoSpeak;save();render();break;
+    case 'toggleBackup':S.settings.backupMode=S.settings.backupMode==='shortcut'?'share':'shortcut';save();render();break;
     case 'resetCard':if(ui.confirm!=='reset'){ui.confirm='reset';render();break;}
       {const c=S.cards[b.dataset.id];Object.assign(c,{stage:0,due:0,ivl:0,reps:0,lapses:0});ui.confirm=null;save();render();toast('Progress reset');}break;
     case 'deleteCard':if(ui.confirm!=='delete'){ui.confirm='delete';render();break;}
