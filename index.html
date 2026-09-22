@@ -147,6 +147,9 @@ input{font:inherit;color:inherit}
 .step{display:flex;align-items:center;gap:6px}
 .step button{width:40px;height:40px;border-radius:12px;background:var(--cobalt-soft);color:var(--cobalt);font-size:22px;font-weight:600}
 .step b{min-width:32px;text-align:center;font-size:18px}
+.seg.wide{width:100%;margin-bottom:10px}
+.seg.wide button{flex:1}
+.hint{color:var(--muted);font-size:13px;margin:0 4px 10px}
 .seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:3px;gap:2px}
 .seg button{padding:7px 9px;white-space:nowrap;border-radius:9px;font-size:14px;color:var(--muted)}
 .seg button.on{background:var(--paper);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12)}
@@ -189,7 +192,7 @@ const STAGES=[
 
 /* ---------- state ---------- */
 let S=load();
-const ui={view:'home',editId:null,session:null,q:'',detail:null,confirm:null,restoreDraft:null};
+const ui={view:'home',editId:null,showDropped:false,session:null,q:'',detail:null,confirm:null,restoreDraft:null};
 
 function fresh(){return {v:1,settings:{newPerDay:15,autoSpeak:true,backupMode:'share',shortcutName:'Save Cinco Backup',voiceLang:'es-MX',theme:'auto',direction:'stage'},cards:{},order:[],days:{},lastBackup:null};}
 function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.cards){const f=fresh();s.settings=Object.assign(f.settings,s.settings||{});return Object.assign(f,s);}}}catch(e){}return fresh();}
@@ -502,15 +505,19 @@ function doneView(){
 
 function browseView(){
   const q=strip(ui.q||'');
-  let list=S.order.map(id=>S.cards[id]).filter(Boolean);
-  if(q)list=list.filter(c=>strip(c.es).includes(q)||strip(c.en).includes(q)||strip(c.tags||'').includes(q));
-  list.sort((a,b)=>(!!a.dropped-!!b.dropped)||b.stage-a.stage||a.es.localeCompare(b.es,'es'));
+  let all=S.order.map(id=>S.cards[id]).filter(Boolean);
+  if(q)all=all.filter(c=>strip(c.es).includes(q)||strip(c.en).includes(q)||strip(c.tags||'').includes(q));
+  const nDropped=all.filter(c=>c.dropped).length;
+  let list=all.filter(c=>ui.showDropped?c.dropped:!c.dropped);
+  list.sort((a,b)=>b.stage-a.stage||a.es.localeCompare(b.es,'es'));
   if(ui.detail){const c=S.cards[ui.detail];if(c)return detailView(c);}
   return `${bar('Cards',back())}
   <input class="search" id="q" type="search" placeholder="Search Spanish, English or tag" value="${esc(ui.q)}">
-  ${list.length?`<div class="rows">${list.slice(0,300).map(c=>`<div class="row ${c.dropped?'off':''}"><button class="rowmain" data-act="detail" data-id="${c.id}"><div class="grow"><div class="es">${esc(c.es)}</div><div class="en">${esc(c.en)}</div>${c.dropped?'<div class="tagline">dropped</div>':''}</div><div class="mini">${[1,2,3,4,5].map(i=>`<i class="${i<=c.stage?'on':''}"></i>`).join('')}</div></button><button class="rowdrop ${c.dropped?'back':''}" data-act="toggleDrop" data-id="${c.id}" aria-label="${c.dropped?'Bring back':'Drop'} ${esc(c.es)}">${c.dropped?'Bring back':'Drop'}</button></div>`).join('')}</div>
+  <div class="seg wide">${[['active',`Studying (${all.length-nDropped})`],['dropped',`Dropped (${nDropped})`]].map(([k,l])=>`<button class="${(ui.showDropped?'dropped':'active')===k?'on':''}" data-act="showDropped" data-v="${k}">${l}</button>`).join('')}</div>
+  ${ui.showDropped&&list.length?`<p class="hint">These are out of rotation. Bring one back and it returns at the stage it left.</p>`:''}
+  ${list.length?`<div class="rows">${list.slice(0,300).map(c=>`<div class="row ${c.dropped?'off':''}"><button class="rowmain" data-act="detail" data-id="${c.id}"><div class="grow"><div class="es">${esc(c.es)}</div><div class="en">${esc(c.en)}</div></div><div class="mini">${[1,2,3,4,5].map(i=>`<i class="${i<=c.stage?'on':''}"></i>`).join('')}</div></button><button class="rowdrop ${c.dropped?'back':''}" data-act="toggleDrop" data-id="${c.id}" aria-label="${c.dropped?'Bring back':'Drop'} ${esc(c.es)}">${c.dropped?'Bring back':'Drop'}</button></div>`).join('')}</div>
   ${list.length>300?`<p class="foot">Showing 300 of ${list.length}. Narrow the search to see the rest.</p>`:''}`:
-  `<p class="empty">${S.order.length?'No cards match.':'No cards yet. Import a CSV from the home screen.'}</p>`}`;
+  `<p class="empty">${ui.showDropped?'Nothing dropped. Words you drop during study land here.':S.order.length?'No cards match.':'No cards yet. Import a CSV or add one from the home screen.'}</p>`}`;
 }
 function detailView(c){
   const due=c.stage===0?'not started':c.due<=Date.now()?'now':todayKey(new Date(c.due));
@@ -664,6 +671,7 @@ app.addEventListener('click',e=>{
     case 'drop':dropCard();break;
     case 'speak':speak(S.cards[ui.session.current].es);break;
     case 'speakId':speak(S.cards[b.dataset.id].es);break;
+    case 'showDropped':ui.showDropped=b.dataset.v==='dropped';render();break;
     case 'detail':ui.detail=b.dataset.id||null;ui.view='browse';render();break;
     case 'edit':ui.editId=b.dataset.id||null;ui.view='edit';render();break;
     case 'npd':S.settings.newPerDay=Math.max(5,Math.min(60,S.settings.newPerDay+ +b.dataset.d));save();render();break;
