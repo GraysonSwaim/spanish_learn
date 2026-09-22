@@ -101,6 +101,9 @@ input{font:inherit;color:inherit}
 .big.good{background:var(--good);color:#fff;border-color:transparent}
 .big.primary{background:var(--cobalt);color:#fff;border-color:transparent}
 .big small{display:block;font-weight:400;font-size:13px;opacity:.85;margin-top:2px}
+.drop{display:block;width:100%;text-align:center;color:var(--muted);font-size:14px;padding:14px 12px 4px}
+.row.off .es,.row.off .en{opacity:.45}
+.row.off .tagline{color:var(--again);font-size:12px}
 .flash{animation:flash .9s ease-out}
 @keyframes flash{0%{box-shadow:0 0 0 0 rgba(30,142,110,.0)}20%{box-shadow:0 0 0 6px rgba(30,142,110,.5)}100%{box-shadow:0 0 0 0 rgba(30,142,110,0)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -221,17 +224,17 @@ function speak(text){
 
 /* ---------- scheduling ---------- */
 function counts(){
-  const now=Date.now();const c={due:0,unseen:0,total:0,byStage:[0,0,0,0,0,0]};
-  for(const id in S.cards){const k=S.cards[id];c.total++;c.byStage[k.stage]++;if(k.stage===0)c.unseen++;else if(k.due<=now)c.due++;}
+  const now=Date.now();const c={due:0,unseen:0,total:0,dropped:0,byStage:[0,0,0,0,0,0]};
+  for(const id in S.cards){const k=S.cards[id];if(k.dropped){c.dropped++;continue;}c.total++;c.byStage[k.stage]++;if(k.stage===0)c.unseen++;else if(k.due<=now)c.due++;}
   c.newRoom=Math.max(0,S.settings.newPerDay-dayRec().new);
   c.newToday=Math.min(c.newRoom,c.unseen);
   return c;
 }
 function buildQueue(){
   const now=Date.now();
-  const due=Object.values(S.cards).filter(c=>c.stage>0&&c.due<=now+15*MIN).sort((a,b)=>a.due-b.due).map(c=>c.id);
+  const due=Object.values(S.cards).filter(c=>!c.dropped&&c.stage>0&&c.due<=now+15*MIN).sort((a,b)=>a.due-b.due).map(c=>c.id);
   const room=Math.max(0,S.settings.newPerDay-dayRec().new);
-  const unseen=S.order.filter(id=>S.cards[id]&&S.cards[id].stage===0).slice(0,room);
+  const unseen=S.order.filter(id=>S.cards[id]&&!S.cards[id].dropped&&S.cards[id].stage===0).slice(0,room);
   return [...due,...unseen];
 }
 function startSession(){
@@ -244,7 +247,7 @@ function nextCard(){
   const s=ui.session;
   if(!s.queue.length){ui.view='done';save();render();return;}
   const c=S.cards[s.queue[0]];
-  if(!c){s.queue.shift();return nextCard();}
+  if(!c||c.dropped){s.queue.shift();return nextCard();}
   s.current=c.id;
   let mode=c.stage===0?'intro':STAGES[c.stage].mode;
   if(mode==='mixed')mode=Math.random()<0.5?'type':'es-en';
@@ -271,6 +274,11 @@ function grade(pass){
     c.lapses=(c.lapses||0)+1;c.stage=Math.max(1,c.stage-1);c.ivl=0;c.due=now+10*MIN;requeue(c.id);
   }
   save();nextCard();
+}
+function dropCard(){
+  const s=ui.session,c=S.cards[s.current];snapshot();
+  c.dropped=Date.now();s.queue=s.queue.filter(id=>id!==c.id);
+  save();toast('Dropped. Undo is at the top.');nextCard();
 }
 function undo(){
   const s=ui.session;if(!s||!s.undo)return;
@@ -324,9 +332,9 @@ function importRecords(recs){
 }
 function csvCell(v){v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
 function exportCsv(){
-  const lines=['spanish,english,example,notes,tags,stage,due,reps,lapses'];
+  const lines=['spanish,english,example,notes,tags,stage,due,reps,lapses,dropped'];
   for(const id of S.order){const c=S.cards[id];if(!c)continue;
-    lines.push([c.es,c.en,c.ex,c.notes,c.tags,c.stage,c.due?todayKey(new Date(c.due)):'',c.reps||0,c.lapses||0].map(csvCell).join(','));}
+    lines.push([c.es,c.en,c.ex,c.notes,c.tags,c.stage,c.due?todayKey(new Date(c.due)):'',c.reps||0,c.lapses||0,c.dropped?'yes':''].map(csvCell).join(','));}
   shareFile('cinco-cards-'+todayKey()+'.csv',lines.join('\n'),'text/csv');
 }
 async function shareFile(name,text,type){
@@ -380,7 +388,7 @@ function homeView(){
   <p class="lede">${lede}</p>
   <div class="ladder">${[1,2,3,4,5].map(i=>`<div class="tile"><span class="n">${c.byStage[i]}</span><div class="fill" style="height:${Math.round(100*c.byStage[i]/total)}%"></div></div>`).join('')}</div>
   <div class="legend">${[1,2,3,4,5].map(i=>`<div><span class="s">${i}</span><span>${STAGES[i].name}</span></div>`).join('')}</div>
-  <p class="newline">${c.unseen} new cards waiting, ${c.total} in the deck.</p>
+  <p class="newline">${c.unseen} new cards waiting, ${c.total} in the deck${c.dropped?`, ${c.dropped} dropped`:''}.</p>
   <button class="cta" data-act="study" ${c.due+c.newToday===0&&!inSession?'disabled':''}>${inSession?'Continue session':'Start studying'}</button>
   ${stale?`<div class="note">Your progress lives on this phone. Back it up to iCloud Drive every few days.</div>`:''}
   <div class="menu">
@@ -418,7 +426,7 @@ function studyView(){
       ${s.phase==='answer'?`<div class="answer"><div class="word ${s.verdict==='exact'?'':''}">${esc(c.es)}</div>${verdictTag(s)}${ex}${notes}${spk}</div>`:''}`;
     actions=s.phase==='prompt'?'':gradeBtns();
   }
-  return `${head}${tiles(c.stage)}<section class="card ${s.verdict==='exact'?'flash':''}">${body}</section><div class="actions">${actions}</div>`;
+  return `${head}${tiles(c.stage)}<section class="card ${s.verdict==='exact'?'flash':''}">${body}</section><div class="actions">${actions}</div><button class="drop" data-act="drop">Drop this word, I don't need it</button>`;
 }
 function verdictTag(s){
   const t=esc(s.typed);
@@ -448,11 +456,11 @@ function browseView(){
   const q=strip(ui.q||'');
   let list=S.order.map(id=>S.cards[id]).filter(Boolean);
   if(q)list=list.filter(c=>strip(c.es).includes(q)||strip(c.en).includes(q)||strip(c.tags||'').includes(q));
-  list.sort((a,b)=>b.stage-a.stage||a.es.localeCompare(b.es,'es'));
+  list.sort((a,b)=>(!!a.dropped-!!b.dropped)||b.stage-a.stage||a.es.localeCompare(b.es,'es'));
   if(ui.detail){const c=S.cards[ui.detail];if(c)return detailView(c);}
   return `${bar('Cards',back())}
   <input class="search" id="q" type="search" placeholder="Search Spanish, English or tag" value="${esc(ui.q)}">
-  ${list.length?`<div class="rows">${list.slice(0,300).map(c=>`<button class="row" data-act="detail" data-id="${c.id}"><div class="grow"><div class="es">${esc(c.es)}</div><div class="en">${esc(c.en)}</div></div><div class="mini">${[1,2,3,4,5].map(i=>`<i class="${i<=c.stage?'on':''}"></i>`).join('')}</div></button>`).join('')}</div>
+  ${list.length?`<div class="rows">${list.slice(0,300).map(c=>`<button class="row ${c.dropped?'off':''}" data-act="detail" data-id="${c.id}"><div class="grow"><div class="es">${esc(c.es)}</div><div class="en">${esc(c.en)}</div>${c.dropped?'<div class="tagline">dropped</div>':''}</div><div class="mini">${[1,2,3,4,5].map(i=>`<i class="${i<=c.stage?'on':''}"></i>`).join('')}</div></button>`).join('')}</div>
   ${list.length>300?`<p class="foot">Showing 300 of ${list.length}. Narrow the search to see the rest.</p>`:''}`:
   `<p class="empty">${S.order.length?'No cards match.':'No cards yet. Import a CSV from the home screen.'}</p>`}`;
 }
@@ -462,8 +470,9 @@ function detailView(c){
   <div class="detail">${tiles(c.stage)}<div class="word">${esc(c.es)}</div><div class="word sm" style="color:var(--muted);margin-top:6px">${esc(c.en)}</div>
   ${c.ex?`<p class="ex">${esc(c.ex)}</p>`:''}${c.notes?`<p class="notes">${esc(c.notes)}</p>`:''}
   <button class="speak" data-act="speakId" data-id="${c.id}" aria-label="Hear it">🔊</button>
-  <dl><dt>Next review</dt><dd>${due}</dd><dt>Interval</dt><dd>${c.ivl?c.ivl+' days':'—'}</dd><dt>Reviews</dt><dd>${c.reps||0}</dd><dt>Misses</dt><dd>${c.lapses||0}</dd>${c.tags?`<dt>Tags</dt><dd>${esc(c.tags)}</dd>`:''}</dl></div>
+  <dl><dt>Next review</dt><dd>${c.dropped?'never, dropped':due}</dd><dt>Interval</dt><dd>${c.ivl?c.ivl+' days':'—'}</dd><dt>Reviews</dt><dd>${c.reps||0}</dd><dt>Misses</dt><dd>${c.lapses||0}</dd>${c.tags?`<dt>Tags</dt><dd>${esc(c.tags)}</dd>`:''}</dl></div>
   <div class="menu">
+    <button data-act="toggleDrop" data-id="${c.id}"><span>${c.dropped?'Bring back':'Drop this word'}<small>${c.dropped?'Schedules it again':'Never shown again, survives re-imports'}</small></span></button>
     <button data-act="resetCard" data-id="${c.id}"><span>${ui.confirm==='reset'?'Tap again to reset progress':'Reset progress'}<small>Back to New</small></span></button>
     <button class="danger" data-act="deleteCard" data-id="${c.id}"><span>${ui.confirm==='delete'?'Tap again to delete':'Delete card'}</span></button>
   </div>`;
@@ -504,6 +513,8 @@ function howView(){
   ${[1,2,3,4,5].map(i=>`<div class="stg">${tiles(i,'')}<div><b>${STAGES[i].name}</b><p>${STAGES[i].blurb}</p></div></div>`).join('')}
   <h3>Why this order</h3>
   <p>Recognizing a word is easier than producing it, so early stages only ask you to recognize. By stage 4 you must type it from English, which is what speaking actually requires. Cards that sail through get out of your way quickly. Cards you struggle with come back sooner.</p>
+  <h3>Dropping words</h3>
+  <p>If a word is not worth your time, tap <i>Drop this word</i> under the card. It is never scheduled again, and stays dropped even if you re-import the CSV it came from. Undo brings it straight back; later, find it at the bottom of Browse and tap <i>Bring back</i>.</p>
   <h3>Daily rhythm</h3>
   <p>Open the app once a day. Reviews come first, then new cards up to your daily limit. A session of 30 cards takes about five minutes.</p>
   <h3>Your data</h3>
@@ -556,6 +567,7 @@ app.addEventListener('click',e=>{
     case 'reveal':{const s=ui.session,c=S.cards[s.current];s.phase='answer';render();if(S.settings.autoSpeak&&s.mode==='en-es')speak(c.es);break;}
     case 'grade':grade(b.dataset.p==='1');break;
     case 'undo':undo();break;
+    case 'drop':dropCard();break;
     case 'speak':speak(S.cards[ui.session.current].es);break;
     case 'speakId':speak(S.cards[b.dataset.id].es);break;
     case 'detail':ui.detail=b.dataset.id||null;render();break;
@@ -563,6 +575,7 @@ app.addEventListener('click',e=>{
     case 'toggleSpeak':S.settings.autoSpeak=!S.settings.autoSpeak;save();render();break;
     case 'accent':S.settings.voiceLang=S.settings.voiceLang==='es-ES'?'es-MX':'es-ES';save();render();speak('Hola, ¿cómo estás?');break;
     case 'toggleBackup':S.settings.backupMode=S.settings.backupMode==='shortcut'?'share':'shortcut';save();render();break;
+    case 'toggleDrop':{const c=S.cards[b.dataset.id];if(c.dropped)delete c.dropped;else c.dropped=Date.now();save();render();toast(c.dropped?'Dropped':'Back in the deck');break;}
     case 'resetCard':if(ui.confirm!=='reset'){ui.confirm='reset';render();break;}
       {const c=S.cards[b.dataset.id];Object.assign(c,{stage:0,due:0,ivl:0,reps:0,lapses:0});ui.confirm=null;save();render();toast('Progress reset');}break;
     case 'deleteCard':if(ui.confirm!=='delete'){ui.confirm='delete';render();break;}
