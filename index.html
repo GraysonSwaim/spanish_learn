@@ -193,9 +193,19 @@ function check(input,es){
 // iOS quirks: getVoices() lists voices that are not downloaded (picking one gives a blip or an English
 // voice mangling the Spanish), and speak() right after cancel() often produces a noise instead of speech.
 // So: let iOS choose the voice from the language code alone, and only cancel when something is playing.
-let speakTimer=null,currentUtterance=null;
+let speakTimer=null,currentUtterance=null,speechUnlocked=false;
+// iOS only allows speech that starts from a tap until the engine has been used once from a tap.
+// Speaking an empty utterance on the first touch unlocks automatic speech for the rest of the session.
+function unlockSpeech(){
+  if(speechUnlocked||!('speechSynthesis' in window))return;
+  speechUnlocked=true;
+  try{const u=new SpeechSynthesisUtterance('');u.volume=0;speechSynthesis.speak(u);}catch(e){}
+}
+document.addEventListener('touchend',unlockSpeech,{once:true,passive:true});
+document.addEventListener('click',unlockSpeech,{once:true});
 function speak(text){
   if(!('speechSynthesis' in window))return;
+  if(document.hidden)return;
   const t=text.replace(/\s*[\/;].*$/,'').replace(/[…]/g,'').trim();
   if(!t)return;
   clearTimeout(speakTimer);
@@ -563,6 +573,7 @@ app.addEventListener('click',e=>{
 });
 
 render();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&'speechSynthesis' in window)speechSynthesis.resume();});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
 </script>
