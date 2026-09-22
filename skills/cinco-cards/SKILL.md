@@ -1,6 +1,6 @@
 ---
 name: cinco-cards
-description: Write Spanish vocabulary flashcards as a CSV for the Cinco app (five-stage spaced repetition, imported from iCloud Drive). Use this whenever the user asks for Spanish flashcards, vocab cards, a deck, "cards for Cinco/Anki", words on a topic, or wants a word list turned into cards — even if they don't name the app or say "CSV". Also use it to check or fix a CSV before importing.
+description: Write Spanish vocabulary flashcards as a CSV for the Cinco app (five-stage spaced repetition, imported from iCloud Drive). Use this whenever the user asks for Spanish flashcards, vocab cards, a deck, "cards for Cinco/Anki", words on a topic, or wants a word list turned into cards — even if they don't name the app or say "CSV". Decks are saved straight into the user's iCloud Drive `Spanish` folder so the phone can import them. Also use it to check or fix a CSV before importing.
 ---
 
 # Cinco cards
@@ -52,9 +52,17 @@ Default deck size is 20 to 40 cards unless the user asks for something else. At 
 1. Check for duplicate Spanish values within the file. If the user shared their existing deck or export, check against that too.
 2. Read every example and confirm it contains the card's word and would make sense to the learner without the English.
 3. If you can run code, run `scripts/validate_cards.py path/to/file.csv`. It checks the header, required fields, quoting, duplicates, and that each example contains its word. Fix what it reports.
-4. Save the file with a descriptive name (`restaurant-a1.csv`, `verbs-irregular-present.csv`). If the user's iCloud Drive `Spanish` folder is reachable (on a Mac: `~/Library/Mobile Documents/com~apple~CloudDocs/Spanish/`), save there so it appears in the app's import picker; otherwise save where you're working and tell the user to move it. If you can't save files, put the CSV in a single code block so it can be copied whole.
+4. Save the file into the user's iCloud Drive `Spanish` folder, which is the app's import location. On a Mac that is:
 
-Tell the user how many cards you made and the tags used. Don't explain the CSV format back to them; they know it.
+   ```
+   ~/Library/Mobile Documents/com~apple~CloudDocs/Spanish/
+   ```
+
+   Save there by default, without asking, whenever that folder exists; the whole point is that the deck shows up in Cinco's import picker on the phone a few seconds later. Use a descriptive filename (`restaurant-a1.csv`, `verbs-irregular-present.csv`) and never overwrite a deck that is already there unless the user asked for an edit to that file. If the folder isn't reachable (a different machine, or no file access), save where you're working and tell the user to move the file into iCloud Drive › Spanish. If you can't save files at all, put the CSV in a single code block so it can be copied whole.
+
+5. Before writing, glance at the existing `.csv` files in that folder and pass them to the validator with `--existing`, so new decks don't repeat words the user already has.
+
+Tell the user the filename, where it was saved, how many cards, and the tags used. Don't explain the CSV format back to them; they know it.
 
 ## Example
 
