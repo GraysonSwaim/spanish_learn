@@ -31,34 +31,19 @@ Why this order: recognizing a word (Spanish to English) is much easier than prod
 
 You need: a Mac, a GitHub account, an iPhone signed into iCloud.
 
-### 1. Publish the app (free, on GitHub Pages)
+### 1. Publish the app (done)
 
-In Terminal, from this folder:
-
-```sh
-cd ~/Documents/github/spanish_learn
-git init
-git add .
-git commit -m "Cinco flashcards"
-```
-
-Create an empty repository on GitHub named `spanish_learn` (github.com → New repository, public, no README). Then:
-
-```sh
-git remote add origin https://github.com/YOUR_USERNAME/spanish_learn.git
-git branch -M main
-git push -u origin main
-```
-
-On GitHub: repository → **Settings** → **Pages** → Source: *Deploy from a branch* → Branch: `main`, folder `/ (root)` → Save. After a minute your app is at:
+The repo is at https://github.com/GraysonSwaim/spanish_learn and GitHub Pages serves it from the `main` branch. The live app is:
 
 ```
-https://YOUR_USERNAME.github.io/spanish_learn/
+https://graysonswaim.github.io/spanish_learn/
 ```
+
+Every `git push` to `main` republishes it within about a minute.
 
 ### 2. Install it on your iPhone
 
-1. Open that URL in **Safari** (must be Safari, not Chrome).
+1. Open https://graysonswaim.github.io/spanish_learn/ in **Safari** (must be Safari, not Chrome).
 2. Tap the Share button, then **Add to Home Screen**, then **Add**.
 3. Open Cinco from your home screen. It runs full screen and works offline.
 
