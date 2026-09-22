@@ -467,7 +467,6 @@ function verdictTag(s){
   const t=esc(s.typed);
   switch(s.verdict){
     case 'exact':return `<span class="verdict ok">Correct</span>`;
-    case 'theme':S.settings.theme=b.dataset.t;save();applyTheme();render();break;
     case 'accent':return `<span class="verdict near">Almost, check the accents</span><p class="typed">You typed <s>${t}</s></p>`;
     case 'article':return `<span class="verdict near">Right word, check the article</span><p class="typed">You typed <s>${t}</s></p>`;
     case 'wrong':return `<span class="verdict no">Not quite</span><p class="typed">You typed <s>${t}</s></p>`;
@@ -615,6 +614,7 @@ app.addEventListener('click',e=>{
     case 'npd':S.settings.newPerDay=Math.max(5,Math.min(60,S.settings.newPerDay+ +b.dataset.d));save();render();break;
     case 'toggleSpeak':S.settings.autoSpeak=!S.settings.autoSpeak;save();render();break;
     case 'accent':S.settings.voiceLang=S.settings.voiceLang==='es-ES'?'es-MX':'es-ES';save();render();speak('Hola, ¿cómo estás?');break;
+    case 'theme':S.settings.theme=b.dataset.t;save();applyTheme();render();break;
     case 'toggleBackup':S.settings.backupMode=S.settings.backupMode==='shortcut'?'share':'shortcut';save();render();break;
     case 'toggleDrop':{const c=S.cards[b.dataset.id];if(c.dropped)delete c.dropped;else c.dropped=Date.now();save();render();toast(c.dropped?'Dropped':'Back in the deck');break;}
     case 'resetCard':if(ui.confirm!=='reset'){ui.confirm='reset';render();break;}
