@@ -49,7 +49,11 @@ input{font:inherit;color:inherit}
 
 /* ladder */
 .ladder{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;align-items:end;height:150px;margin:6px 0 4px}
-.tile{position:relative;height:100%;background:var(--paper);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+.tile{position:relative;height:100%;background:var(--paper);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:0;transition:transform .12s}
+.tile:active{transform:scale(.96)}
+.tile:disabled{opacity:.55}
+.link{color:var(--cobalt);font-weight:600;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;padding:0}
+.link:disabled{color:var(--muted);text-decoration:none}
 .tile .fill{background:var(--marigold);width:100%;transition:height .5s cubic-bezier(.2,.8,.2,1)}
 .tile .n{position:absolute;top:8px;left:0;right:0;text-align:center;font-family:var(--serif);font-size:22px}
 .legend{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;text-align:center;color:var(--muted);font-size:12px;margin-bottom:6px}
@@ -240,10 +244,21 @@ function buildQueue(){
   const unseen=S.order.filter(id=>S.cards[id]&&!S.cards[id].dropped&&S.cards[id].stage===0).slice(0,room);
   return [...due,...unseen];
 }
-function startSession(){
-  const q=buildQueue();
-  if(!q.length){toast('Nothing to study right now.');return;}
-  ui.session={queue:q,done:0,right:0,undo:null};
+function startSession(focus){
+  let q,label='';
+  if(focus&&focus.stage){
+    q=Object.values(S.cards).filter(c=>!c.dropped&&c.stage===focus.stage).sort((a,b)=>a.due-b.due).map(c=>c.id);
+    label='Stage '+focus.stage;
+    if(!q.length){toast('No cards at stage '+focus.stage+' yet.');return;}
+  }else if(focus&&focus.fresh){
+    q=S.order.filter(id=>S.cards[id]&&!S.cards[id].dropped&&S.cards[id].stage===0).slice(0,S.settings.newPerDay);
+    label='New cards';
+    if(!q.length){toast('No new cards left. Import a CSV to add more.');return;}
+  }else{
+    q=buildQueue();
+    if(!q.length){toast('Nothing to study right now.');return;}
+  }
+  ui.session={queue:q,done:0,right:0,undo:null,label};
   ui.view='study';nextCard();
 }
 function nextCard(){
@@ -389,9 +404,9 @@ function homeView(){
   return `${bar('',`<span class="sub">${st?`${st}-day streak`:''}</span>`,`<button class="tb" data-act="go" data-v="how">How it works</button>`)}
   <h1 class="brand">Cin<b>co</b></h1>
   <p class="lede">${lede}</p>
-  <div class="ladder">${[1,2,3,4,5].map(i=>`<div class="tile"><span class="n">${c.byStage[i]}</span><div class="fill" style="height:${Math.round(100*c.byStage[i]/total)}%"></div></div>`).join('')}</div>
+  <div class="ladder">${[1,2,3,4,5].map(i=>`<button class="tile" data-act="stage" data-s="${i}" ${c.byStage[i]?'':'disabled'} aria-label="Study the ${c.byStage[i]} cards at stage ${i}, ${STAGES[i].name}"><span class="n">${c.byStage[i]}</span><div class="fill" style="height:${Math.round(100*c.byStage[i]/total)}%"></div></button>`).join('')}</div>
   <div class="legend">${[1,2,3,4,5].map(i=>`<div><span class="s">${i}</span><span>${STAGES[i].name}</span></div>`).join('')}</div>
-  <p class="newline">${c.unseen} new cards waiting, ${c.total} in the deck${c.dropped?`, ${c.dropped} dropped`:''}.</p>
+  <p class="newline"><button class="link" data-act="fresh" ${c.unseen?'':'disabled'}>${c.unseen} new cards waiting</button>, ${c.total} in the deck${c.dropped?`, ${c.dropped} dropped`:''}. Tap a stage to drill just those cards.</p>
   <button class="cta" data-act="study" ${c.due+c.newToday===0&&!inSession?'disabled':''}>${inSession?'Continue session':'Start studying'}</button>
   ${stale?`<div class="note">Your progress lives on this phone. Back it up to iCloud Drive every few days.</div>`:''}
   <div class="menu">
@@ -407,7 +422,7 @@ function homeView(){
 function studyView(){
   const s=ui.session,c=S.cards[s.current];
   const left=s.queue.length;
-  const head=bar(`${left} left`,`<button class="tb" data-act="go" data-v="home">‹ Home</button>`,`<button class="tb" data-act="undo" ${s.undo?'':'disabled'}>Undo</button>`);
+  const head=bar(`${s.label?s.label+', ':''}${left} left`,`<button class="tb" data-act="go" data-v="home">‹ Home</button>`,`<button class="tb" data-act="undo" ${s.undo?'':'disabled'}>Undo</button>`);
   const spk=`<button class="speak" data-act="speak" aria-label="Hear it">🔊</button>`;
   const ex=c.ex?`<p class="ex">${esc(c.ex)}</p>`:'';
   const notes=c.notes?`<p class="notes">${esc(c.notes)}</p>`:'';
@@ -516,6 +531,8 @@ function howView(){
   ${[1,2,3,4,5].map(i=>`<div class="stg">${tiles(i,'')}<div><b>${STAGES[i].name}</b><p>${STAGES[i].blurb}</p></div></div>`).join('')}
   <h3>Why this order</h3>
   <p>Recognizing a word is easier than producing it, so early stages only ask you to recognize. By stage 4 you must type it from English, which is what speaking actually requires. Cards that sail through get out of your way quickly. Cards you struggle with come back sooner.</p>
+  <h3>Drilling one stage</h3>
+  <p>On the home screen, tap any stage tile to study every card at that stage, due or not, and tap the new-cards count to introduce an extra batch. Grading works the same as in a normal session, so a card you get right moves up and is rescheduled. Drilling is useful for a stage that has piled up or before a trip; the daily session is still what keeps the spacing honest.</p>
   <h3>Dropping words</h3>
   <p>If a word is not worth your time, tap <i>Drop this word</i> under the card. It is never scheduled again, and stays dropped even if you re-import the CSV it came from. Undo brings it straight back; later, find it at the bottom of Browse and tap <i>Bring back</i>.</p>
   <h3>Daily rhythm</h3>
@@ -560,6 +577,8 @@ app.addEventListener('click',e=>{
   if(act!=='resetCard'&&act!=='deleteCard'&&act!=='erase')ui.confirm=null;
   switch(act){
     case 'go':ui.view=b.dataset.v;ui.detail=null;if(b.dataset.v==='home'&&ui.session&&!ui.session.queue.length)ui.session=null;render();break;
+    case 'stage':startSession({stage:+b.dataset.s});break;
+    case 'fresh':startSession({fresh:true});break;
     case 'study':if(ui.session&&ui.session.queue.length){ui.view='study';nextCard();}else startSession();break;
     case 'import':fileCsv.click();break;
     case 'restore':fileJson.click();break;
