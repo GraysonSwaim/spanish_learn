@@ -79,6 +79,10 @@ saber,to know,"No sé la respuesta.",Facts and skills; conocer is for people,ver
 
 **Export:** Settings → *Export cards as CSV* gives you every card with its stage and next review date, for editing or analysis on your Mac.
 
+## Having an AI write your cards
+
+`skills/cinco-cards/` is a skill that teaches Claude (or, pasted as instructions, ChatGPT) to write decks in this format with good judgment about what makes a card learnable. `skills/README.md` explains how to install it in each tool and how to validate a CSV before importing. `decks/airport-a1.csv` is a deck written with it.
+
 ## Changing the app
 
 Edit `index.html`, then:

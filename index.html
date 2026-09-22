@@ -176,7 +176,7 @@ function hash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 /* ---------- text matching ---------- */
-function norm(s){return String(s).toLowerCase().trim().replace(/[¿?¡!.,;:"“”]/g,'').replace(/\s+/g,' ');}
+function norm(s){return String(s).toLowerCase().trim().replace(/[¿?¡!.,;:"“”…]/g,'').replace(/\s+/g,' ');}
 function strip(s){return norm(s).replace(/ñ/g,'\u0001').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\u0001/g,'ñ');}
 function noArticle(s){return strip(s).replace(/^(el|la|los|las|un|una|unos|unas|lo)\s+/,'');}
 function alternatives(es){return es.split(/\s*[\/;]\s*|\s*\(.*?\)\s*/).map(x=>x.trim()).filter(Boolean);}
