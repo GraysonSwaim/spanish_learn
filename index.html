@@ -140,14 +140,15 @@ input{font:inherit;color:inherit}
 .detail{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:24px 20px;margin-bottom:14px}
 .detail dl{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:15px;margin-top:18px}
 .detail dt{color:var(--muted)}
-.setrow{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;border-top:1px solid var(--line)}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 16px;border-top:1px solid var(--line)}
+.setrow>div:first-child{min-width:0}
 .setrow:first-child{border-top:0}
 .setrow small{display:block;color:var(--muted);font-size:13px}
 .step{display:flex;align-items:center;gap:6px}
 .step button{width:40px;height:40px;border-radius:12px;background:var(--cobalt-soft);color:var(--cobalt);font-size:22px;font-weight:600}
 .step b{min-width:32px;text-align:center;font-size:18px}
 .seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:3px;gap:2px}
-.seg button{padding:7px 12px;border-radius:9px;font-size:14px;color:var(--muted)}
+.seg button{padding:7px 9px;white-space:nowrap;border-radius:9px;font-size:14px;color:var(--muted)}
 .seg button.on{background:var(--paper);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .switch{width:52px;height:32px;border-radius:16px;background:var(--line);position:relative;transition:background .2s}
 .switch::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:13px;background:#fff;transition:left .2s}
@@ -190,7 +191,7 @@ const STAGES=[
 let S=load();
 const ui={view:'home',editId:null,session:null,q:'',detail:null,confirm:null,restoreDraft:null};
 
-function fresh(){return {v:1,settings:{newPerDay:15,autoSpeak:true,backupMode:'share',shortcutName:'Save Cinco Backup',voiceLang:'es-MX',theme:'auto'},cards:{},order:[],days:{},lastBackup:null};}
+function fresh(){return {v:1,settings:{newPerDay:15,autoSpeak:true,backupMode:'share',shortcutName:'Save Cinco Backup',voiceLang:'es-MX',theme:'auto',direction:'stage'},cards:{},order:[],days:{},lastBackup:null};}
 function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.cards){const f=fresh();s.settings=Object.assign(f.settings,s.settings||{});return Object.assign(f,s);}}}catch(e){}return fresh();}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast('Could not save. Storage may be full.');}}
 function todayKey(d=new Date()){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -290,6 +291,12 @@ function nextCard(){
   if(!c||c.dropped){s.queue.shift();return nextCard();}
   s.current=c.id;
   let mode=c.stage===0?'intro':STAGES[c.stage].mode;
+  const dir=S.settings.direction||'stage';
+  if(c.stage>0&&dir!=='stage'){
+    // Override the stage's direction. Typing still only kicks in from stage 4, so early cards stay self-graded.
+    const prod=c.stage>=4?'type':'en-es';
+    mode=dir==='es-en'?'es-en':dir==='en-es'?prod:(Math.random()<0.5?'es-en':prod);
+  }
   if(mode==='mixed')mode=Math.random()<0.5?'type':'es-en';
   s.mode=mode;s.phase=mode==='intro'?'intro':'prompt';s.verdict=null;s.typed='';
   render();
@@ -561,6 +568,7 @@ function settingsView(){
   <div class="menu">
     <div class="setrow"><div>New cards per day<small>Cards introduced from the New pile</small></div><div class="step"><button data-act="npd" data-d="-5">−</button><b>${S.settings.newPerDay}</b><button data-act="npd" data-d="5">+</button></div></div>
     <div class="setrow"><div>Speak Spanish aloud<small>When a Spanish word appears</small></div><button class="switch ${S.settings.autoSpeak?'on':''}" data-act="toggleSpeak" role="switch" aria-checked="${S.settings.autoSpeak}" aria-label="Speak Spanish aloud"></button></div>
+    <div class="setrow"><div>Direction<small>${{stage:'Follows the stage: Spanish first, then English',['es-en']:'Always show Spanish, recall English',['en-es']:'Always show English, produce Spanish',mixed:'Random each card'}[S.settings.direction||'stage']}</small></div><div class="seg">${[['stage','Stage'],['es-en','Es→En'],['en-es','En→Es'],['mixed','Mix']].map(([k,l])=>`<button class="${(S.settings.direction||'stage')===k?'on':''}" data-act="direction" data-d="${k}">${l}</button>`).join('')}</div></div>
     <div class="setrow"><div>Appearance</div><div class="seg">${['auto','light','dark'].map(t=>`<button class="${(S.settings.theme||'auto')===t?'on':''}" data-act="theme" data-t="${t}">${t==='auto'?'System':t==='light'?'Light':'Dark'}</button>`).join('')}</div></div>
     <div class="setrow"><div>Accent<small>Which Spanish voice iOS uses</small></div><button class="tb" data-act="accent">${S.settings.voiceLang==='es-ES'?'Spain':'Latin America'} ›</button></div>
   </div>
@@ -592,6 +600,8 @@ function howView(){
   ${[1,2,3,4,5].map(i=>`<div class="stg">${tiles(i,'')}<div><b>${STAGES[i].name}</b><p>${STAGES[i].blurb}</p></div></div>`).join('')}
   <h3>Why this order</h3>
   <p>Recognizing a word is easier than producing it, so early stages only ask you to recognize. By stage 4 you must type it from English, which is what speaking actually requires. Cards that sail through get out of your way quickly. Cards you struggle with come back sooner.</p>
+  <h3>Choosing the direction</h3>
+  <p>By default the direction follows the stage: Spanish is shown while a word is new, English once you know it, both at random when mastered. Settings › Direction overrides that for every card: always Spanish first, always English first, or random. Typing still only starts at stage 4, so a forced English-first card at an early stage is self-graded.</p>
   <h3>Drilling one stage</h3>
   <p>On the home screen, tap any stage tile to study every card at that stage, due or not, and tap the new-cards count to introduce an extra batch. Grading works the same as in a normal session, so a card you get right moves up and is rescheduled. Drilling is useful for a stage that has piled up or before a trip; the daily session is still what keeps the spacing honest.</p>
   <h3>Dropping words</h3>
@@ -660,6 +670,7 @@ app.addEventListener('click',e=>{
     case 'toggleSpeak':S.settings.autoSpeak=!S.settings.autoSpeak;save();render();break;
     case 'accent':S.settings.voiceLang=S.settings.voiceLang==='es-ES'?'es-MX':'es-ES';save();render();speak('Hola, ¿cómo estás?');break;
     case 'theme':S.settings.theme=b.dataset.t;save();applyTheme();render();break;
+    case 'direction':S.settings.direction=b.dataset.d;save();render();break;
     case 'toggleBackup':S.settings.backupMode=S.settings.backupMode==='shortcut'?'share':'shortcut';save();render();break;
     case 'toggleDrop':{const c=S.cards[b.dataset.id];if(c.dropped)delete c.dropped;else c.dropped=Date.now();save();render();toast(c.dropped?'Dropped':'Back in the deck');break;}
     case 'resetCard':if(ui.confirm!=='reset'){ui.confirm='reset';render();break;}
