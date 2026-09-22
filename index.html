@@ -166,7 +166,7 @@ const STAGES=[
 let S=load();
 const ui={view:'home',session:null,q:'',detail:null,confirm:null,restoreDraft:null};
 
-function fresh(){return {v:1,settings:{newPerDay:15,autoSpeak:true,backupMode:'share',shortcutName:'Save Cinco Backup'},cards:{},order:[],days:{},lastBackup:null};}
+function fresh(){return {v:1,settings:{newPerDay:15,autoSpeak:true,backupMode:'share',shortcutName:'Save Cinco Backup',voiceLang:'es-MX'},cards:{},order:[],days:{},lastBackup:null};}
 function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.cards){const f=fresh();s.settings=Object.assign(f.settings,s.settings||{});return Object.assign(f,s);}}}catch(e){}return fresh();}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast('Could not save. Storage may be full.');}}
 function todayKey(d=new Date()){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -190,16 +190,23 @@ function check(input,es){
 }
 
 /* ---------- speech ---------- */
-let voices=[];
-function loadVoices(){if('speechSynthesis' in window)voices=speechSynthesis.getVoices();}
-if('speechSynthesis' in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices;}
+// iOS quirks: getVoices() lists voices that are not downloaded (picking one gives a blip or an English
+// voice mangling the Spanish), and speak() right after cancel() often produces a noise instead of speech.
+// So: let iOS choose the voice from the language code alone, and only cancel when something is playing.
+let speakTimer=null,currentUtterance=null;
 function speak(text){
   if(!('speechSynthesis' in window))return;
-  const u=new SpeechSynthesisUtterance(text.replace(/\s*[\/;].*$/,''));
-  u.lang='es-ES';u.rate=0.9;
-  const v=voices.find(v=>/^es[-_]?(MX|ES|US)/i.test(v.lang))||voices.find(v=>/^es/i.test(v.lang));
-  if(v)u.voice=v;
-  speechSynthesis.cancel();speechSynthesis.speak(u);
+  const t=text.replace(/\s*[\/;].*$/,'').replace(/[…]/g,'').trim();
+  if(!t)return;
+  clearTimeout(speakTimer);
+  const go=()=>{
+    const u=new SpeechSynthesisUtterance(t);
+    u.lang=S.settings.voiceLang||'es-MX';u.rate=0.9;
+    currentUtterance=u;               // keep a reference so the browser cannot garbage-collect it mid-speech
+    speechSynthesis.speak(u);
+  };
+  if(speechSynthesis.speaking||speechSynthesis.pending){speechSynthesis.cancel();speakTimer=setTimeout(go,180);}
+  else go();
 }
 
 /* ---------- scheduling ---------- */
@@ -457,6 +464,7 @@ function settingsView(){
   <div class="menu">
     <div class="setrow"><div>New cards per day<small>Cards introduced from the New pile</small></div><div class="step"><button data-act="npd" data-d="-5">−</button><b>${S.settings.newPerDay}</b><button data-act="npd" data-d="5">+</button></div></div>
     <div class="setrow"><div>Speak Spanish aloud<small>When a Spanish word appears</small></div><button class="switch ${S.settings.autoSpeak?'on':''}" data-act="toggleSpeak" role="switch" aria-checked="${S.settings.autoSpeak}" aria-label="Speak Spanish aloud"></button></div>
+    <div class="setrow"><div>Accent<small>Which Spanish voice iOS uses</small></div><button class="tb" data-act="accent">${S.settings.voiceLang==='es-ES'?'Spain':'Latin America'} ›</button></div>
   </div>
   <div class="menu">
     <div class="setrow"><div>Back up with a Shortcut<small>One tap saves to a fixed iCloud Drive path. Needs a one-time setup.</small></div><button class="switch ${S.settings.backupMode==='shortcut'?'on':''}" data-act="toggleBackup" role="switch" aria-checked="${S.settings.backupMode==='shortcut'}" aria-label="Back up with a Shortcut"></button></div>
@@ -543,6 +551,7 @@ app.addEventListener('click',e=>{
     case 'detail':ui.detail=b.dataset.id||null;render();break;
     case 'npd':S.settings.newPerDay=Math.max(5,Math.min(60,S.settings.newPerDay+ +b.dataset.d));save();render();break;
     case 'toggleSpeak':S.settings.autoSpeak=!S.settings.autoSpeak;save();render();break;
+    case 'accent':S.settings.voiceLang=S.settings.voiceLang==='es-ES'?'es-MX':'es-ES';save();render();speak('Hola, ¿cómo estás?');break;
     case 'toggleBackup':S.settings.backupMode=S.settings.backupMode==='shortcut'?'share':'shortcut';save();render();break;
     case 'resetCard':if(ui.confirm!=='reset'){ui.confirm='reset';render();break;}
       {const c=S.cards[b.dataset.id];Object.assign(c,{stage:0,due:0,ivl:0,reps:0,lapses:0});ui.confirm=null;save();render();toast('Progress reset');}break;
