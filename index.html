@@ -37,7 +37,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
-body{background:var(--bg);color:var(--ink);font:16px/1.45 var(--sans);-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+body{overflow-x:clip;background:var(--bg);color:var(--ink);font:16px/1.45 var(--sans);-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none}
 button:focus-visible,input:focus-visible{outline:3px solid var(--marigold);outline-offset:2px}
 input{font:inherit;color:inherit}
@@ -114,6 +114,12 @@ input{font:inherit;color:inherit}
 .drop{display:block;width:100%;text-align:center;color:var(--muted);font-size:14px;padding:14px 12px 4px}
 .row.off .es,.row.off .en{opacity:.45}
 .row.off .tagline{color:var(--again);font-size:12px}
+.card.swipe{position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:grab}
+.card.swipe.dragging{cursor:grabbing}
+.stamp{position:absolute;top:18px;padding:6px 12px;border-radius:10px;border:2.5px solid;font-weight:700;font-size:17px;opacity:0;pointer-events:none;transform:rotate(var(--r))}
+.stamp.yes{left:18px;color:var(--good);border-color:var(--good);--r:-10deg}
+.stamp.no{right:18px;color:var(--again);border-color:var(--again);--r:10deg}
+.swipehint{text-align:center;color:var(--muted);font-size:13px;margin-top:10px}
 .flash{animation:flash .9s ease-out}
 @keyframes flash{0%{box-shadow:0 0 0 0 rgba(30,142,110,.0)}20%{box-shadow:0 0 0 6px rgba(30,142,110,.5)}100%{box-shadow:0 0 0 0 rgba(30,142,110,0)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -477,7 +483,9 @@ function studyView(){
       ${s.phase==='answer'?`<div class="answer"><div class="word ${s.verdict==='exact'?'':''}">${esc(c.es)}</div>${verdictTag(s)}${ex}${notes}${spk}</div>`:''}`;
     actions=s.phase==='prompt'?'':gradeBtns();
   }
-  return `${head}${tiles(c.stage)}<section class="card ${s.verdict==='exact'?'flash':''}">${body}</section><div class="actions">${actions}</div><button class="drop" data-act="drop">Drop this word, I don't need it</button>`;
+  const swipe=s.mode!=='intro'&&s.phase==='answer';
+  if(swipe)body+=`<span class="stamp yes">Got it</span><span class="stamp no">Again</span>`;
+  return `${head}${tiles(c.stage)}<section class="card ${s.verdict==='exact'?'flash':''} ${swipe?'swipe':''}">${body}</section><div class="actions">${actions}</div>${swipe?`<p class="swipehint">Or swipe the card: right if you got it, left if not</p>`:''}<button class="drop" data-act="drop">Drop this word, I don't need it</button>`;
 }
 function verdictTag(s){
   const t=esc(s.typed);
@@ -603,7 +611,7 @@ function restoreView(){
 function howView(){
   return `${bar('How it works',back())}<div class="how">
   <h3>Five stages</h3>
-  <p>Every card climbs five stages. Each stage is harder than the last and waits longer before coming back. Answer right and the card moves up. Miss it and it drops one stage and returns a few cards later in the same session.</p>
+  <p>Every card climbs five stages. Each stage is harder than the last and waits longer before coming back. Answer right and the card moves up (tap <i>Got it</i> or swipe the card right). Miss it (tap <i>Again</i> or swipe left) and it drops one stage and returns a few cards later in the same session.</p>
   ${[1,2,3,4,5].map(i=>`<div class="stg">${tiles(i,'')}<div><b>${STAGES[i].name}</b><p>${STAGES[i].blurb}</p></div></div>`).join('')}
   <h3>Why this order</h3>
   <p>Recognizing a word is easier than producing it, so early stages only ask you to recognize. By stage 4 you must type it from English, which is what speaking actually requires. Cards that sail through get out of your way quickly. Cards you struggle with come back sooner.</p>
@@ -689,6 +697,47 @@ app.addEventListener('click',e=>{
       S=fresh();ui.session=null;ui.confirm=null;save();ui.view='home';render();toast('Everything erased');break;
   }
 });
+
+/* swipe to grade: right = got it, left = again */
+let drag=null,swipedAt=0;
+app.addEventListener('pointerdown',e=>{
+  const card=e.target.closest('.card.swipe');if(!card||drag||(e.pointerType==='mouse'&&e.button!==0))return;
+  drag={card,id:e.pointerId,x:e.clientX,y:e.clientY,dx:0,on:false,yes:card.querySelector('.stamp.yes'),no:card.querySelector('.stamp.no')};
+});
+app.addEventListener('pointermove',e=>{
+  if(!drag||e.pointerId!==drag.id)return;
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  if(!drag.on){
+    if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
+    if(Math.abs(dy)>Math.abs(dx)){drag=null;return;} // vertical: let the page scroll
+    drag.on=true;drag.card.classList.add('dragging');drag.card.setPointerCapture(e.pointerId);
+  }
+  drag.dx=dx;
+  drag.card.style.transition='none';
+  drag.card.style.transform=`translateX(${dx}px) rotate(${dx/18}deg)`;
+  const t=Math.min(1,Math.abs(dx)/100);
+  drag.yes.style.opacity=dx>0?t:0;drag.no.style.opacity=dx<0?t:0;
+});
+function endDrag(e){
+  if(!drag||e.pointerId!==drag.id)return;
+  const d=drag;drag=null;if(!d.on)return;
+  swipedAt=Date.now();
+  d.card.classList.remove('dragging');
+  const pass=d.dx>0,far=Math.abs(d.dx)>Math.min(110,d.card.offsetWidth*.3);
+  if(e.type==='pointerup'&&far){
+    const id=ui.session.current;
+    d.card.style.transition='transform .22s ease-in';
+    d.card.style.transform=`translateX(${(pass?1:-1)*window.innerWidth*1.3}px) rotate(${pass?25:-25}deg)`;
+    setTimeout(()=>{if(ui.view==='study'&&ui.session&&ui.session.current===id&&ui.session.phase==='answer')grade(pass);},200);
+  }else{
+    d.card.style.transition='transform .2s ease-out';d.card.style.transform='';
+    d.yes.style.opacity=d.no.style.opacity=0;
+  }
+}
+app.addEventListener('pointerup',endDrag);
+app.addEventListener('pointercancel',endDrag);
+// A drag that ends over the speak button shouldn't also play audio.
+app.addEventListener('click',e=>{if(Date.now()-swipedAt<400)e.stopImmediatePropagation();},true);
 
 render();
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&'speechSynthesis' in window)speechSynthesis.resume();});
