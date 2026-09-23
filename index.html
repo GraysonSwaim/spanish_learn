@@ -1,177 +1,205 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <title>Cinco</title>
-<meta name="description" content="Five-stage Spanish flashcards that live in your iCloud Drive.">
+<meta name="description" content="Tarjetas de español en cinco etapas, guardadas en tu iCloud Drive.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Cinco">
-<meta name="theme-color" content="#1E3FBF">
+<meta name="theme-color" content="#FFE9C9">
+<link rel="preload" href="fonts/lilita-one.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/nunito.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icons/icon-180.png">
 <link rel="icon" href="./icons/icon-192.png">
 <style>
+@font-face{font-family:"Lilita One";src:url(fonts/lilita-one.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Nunito";src:url(fonts/nunito.woff2) format("woff2");font-weight:200 1000;font-style:normal;font-display:swap}
+@font-face{font-family:"Nunito";src:url(fonts/nunito-italic.woff2) format("woff2");font-weight:200 1000;font-style:italic;font-display:swap}
+/* Tropical: mango, flamenco, mar, palma, noche on a warm peach ground. Hard shadows make things look pressable. */
 :root{
-  --bg:#E8ECF4; --paper:#FFFFFF; --ink:#10213F; --muted:#5B6B86; --line:#CBD3E1;
-  --cobalt:#1E3FBF; --cobalt-deep:#142B85; --cobalt-soft:#DCE3FA;
-  --marigold:#F0B429; --marigold-soft:#FBE7B0;
-  --good:#1E8E6E; --good-soft:#D6F0E7; --again:#BF3B2B; --again-soft:#F8DCD6;
-  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,ui-serif,serif;
-  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",system-ui,sans-serif;
-  --r:18px;
+  --bg:#FFE9C9; --paper:#FFFFFF; --sunk:#FFF6E8; --ink:#12302A; --muted:#4F6A61; --line:#F2D3A8; --edge:#12302A;
+  --accent:#FF5A36; --accent-ink:#C93A18; --sea:#00B4C6; --sea-soft:#D4F4F7;
+  --good:#00A67E; --on-good:#FFFFFF; --good-soft:#D2F3E8; --again:#E8364F; --again-soft:#FFD6DA;
+  --s1:#FF5A8C; --s2:#FF9F1C; --s3:#00B4C6; --s4:#00A67E; --s5:#7B3FE4;
+  --disp:"Lilita One","Arial Rounded MT Bold",system-ui,sans-serif;
+  --sans:"Nunito",ui-rounded,-apple-system,system-ui,sans-serif;
+  --r:22px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0E182F; --paper:#172645; --ink:#EEF2FA; --muted:#98A7C6; --line:#2A3C66;
-  --cobalt:#7D97FF; --cobalt-deep:#5C78E8; --cobalt-soft:#22346A;
-  --marigold:#F6C34D; --marigold-soft:#4B3D15;
-  --good:#3FBF97; --good-soft:#163A30; --again:#F07561; --again-soft:#4A1F19;
+  --bg:#0E2A28; --paper:#163B37; --sunk:#12332F; --ink:#FFF1DE; --muted:#A5C7BD; --line:#285A54; --edge:#051412;
+  --accent:#FF6B47; --accent-ink:#FF9474; --sea:#2FD0E0; --sea-soft:#134A4E;
+  --good:#2BC79A; --on-good:#062019; --good-soft:#123F33; --again:#FF6275; --again-soft:#4A1C24;
+  --s1:#FF6F9C; --s2:#FFAE3D; --s3:#22C8D8; --s4:#22BD8E; --s5:#9A6BFF;
+  color-scheme:dark;
 }}
 :root[data-theme="dark"]{
-  --bg:#0E182F; --paper:#172645; --ink:#EEF2FA; --muted:#98A7C6; --line:#2A3C66;
-  --cobalt:#7D97FF; --cobalt-deep:#5C78E8; --cobalt-soft:#22346A;
-  --marigold:#F6C34D; --marigold-soft:#4B3D15;
-  --good:#3FBF97; --good-soft:#163A30; --again:#F07561; --again-soft:#4A1F19;
+  --bg:#0E2A28; --paper:#163B37; --sunk:#12332F; --ink:#FFF1DE; --muted:#A5C7BD; --line:#285A54; --edge:#051412;
+  --accent:#FF6B47; --accent-ink:#FF9474; --sea:#2FD0E0; --sea-soft:#134A4E;
+  --good:#2BC79A; --on-good:#062019; --good-soft:#123F33; --again:#FF6275; --again-soft:#4A1C24;
+  --s1:#FF6F9C; --s2:#FFAE3D; --s3:#22C8D8; --s4:#22BD8E; --s5:#9A6BFF;
+  color-scheme:dark;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
-body{overflow-x:clip;background:var(--bg);color:var(--ink);font:16px/1.45 var(--sans);-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+body{overflow-x:clip;background:var(--bg);color:var(--ink);font:500 16px/1.45 var(--sans);-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none}
-button:focus-visible,input:focus-visible{outline:3px solid var(--marigold);outline-offset:2px}
+button:focus-visible,input:focus-visible{outline:3px solid var(--sea);outline-offset:2px}
 input{font:inherit;color:inherit}
 #app{min-height:100dvh;display:flex;flex-direction:column;max-width:560px;margin:0 auto;
   padding:calc(12px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom))}
-.top{display:flex;align-items:center;justify-content:space-between;min-height:44px;margin-bottom:8px}
-.top .t{font-family:var(--serif);font-size:22px;letter-spacing:-.01em}
-.top .sub{color:var(--muted);font-size:14px}
-.tb{padding:10px 12px;border-radius:12px;color:var(--cobalt);font-weight:600}
+.top{display:flex;align-items:center;justify-content:space-between;min-height:44px;margin-bottom:8px;gap:8px}
+.top .t{font-family:var(--disp);font-size:22px}
+.top .sub{display:inline-block;background:var(--s5);color:#fff;font-weight:800;font-size:13px;padding:4px 12px;border-radius:999px}
+.top .sub:empty{display:none}
+.tb{white-space:nowrap;padding:10px 12px;border-radius:12px;color:var(--accent-ink);font-weight:800}
 .tb:disabled{color:var(--muted);opacity:.5}
-.brand{font-family:var(--serif);font-size:40px;line-height:1;letter-spacing:-.02em;margin:18px 0 4px}
-.brand b{font-weight:400;color:var(--cobalt)}
+.brand{font-family:var(--disp);font-size:52px;line-height:1;margin:14px 0 6px;color:var(--accent);text-shadow:3px 3px 0 var(--edge)}
+.brand b{font-weight:400;color:var(--sea)}
 .lede{color:var(--muted);font-size:17px;margin-bottom:18px;max-width:34ch}
-.lede strong{color:var(--ink);font-weight:600}
+.lede strong{color:var(--ink);font-weight:800}
 
 /* ladder */
 .ladder{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;align-items:end;height:150px;margin:6px 0 4px}
-.tile{position:relative;height:100%;background:var(--paper);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:0;transition:transform .12s}
-.tile:active{transform:scale(.96)}
+.tile{position:relative;height:100%;background:var(--sunk);border:2px solid var(--edge);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:0;transition:transform .12s}
+.tile:active{transform:scale(.94)}
 .tile:disabled{opacity:.55}
-.link{color:var(--cobalt);font-weight:600;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;padding:0}
+.tile .fill{width:100%;transition:height .5s cubic-bezier(.2,.8,.2,1)}
+.ladder .tile:nth-child(1) .fill{background:var(--s1)}
+.ladder .tile:nth-child(2) .fill{background:var(--s2)}
+.ladder .tile:nth-child(3) .fill{background:var(--s3)}
+.ladder .tile:nth-child(4) .fill{background:var(--s4)}
+.ladder .tile:nth-child(5) .fill{background:var(--s5)}
+.tile .n{position:absolute;top:8px;left:0;right:0;text-align:center;font-family:var(--disp);font-size:22px;z-index:1}
+.link{color:var(--accent-ink);font-weight:800;text-decoration:underline;text-decoration-thickness:2px;text-decoration-color:var(--s2);text-underline-offset:3px;padding:0}
 .link:disabled{color:var(--muted);text-decoration:none}
-.tile .fill{background:var(--marigold);width:100%;transition:height .5s cubic-bezier(.2,.8,.2,1)}
-.tile .n{position:absolute;top:8px;left:0;right:0;text-align:center;font-family:var(--serif);font-size:22px}
-.legend{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;text-align:center;color:var(--muted);font-size:12px;margin-bottom:6px}
+.legend{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;text-align:center;color:var(--muted);font-size:11.5px;font-weight:700;margin-bottom:6px}
 .legend span{display:block}
-.legend .s{color:var(--ink);font-weight:600}
+.legend .s{color:var(--ink);font-family:var(--disp);font-size:15px;font-weight:400}
 .newline{color:var(--muted);font-size:14px;margin-bottom:20px}
 
-.cta{display:block;width:100%;padding:18px;border-radius:var(--r);background:var(--cobalt);color:#fff;font-size:19px;font-weight:600;text-align:center;margin-bottom:18px}
-.cta:active{background:var(--cobalt-deep)}
-.cta.quiet{background:var(--paper);color:var(--ink);border:1px solid var(--line)}
-.cta:disabled{opacity:.5}
+.cta{display:block;width:100%;padding:17px;border-radius:var(--r);background:var(--accent);color:#fff;font-family:var(--disp);font-size:22px;letter-spacing:.01em;text-align:center;margin-bottom:18px;box-shadow:0 5px 0 var(--edge);transition:transform .08s,box-shadow .08s}
+.cta:active{transform:translateY(4px);box-shadow:0 1px 0 var(--edge)}
+.cta.quiet{background:var(--paper);color:var(--ink);border:2px solid var(--edge)}
+.cta:disabled{opacity:.5;transform:none;box-shadow:0 5px 0 var(--edge)}
 
-.menu{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:16px}
-.menu>button{display:flex;width:100%;align-items:center;justify-content:space-between;padding:15px 16px;text-align:left;border-top:1px solid var(--line)}
+.menu{background:var(--paper);border:2px solid var(--edge);border-radius:var(--r);overflow:hidden;margin-bottom:18px;box-shadow:0 4px 0 var(--edge)}
+.menu>button{display:flex;width:100%;align-items:center;justify-content:space-between;padding:15px 16px;text-align:left;border-top:1.5px solid var(--line);font-weight:700}
 .menu>button:first-child{border-top:0}
+.menu>button:active{background:var(--sunk)}
 .menu>button>span{flex:1;min-width:0}
-.menu>button small{color:var(--muted);display:block;font-size:13px;margin-top:2px}
-.menu>button::after{content:"›";color:var(--muted);font-size:22px;line-height:1;margin-left:12px}
-.note{background:var(--marigold-soft);border-radius:12px;padding:12px 14px;font-size:14px;margin-bottom:16px}
+.menu>button small{color:var(--muted);display:block;font-size:13px;font-weight:500;margin-top:2px}
+.menu>button::after{content:"›";color:var(--accent);font-size:24px;font-weight:800;line-height:1;margin-left:12px}
+.note{background:var(--sea-soft);border-radius:16px;padding:12px 14px;font-size:14px;font-weight:600;margin-bottom:16px}
 .foot{color:var(--muted);font-size:13px;text-align:center;margin-top:auto;padding-top:20px}
 
 /* study */
 .stages{display:flex;gap:6px;align-items:center;margin:4px 0 12px}
-.stages i{width:14px;height:14px;border-radius:3px;border:1px solid var(--line);background:var(--paper);display:block}
-.stages i.on{background:var(--marigold);border-color:var(--marigold)}
-.stages span{margin-left:8px;font-size:14px;color:var(--muted)}
-.card{flex:1;background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:28px 22px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center;min-height:300px}
-.card .k{color:var(--muted);font-size:14px;margin-bottom:14px}
-.word{font-family:var(--serif);font-size:38px;line-height:1.15;letter-spacing:-.01em;overflow-wrap:anywhere}
-.word.sm{font-size:28px}
-.ex{font-family:var(--serif);font-size:19px;color:var(--muted);margin-top:14px;font-style:italic;line-height:1.4;max-width:32ch}
+.stages i{width:14px;height:14px;border-radius:5px;border:2px solid var(--edge);background:var(--paper);display:block}
+.stages i:nth-child(1).on{background:var(--s1)}
+.stages i:nth-child(2).on{background:var(--s2)}
+.stages i:nth-child(3).on{background:var(--s3)}
+.stages i:nth-child(4).on{background:var(--s4)}
+.stages i:nth-child(5).on{background:var(--s5)}
+.stages span{margin-left:8px;font-size:14px;font-weight:700;color:var(--muted)}
+.card{flex:1;background:var(--paper);border:2.5px solid var(--edge);border-radius:28px;box-shadow:0 6px 0 var(--edge);padding:28px 22px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center;min-height:300px}
+.card .k{color:var(--muted);font-size:14px;font-weight:800;letter-spacing:.02em;margin-bottom:14px}
+.word{font-family:var(--disp);font-size:40px;line-height:1.1;overflow-wrap:anywhere}
+.word.sm{font-family:var(--sans);font-weight:800;font-size:26px}
+.ex{font-size:18px;color:var(--muted);margin-top:14px;font-style:italic;line-height:1.4;max-width:32ch}
 .notes{font-size:14px;color:var(--muted);margin-top:12px;max-width:34ch}
-.answer{margin-top:22px;padding-top:22px;border-top:1px dashed var(--line);width:100%;display:flex;flex-direction:column;align-items:center}
-.speak{margin-top:12px;width:44px;height:44px;border-radius:22px;background:var(--cobalt-soft);color:var(--cobalt);font-size:20px;display:inline-flex;align-items:center;justify-content:center}
-.verdict{margin-top:14px;padding:8px 14px;border-radius:999px;font-size:14px;font-weight:600}
+.answer{margin-top:22px;padding-top:22px;border-top:2.5px dashed var(--line);width:100%;display:flex;flex-direction:column;align-items:center}
+.speak{margin-top:14px;width:48px;height:48px;border-radius:24px;background:var(--sea);color:#fff;font-size:20px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 3px 0 var(--edge)}
+.speak:active{transform:translateY(2px);box-shadow:0 1px 0 var(--edge)}
+.verdict{margin-top:14px;padding:8px 16px;border-radius:999px;font-size:15px;font-weight:800}
 .verdict.ok{background:var(--good-soft);color:var(--good)}
-.verdict.near{background:var(--marigold-soft);color:var(--ink)}
+.verdict.near{background:var(--s2);color:#12302A}
 .verdict.no{background:var(--again-soft);color:var(--again)}
 .typed{color:var(--muted);font-size:15px;margin-top:6px}
 .typed s{color:var(--again)}
 .typein{width:100%;margin-top:22px;display:flex;gap:8px}
-.typein input{flex:1;min-width:0;font-size:20px;font-family:var(--serif);padding:14px 16px;border:1.5px solid var(--line);border-radius:14px;background:var(--bg);color:var(--ink)}
+.typein input{flex:1;min-width:0;font-size:22px;font-weight:700;padding:14px 16px;border:2.5px solid var(--edge);border-radius:18px;background:var(--sunk);color:var(--ink)}
 .typein input::placeholder{color:var(--muted);opacity:.7}
-.typein button{padding:0 18px;border-radius:14px;background:var(--cobalt);color:#fff;font-weight:600}
-.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.typein button{padding:0 18px;border-radius:18px;background:var(--sea);color:#fff;font-family:var(--disp);font-size:18px;box-shadow:0 3px 0 var(--edge)}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
 .actions .one{grid-column:1/-1}
-.big{padding:20px 12px;border-radius:var(--r);font-size:19px;font-weight:600;background:var(--paper);border:1px solid var(--line)}
-.big.again{background:var(--again-soft);color:var(--again);border-color:transparent}
-.big.good{background:var(--good);color:#fff;border-color:transparent}
-.big.primary{background:var(--cobalt);color:#fff;border-color:transparent}
-.big small{display:block;font-weight:400;font-size:13px;opacity:.85;margin-top:2px}
-.drop{display:block;width:100%;text-align:center;color:var(--muted);font-size:14px;padding:14px 12px 4px}
-.row.off .es,.row.off .en{opacity:.45}
-.row.off .tagline{color:var(--again);font-size:12px}
+.big{padding:16px 12px;border-radius:var(--r);font-family:var(--disp);font-size:22px;letter-spacing:.01em;background:var(--paper);box-shadow:0 5px 0 var(--edge);transition:transform .08s,box-shadow .08s}
+.big:active{transform:translateY(4px);box-shadow:0 1px 0 var(--edge)}
+.big.again{background:var(--again-soft);color:var(--again)}
+.big.good{background:var(--good);color:var(--on-good)}
+.big.primary{background:var(--accent);color:#fff}
+.big small{display:block;font-family:var(--sans);font-weight:700;font-size:13px;opacity:.85;margin-top:2px;letter-spacing:0}
+.drop{display:block;width:100%;text-align:center;color:var(--muted);font-size:14px;font-weight:700;padding:14px 12px 4px}
 .card.swipe{position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:grab}
 .card.swipe.dragging{cursor:grabbing}
-.stamp{position:absolute;top:18px;padding:6px 12px;border-radius:10px;border:2.5px solid;font-weight:700;font-size:17px;opacity:0;pointer-events:none;transform:rotate(var(--r))}
-.stamp.yes{left:18px;color:var(--good);border-color:var(--good);--r:-10deg}
-.stamp.no{right:18px;color:var(--again);border-color:var(--again);--r:10deg}
-.swipehint{text-align:center;color:var(--muted);font-size:13px;margin-top:10px}
+.stamp{position:absolute;top:18px;padding:5px 12px;border-radius:12px;border:3px solid;font-family:var(--disp);font-size:20px;opacity:0;pointer-events:none;transform:rotate(var(--r));background:var(--paper)}
+.stamp.yes{left:18px;color:var(--good);border-color:var(--good);--r:-12deg}
+.stamp.no{right:18px;color:var(--again);border-color:var(--again);--r:12deg}
+.swipehint{text-align:center;color:var(--muted);font-size:13px;font-weight:700;margin-top:12px}
 .flash{animation:flash .9s ease-out}
-@keyframes flash{0%{box-shadow:0 0 0 0 rgba(30,142,110,.0)}20%{box-shadow:0 0 0 6px rgba(30,142,110,.5)}100%{box-shadow:0 0 0 0 rgba(30,142,110,0)}}
+@keyframes flash{0%{transform:scale(1)}20%{transform:scale(1.03)}100%{transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* lists */
+.row.off .es,.row.off .en{opacity:.45}
+.row.off .tagline{color:var(--again);font-size:12px}
 .form{display:flex;flex-direction:column;gap:12px;margin-bottom:12px}
-.form label{display:block;font-size:13px;color:var(--muted)}
-.form input{display:block;width:100%;margin-top:4px;font-size:17px;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink)}
-.form input:lang(es){font-family:var(--serif);font-size:19px}
-.form .cta{margin-top:6px;margin-bottom:0}
-.search{width:100%;font-size:17px;padding:12px 14px;border:1.5px solid var(--line);border-radius:14px;background:var(--paper);margin-bottom:10px}
-.rows{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:16px}
-.row{display:flex;align-items:stretch;border-top:1px solid var(--line)}
+.form label{display:block;font-size:13px;font-weight:800;color:var(--muted)}
+.form input{display:block;width:100%;margin-top:4px;font-size:17px;font-weight:600;padding:12px 14px;border:2px solid var(--edge);border-radius:14px;background:var(--paper);color:var(--ink)}
+.form input:lang(es){font-size:19px;font-weight:700}
+.form .cta{margin-top:8px;margin-bottom:0}
+.search{width:100%;font-size:17px;font-weight:600;padding:12px 14px;border:2px solid var(--edge);border-radius:16px;background:var(--paper);margin-bottom:12px}
+.rows{background:var(--paper);border:2px solid var(--edge);border-radius:var(--r);overflow:hidden;margin-bottom:16px;box-shadow:0 4px 0 var(--edge)}
+.row{display:flex;align-items:stretch;border-top:1.5px solid var(--line)}
 .rowmain{display:flex;align-items:center;gap:12px;flex:1;min-width:0;padding:12px 14px;text-align:left}
-.rowdrop{flex:0 0 auto;align-self:center;margin-right:10px;padding:8px 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--again);background:var(--again-soft)}
+.rowdrop{flex:0 0 auto;align-self:center;margin-right:10px;padding:8px 12px;border-radius:999px;font-size:13px;font-weight:800;color:var(--again);background:var(--again-soft)}
 .rowdrop.back{color:var(--good);background:var(--good-soft)}
 .row:first-child{border-top:0}
-.row .es{font-family:var(--serif);font-size:19px}
+.row .es{font-size:18px;font-weight:800}
 .row .en{color:var(--muted);font-size:14px}
 .row .grow{flex:1;min-width:0}
 .row .mini{display:flex;gap:3px}
-.row .mini i{width:8px;height:8px;border-radius:2px;background:var(--line);display:block}
-.row .mini i.on{background:var(--marigold)}
-.detail{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:24px 20px;margin-bottom:14px}
+.row .mini i{width:9px;height:9px;border-radius:3px;background:var(--line);display:block}
+.row .mini i:nth-child(1).on{background:var(--s1)}
+.row .mini i:nth-child(2).on{background:var(--s2)}
+.row .mini i:nth-child(3).on{background:var(--s3)}
+.row .mini i:nth-child(4).on{background:var(--s4)}
+.row .mini i:nth-child(5).on{background:var(--s5)}
+.detail{background:var(--paper);border:2.5px solid var(--edge);border-radius:28px;padding:24px 20px;margin-bottom:18px;box-shadow:0 5px 0 var(--edge)}
 .detail dl{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:15px;margin-top:18px}
-.detail dt{color:var(--muted)}
-.setrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 16px;border-top:1px solid var(--line)}
+.detail dt{color:var(--muted);font-weight:700}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 16px;border-top:1.5px solid var(--line);font-weight:700}
 .setrow>div:first-child{min-width:0}
 .setrow:first-child{border-top:0}
-.setrow small{display:block;color:var(--muted);font-size:13px}
+.setrow.stack{flex-direction:column;align-items:stretch}
+.setrow.stack .seg button{flex:1}
+.setrow small{display:block;color:var(--muted);font-size:13px;font-weight:500}
 .step{display:flex;align-items:center;gap:6px}
-.step button{width:40px;height:40px;border-radius:12px;background:var(--cobalt-soft);color:var(--cobalt);font-size:22px;font-weight:600}
-.step b{min-width:32px;text-align:center;font-size:18px}
+.step button{width:40px;height:40px;border-radius:14px;background:var(--sea-soft);color:var(--ink);font-size:22px;font-weight:800}
+.step b{min-width:32px;text-align:center;font-family:var(--disp);font-size:20px;font-weight:400}
 .seg.wide{width:100%;margin-bottom:10px}
 .seg.wide button{flex:1}
 .hint{color:var(--muted);font-size:13px;margin:0 4px 10px}
-.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:3px;gap:2px}
-.seg button{padding:7px 9px;white-space:nowrap;border-radius:9px;font-size:14px;color:var(--muted)}
-.seg button.on{background:var(--paper);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12)}
-.switch{width:52px;height:32px;border-radius:16px;background:var(--line);position:relative;transition:background .2s}
-.switch::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:13px;background:#fff;transition:left .2s}
+.seg{display:flex;background:var(--sunk);border:2px solid var(--edge);border-radius:14px;padding:3px;gap:2px}
+.seg button{padding:7px 9px;white-space:nowrap;border-radius:10px;font-size:14px;font-weight:700;color:var(--muted)}
+.seg button.on{background:var(--sea);color:#fff;font-weight:800}
+.switch{width:52px;height:32px;border-radius:16px;background:var(--line);position:relative;transition:background .2s;border:2px solid var(--edge)}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:12px;background:#fff;transition:left .2s}
 .switch.on{background:var(--good)}
-.switch.on::after{left:23px}
+.switch.on::after{left:22px}
 .danger{color:var(--again)}
-.how h3{font-family:var(--serif);font-size:22px;margin:22px 0 6px}
+.how h3{font-family:var(--disp);font-size:24px;font-weight:400;color:var(--accent-ink);margin:24px 0 6px}
 .how p{color:var(--muted);margin-bottom:8px;max-width:60ch}
-.how .stg{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-top:1px solid var(--line)}
+.how p b{color:var(--ink)}
+.how .stg{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-top:1.5px solid var(--line)}
 .how .stg .stages{margin:4px 0 0}
-.how .stg b{display:block;margin-bottom:2px}
+.how .stg b{display:block;margin-bottom:2px;color:var(--ink)}
 .how .stg p{font-size:15px;margin:0}
 code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--paper);padding:2px 6px;border-radius:6px;border:1px solid var(--line)}
-#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:14px;font-size:15px;opacity:0;pointer-events:none;transition:.25s;max-width:90vw;text-align:center}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:var(--edge);color:#FFF1DE;font-weight:700;padding:12px 18px;border-radius:16px;font-size:15px;opacity:0;pointer-events:none;transition:.25s;max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .empty{color:var(--muted);text-align:center;padding:40px 20px}
 </style>
@@ -188,12 +216,12 @@ const DAY=86400000, MIN=60000;
 const RELEARN_GAP=5;           // cards between a miss and its retry
 const MAX_IVL=120;             // days, mastered cards never sleep longer than this
 const STAGES=[
-  {name:'New',       mode:null,    ivl:0},
-  {name:'Learn',     mode:'es-en', ivl:0,  blurb:'You meet the word with both sides showing, then get tested on it later in the same session.'},
-  {name:'Recognize', mode:'es-en', ivl:1,  blurb:'Spanish is shown, you recall the English. Comes back after 1 day.'},
-  {name:'Recall',    mode:'en-es', ivl:3,  blurb:'English is shown, you say the Spanish out loud before revealing. Comes back after 3 days.'},
-  {name:'Produce',   mode:'type',  ivl:7,  blurb:'English is shown, you type the Spanish. Accents count, but a near miss is flagged rather than failed. Comes back after 7 days.'},
-  {name:'Mastered',  mode:'mixed', ivl:21, blurb:'Typed or recognized at random. First return after 21 days, then the gap doubles each time, up to 120 days. A miss drops it one stage.'},
+  {name:'Nueva',     mode:null,    ivl:0},
+  {name:'Aprender',  mode:'es-en', ivl:0,  blurb:'Conoces la palabra con las dos caras a la vista y te la preguntan más tarde en la misma sesión.'},
+  {name:'Reconocer', mode:'es-en', ivl:1,  blurb:'Ves el español y recuerdas el inglés. Vuelve al día siguiente.'},
+  {name:'Recordar',  mode:'en-es', ivl:3,  blurb:'Ves el inglés y dices el español en voz alta antes de mirar. Vuelve a los 3 días.'},
+  {name:'Producir',  mode:'type',  ivl:7,  blurb:'Ves el inglés y escribes el español. Los acentos cuentan, pero un casi se marca en vez de fallarse. Vuelve a los 7 días.'},
+  {name:'Dominada',  mode:'mixed', ivl:21, blurb:'Escribir o reconocer, al azar. Vuelve a los 21 días y luego el plazo se duplica cada vez, hasta 120 días. Un fallo la baja una etapa.'},
 ];
 
 /* ---------- state ---------- */
@@ -202,8 +230,9 @@ const ui={view:'home',editId:null,showDropped:false,session:null,q:'',detail:nul
 
 function fresh(){return {v:1,settings:{newPerDay:15,autoSpeak:true,backupMode:'share',shortcutName:'Save Cinco Backup',voiceLang:'es-MX',theme:'auto',direction:'stage'},cards:{},order:[],days:{},lastBackup:null};}
 function load(){try{const r=localStorage.getItem(KEY);if(r){const s=JSON.parse(r);if(s&&s.cards){const f=fresh();s.settings=Object.assign(f.settings,s.settings||{});return Object.assign(f,s);}}}catch(e){}return fresh();}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast('Could not save. Storage may be full.');}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast('No se pudo guardar. Puede que el almacenamiento esté lleno.');}}
 function todayKey(d=new Date()){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function fecha(t){return new Date(t).toLocaleDateString('es-MX',{day:'numeric',month:'long'});}
 function startOfDay(t){const d=new Date(t);d.setHours(0,0,0,0);return d.getTime();}
 function dayRec(){const k=todayKey();return S.days[k]||(S.days[k]={reviewed:0,correct:0,new:0});}
 function hash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return (h>>>0).toString(36);}
@@ -213,7 +242,7 @@ function applyTheme(){
   const t=S.settings.theme||'auto';
   if(t==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',t);
   const dark=t==='dark'||(t==='auto'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);
-  const m=document.querySelector('meta[name=theme-color]');if(m)m.content=dark?'#0E182F':'#1E3FBF';
+  const m=document.querySelector('meta[name=theme-color]');if(m)m.content=dark?'#0E2A28':'#FFE9C9';
 }
 applyTheme();
 
@@ -280,15 +309,15 @@ function startSession(focus){
   let q,label='';
   if(focus&&focus.stage){
     q=Object.values(S.cards).filter(c=>!c.dropped&&c.stage===focus.stage).sort((a,b)=>a.due-b.due).map(c=>c.id);
-    label='Stage '+focus.stage;
-    if(!q.length){toast('No cards at stage '+focus.stage+' yet.');return;}
+    label='Etapa '+focus.stage;
+    if(!q.length){toast('Aún no hay tarjetas en la etapa '+focus.stage+'.');return;}
   }else if(focus&&focus.fresh){
     q=S.order.filter(id=>S.cards[id]&&!S.cards[id].dropped&&S.cards[id].stage===0).slice(0,S.settings.newPerDay);
-    label='New cards';
-    if(!q.length){toast('No new cards left. Import a CSV to add more.');return;}
+    label='Nuevas';
+    if(!q.length){toast('No quedan tarjetas nuevas. Importa un CSV para añadir más.');return;}
   }else{
     q=buildQueue();
-    if(!q.length){toast('Nothing to study right now.');return;}
+    if(!q.length){toast('No hay nada que estudiar ahora.');return;}
   }
   ui.session={queue:q,done:0,right:0,undo:null,label};
   ui.view='study';nextCard();
@@ -334,7 +363,7 @@ function grade(pass){
 function dropCard(){
   const s=ui.session,c=S.cards[s.current];snapshot();
   c.dropped=Date.now();s.queue=s.queue.filter(id=>id!==c.id);
-  save();toast('Dropped. Undo is at the top.');nextCard();
+  save();toast('Descartada. Puedes deshacerlo arriba.');nextCard();
 }
 function undo(){
   const s=ui.session;if(!s||!s.undo)return;
@@ -411,7 +440,7 @@ async function backup(){
       S.lastBackup=Date.now();save();render();
       location.href='shortcuts://run-shortcut?name='+encodeURIComponent(S.settings.shortcutName)+'&input=clipboard';
       return;
-    }catch(e){toast('Could not copy. Using the share sheet instead.');}
+    }catch(e){toast('No se pudo copiar. Usaremos el menú de compartir.');}
   }
   const ok=await shareFile('cinco-backup-'+todayKey()+'.json',json,'application/json');
   if(ok){S.lastBackup=Date.now();save();render();}
@@ -421,94 +450,94 @@ async function backup(){
 const fileCsv=document.getElementById('fileCsv'),fileJson=document.getElementById('fileJson');
 fileCsv.onchange=async()=>{const f=fileCsv.files[0];fileCsv.value='';if(!f)return;
   const text=await f.text();const r=importRecords(toRecords(parseDelimited(text)));
-  toast(`Added ${r.added}, updated ${r.updated}`+(r.skipped?`, skipped ${r.skipped}`:''));render();};
+  toast(`Añadidas: ${r.added}. Actualizadas: ${r.updated}.`+(r.skipped?` Omitidas: ${r.skipped}.`:''));render();};
 fileJson.onchange=async()=>{const f=fileJson.files[0];fileJson.value='';if(!f)return;
   try{const s=JSON.parse(await f.text());if(!s||!s.cards)throw 0;ui.restoreDraft=s;ui.view='restore';render();}
-  catch(e){toast('That file is not a Cinco backup.');}};
+  catch(e){toast('Ese archivo no es una copia de Cinco.');}};
 
 /* ---------- views ---------- */
-function tiles(stage,cls=''){return `<div class="stages ${cls}">${[1,2,3,4,5].map(i=>`<i class="${i<=stage?'on':''}"></i>`).join('')}${stage?`<span>Stage ${stage}, ${STAGES[stage].name}</span>`:'<span>New</span>'}</div>`;}
+function tiles(stage,cls=''){return `<div class="stages ${cls}">${[1,2,3,4,5].map(i=>`<i class="${i<=stage?'on':''}"></i>`).join('')}${stage?`<span>Etapa ${stage} · ${STAGES[stage].name}</span>`:'<span>Nueva</span>'}</div>`;}
 function bar(title,left='',right=''){return `<div class="top">${left||'<span></span>'}<div class="t">${title}</div>${right||'<span></span>'}</div>`;}
-const back=(v='home')=>`<button class="tb" data-act="go" data-v="${v}">‹ Back</button>`;
+const back=(v='home')=>`<button class="tb" data-act="go" data-v="${v}">‹ Volver</button>`;
 
 function homeView(){
   const c=counts();const st=streak();const d=dayRec();
   const inSession=ui.session&&ui.session.queue.length;
   const total=c.total||1;
-  const lede=c.total===0?`Import a CSV of words to begin.`:
-    c.due+c.newToday===0?`Nothing due. ${d.reviewed?`You reviewed ${d.reviewed} today.`:'Come back tomorrow.'}`:
-    `<strong>${c.due}</strong> to review${c.newToday?` and <strong>${c.newToday}</strong> new`:''} today.`;
+  const lede=c.total===0?`Importa un CSV de palabras para empezar.`:
+    c.due+c.newToday===0?`Nada pendiente. ${d.reviewed?`Hoy repasaste ${d.reviewed}.`:'Vuelve mañana.'}`:
+    `Hoy te tocan <strong>${c.due}</strong> por repasar${c.newToday?` y <strong>${c.newToday}</strong> nuevas`:''}.`;
   const stale=c.total>0&&(!S.lastBackup||Date.now()-S.lastBackup>3*DAY);
-  return `${bar('',`<span class="sub">${st?`${st}-day streak`:''}</span>`,`<button class="tb" data-act="go" data-v="how">How it works</button>`)}
+  return `${bar('',`<span class="sub">${st?`Racha: ${st} ${st===1?'día':'días'}`:''}</span>`,`<button class="tb" data-act="go" data-v="how">Cómo funciona</button>`)}
   <h1 class="brand">Cin<b>co</b></h1>
   <p class="lede">${lede}</p>
-  <div class="ladder">${[1,2,3,4,5].map(i=>`<button class="tile" data-act="stage" data-s="${i}" ${c.byStage[i]?'':'disabled'} aria-label="Study the ${c.byStage[i]} cards at stage ${i}, ${STAGES[i].name}"><span class="n">${c.byStage[i]}</span><div class="fill" style="height:${Math.round(100*c.byStage[i]/total)}%"></div></button>`).join('')}</div>
+  <div class="ladder">${[1,2,3,4,5].map(i=>`<button class="tile" data-act="stage" data-s="${i}" ${c.byStage[i]?'':'disabled'} aria-label="Estudiar las ${c.byStage[i]} tarjetas de la etapa ${i}, ${STAGES[i].name}"><span class="n">${c.byStage[i]}</span><div class="fill" style="height:${Math.round(100*c.byStage[i]/total)}%"></div></button>`).join('')}</div>
   <div class="legend">${[1,2,3,4,5].map(i=>`<div><span class="s">${i}</span><span>${STAGES[i].name}</span></div>`).join('')}</div>
-  <p class="newline"><button class="link" data-act="fresh" ${c.unseen?'':'disabled'}>${c.unseen} new cards waiting</button>, ${c.total} in the deck${c.dropped?`, ${c.dropped} dropped`:''}. Tap a stage to drill just those cards.</p>
-  <button class="cta" data-act="study" ${c.due+c.newToday===0&&!inSession?'disabled':''}>${inSession?'Continue session':'Start studying'}</button>
-  ${stale?`<div class="note">Your progress lives on this phone. Back it up to iCloud Drive every few days.</div>`:''}
+  <p class="newline"><button class="link" data-act="fresh" ${c.unseen?'':'disabled'}>${c.unseen} nuevas esperando</button>, ${c.total} en el mazo${c.dropped?`, ${c.dropped} descartadas`:''}. Toca una etapa para practicar solo esas tarjetas.</p>
+  <button class="cta" data-act="study" ${c.due+c.newToday===0&&!inSession?'disabled':''}>${inSession?'Seguir la sesión':'¡Vamos!'}</button>
+  ${stale?`<div class="note">Tu progreso vive en este teléfono. Haz una copia en iCloud Drive cada pocos días.</div>`:''}
   <div class="menu">
-    <button data-act="import"><span>Import cards<small>CSV from iCloud Drive or Anki export</small></span></button>
-    <button data-act="edit" data-id=""><span>Add a card<small>Type one in by hand</small></span></button>
-    <button data-act="backup"><span>Back up progress<small>${S.settings.backupMode==='shortcut'?'One tap, saved by your Shortcut':'Save a file to iCloud Drive'}</small></span></button>
-    <button data-act="restore"><span>Restore from backup</span></button>
-    <button data-act="go" data-v="browse"><span>Browse cards</span></button>
-    <button data-act="go" data-v="settings"><span>Settings</span></button>
+    <button data-act="import"><span>Importar tarjetas<small>CSV de iCloud Drive o exportado de Anki</small></span></button>
+    <button data-act="edit" data-id=""><span>Añadir una tarjeta<small>Escríbela a mano</small></span></button>
+    <button data-act="backup"><span>Guardar copia de seguridad<small>${S.settings.backupMode==='shortcut'?'Un toque y la guarda tu Atajo':'Guarda un archivo en iCloud Drive'}</small></span></button>
+    <button data-act="restore"><span>Restaurar una copia</span></button>
+    <button data-act="go" data-v="browse"><span>Explorar tarjetas</span></button>
+    <button data-act="go" data-v="settings"><span>Ajustes</span></button>
   </div>
-  <p class="foot">${S.lastBackup?`Last backup ${todayKey(new Date(S.lastBackup))}`:'Not backed up yet'}</p>`;
+  <p class="foot">${S.lastBackup?`Última copia: ${fecha(S.lastBackup)}`:'Aún no has hecho ninguna copia'}</p>`;
 }
 
 function studyView(){
   const s=ui.session,c=S.cards[s.current];
   const left=s.queue.length;
-  const head=bar(`${s.label?s.label+', ':''}${left} left`,`<button class="tb" data-act="go" data-v="home">‹ Home</button>`,`<button class="tb" data-act="undo" ${s.undo?'':'disabled'}>Undo</button>`);
-  const spk=`<button class="speak" data-act="speak" aria-label="Hear it">🔊</button>`;
+  const head=bar(`${s.label?s.label+' · ':''}${left===1?'Queda 1':`Quedan ${left}`}`,`<button class="tb" data-act="go" data-v="home">‹ Inicio</button>`,`<button class="tb" data-act="undo" ${s.undo?'':'disabled'}>Deshacer</button>`);
+  const spk=`<button class="speak" data-act="speak" aria-label="Escúchala">🔊</button>`;
   const ex=c.ex?`<p class="ex">${esc(c.ex)}</p>`:'';
   const notes=c.notes?`<p class="notes">${esc(c.notes)}</p>`:'';
   let body='',actions='';
   if(s.mode==='intro'){
-    body=`<p class="k">New word</p><div class="word">${esc(c.es)}</div><div class="answer" style="border:0;margin-top:10px;padding-top:0"><div class="word sm">${esc(c.en)}</div>${ex}${notes}${spk}</div>`;
-    actions=`<button class="big primary one" data-act="intro">Got it, test me later<small>It comes back in a few cards</small></button>`;
+    body=`<p class="k">Palabra nueva</p><div class="word">${esc(c.es)}</div><div class="answer" style="border:0;margin-top:10px;padding-top:0"><div class="word sm">${esc(c.en)}</div>${ex}${notes}${spk}</div>`;
+    actions=`<button class="big primary one" data-act="intro">Entendido, pregúntame luego<small>Vuelve dentro de unas tarjetas</small></button>`;
   }else if(s.mode==='es-en'){
-    body=`<p class="k">What does this mean?</p><div class="word">${esc(c.es)}</div>${s.phase==='prompt'?ex:''}${spk}
+    body=`<p class="k">¿Qué significa?</p><div class="word">${esc(c.es)}</div>${s.phase==='prompt'?ex:''}${spk}
       ${s.phase==='answer'?`<div class="answer"><div class="word sm">${esc(c.en)}</div>${ex}${notes}</div>`:''}`;
-    actions=s.phase==='prompt'?`<button class="big primary one" data-act="reveal">Show answer</button>`:gradeBtns();
+    actions=s.phase==='prompt'?`<button class="big primary one" data-act="reveal">Mostrar respuesta</button>`:gradeBtns();
   }else if(s.mode==='en-es'){
-    body=`<p class="k">Say it in Spanish</p><div class="word sm">${esc(c.en)}</div>
+    body=`<p class="k">Dilo en español</p><div class="word sm">${esc(c.en)}</div>
       ${s.phase==='answer'?`<div class="answer"><div class="word">${esc(c.es)}</div>${ex}${notes}${spk}</div>`:''}`;
-    actions=s.phase==='prompt'?`<button class="big primary one" data-act="reveal">Show answer</button>`:gradeBtns();
+    actions=s.phase==='prompt'?`<button class="big primary one" data-act="reveal">Mostrar respuesta</button>`:gradeBtns();
   }else{ // type
-    body=`<p class="k">Type it in Spanish</p><div class="word sm">${esc(c.en)}</div>
-      ${s.phase==='prompt'?`<form class="typein" data-act="check"><input id="ans" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" lang="es" placeholder="…" value="${esc(s.typed)}"><button type="submit">Check</button></form>`:''}
+    body=`<p class="k">Escríbelo en español</p><div class="word sm">${esc(c.en)}</div>
+      ${s.phase==='prompt'?`<form class="typein" data-act="check"><input id="ans" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" lang="es" placeholder="…" value="${esc(s.typed)}"><button type="submit">Comprobar</button></form>`:''}
       ${s.phase==='answer'?`<div class="answer"><div class="word ${s.verdict==='exact'?'':''}">${esc(c.es)}</div>${verdictTag(s)}${ex}${notes}${spk}</div>`:''}`;
     actions=s.phase==='prompt'?'':gradeBtns();
   }
   const swipe=s.mode!=='intro'&&s.phase==='answer';
-  if(swipe)body+=`<span class="stamp yes">Got it</span><span class="stamp no">Again</span>`;
-  return `${head}${tiles(c.stage)}<section class="card ${s.verdict==='exact'?'flash':''} ${swipe?'swipe':''}">${body}</section><div class="actions">${actions}</div>${swipe?`<p class="swipehint">Or swipe the card: right if you got it, left if not</p>`:''}<button class="drop" data-act="drop">Drop this word, I don't need it</button>`;
+  if(swipe)body+=`<span class="stamp yes">¡La sé!</span><span class="stamp no">Otra vez</span>`;
+  return `${head}${tiles(c.stage)}<section class="card ${s.verdict==='exact'?'flash':''} ${swipe?'swipe':''}">${body}</section><div class="actions">${actions}</div>${swipe?`<p class="swipehint">Desliza la tarjeta: → si la sabías, ← si no</p>`:''}<button class="drop" data-act="drop">Descartar esta palabra, no la necesito</button>`;
 }
 function verdictTag(s){
   const t=esc(s.typed);
   switch(s.verdict){
-    case 'exact':return `<span class="verdict ok">Correct</span>`;
-    case 'accent':return `<span class="verdict near">Almost, check the accents</span><p class="typed">You typed <s>${t}</s></p>`;
-    case 'article':return `<span class="verdict near">Right word, check the article</span><p class="typed">You typed <s>${t}</s></p>`;
-    case 'wrong':return `<span class="verdict no">Not quite</span><p class="typed">You typed <s>${t}</s></p>`;
-    default:return `<span class="verdict no">Revealed</span>`;
+    case 'exact':return `<span class="verdict ok">¡Correcto!</span>`;
+    case 'accent':return `<span class="verdict near">Casi, revisa los acentos</span><p class="typed">Escribiste <s>${t}</s></p>`;
+    case 'article':return `<span class="verdict near">Bien la palabra, revisa el artículo</span><p class="typed">Escribiste <s>${t}</s></p>`;
+    case 'wrong':return `<span class="verdict no">No exactamente</span><p class="typed">Escribiste <s>${t}</s></p>`;
+    default:return `<span class="verdict no">Sin respuesta</span>`;
   }
 }
-function gradeBtns(){return `<button class="big again" data-act="grade" data-p="0">Again<small>drops a stage</small></button><button class="big good" data-act="grade" data-p="1">Got it<small>moves up</small></button>`;}
+function gradeBtns(){return `<button class="big again" data-act="grade" data-p="0">Otra vez<small>baja una etapa</small></button><button class="big good" data-act="grade" data-p="1">¡La sé!<small>sube una etapa</small></button>`;}
 
 function doneView(){
   const s=ui.session;const d=dayRec();
   ui.session=null;
-  return `${bar('')}<h1 class="brand">Done.</h1>
-  <p class="lede"><strong>${s.done}</strong> cards moved up today${s.right<d.reviewed?`, ${d.reviewed-d.correct} needed a second look`:''}. ${streak()>1?`That is ${streak()} days in a row.`:''}</p>
+  return `${bar('')}<h1 class="brand">¡Listo!</h1>
+  <p class="lede">Hoy subieron <strong>${s.done}</strong> ${s.done===1?'tarjeta':'tarjetas'}${s.right<d.reviewed?` y ${d.reviewed-d.correct} necesitaron un segundo vistazo`:''}. ${streak()>1?`Llevas ${streak()} días seguidos.`:''}</p>
   <div class="ladder">${[1,2,3,4,5].map(i=>{const n=counts().byStage[i];return `<div class="tile"><span class="n">${n}</span><div class="fill" style="height:${Math.round(100*n/(counts().total||1))}%"></div></div>`;}).join('')}</div>
   <div class="legend">${[1,2,3,4,5].map(i=>`<div><span class="s">${i}</span><span>${STAGES[i].name}</span></div>`).join('')}</div>
   <div style="height:16px"></div>
-  <button class="cta" data-act="backup">Back up to iCloud Drive</button>
-  <button class="cta quiet" data-act="go" data-v="home">Home</button>`;
+  <button class="cta" data-act="backup">Guardar copia en iCloud Drive</button>
+  <button class="cta quiet" data-act="go" data-v="home">Inicio</button>`;
 }
 
 function browseView(){
@@ -519,122 +548,122 @@ function browseView(){
   let list=all.filter(c=>ui.showDropped?c.dropped:!c.dropped);
   list.sort((a,b)=>b.stage-a.stage||a.es.localeCompare(b.es,'es'));
   if(ui.detail){const c=S.cards[ui.detail];if(c)return detailView(c);}
-  return `${bar('Cards',back())}
-  <input class="search" id="q" type="search" placeholder="Search Spanish, English or tag" value="${esc(ui.q)}">
-  <div class="seg wide">${[['active',`Studying (${all.length-nDropped})`],['dropped',`Dropped (${nDropped})`]].map(([k,l])=>`<button class="${(ui.showDropped?'dropped':'active')===k?'on':''}" data-act="showDropped" data-v="${k}">${l}</button>`).join('')}</div>
-  ${ui.showDropped&&list.length?`<p class="hint">These are out of rotation. Bring one back and it returns at the stage it left.</p>`:''}
-  ${list.length?`<div class="rows">${list.slice(0,300).map(c=>`<div class="row ${c.dropped?'off':''}"><button class="rowmain" data-act="detail" data-id="${c.id}"><div class="grow"><div class="es">${esc(c.es)}</div><div class="en">${esc(c.en)}</div></div><div class="mini">${[1,2,3,4,5].map(i=>`<i class="${i<=c.stage?'on':''}"></i>`).join('')}</div></button><button class="rowdrop ${c.dropped?'back':''}" data-act="toggleDrop" data-id="${c.id}" aria-label="${c.dropped?'Bring back':'Drop'} ${esc(c.es)}">${c.dropped?'Bring back':'Drop'}</button></div>`).join('')}</div>
-  ${list.length>300?`<p class="foot">Showing 300 of ${list.length}. Narrow the search to see the rest.</p>`:''}`:
-  `<p class="empty">${ui.showDropped?'Nothing dropped. Words you drop during study land here.':S.order.length?'No cards match.':'No cards yet. Import a CSV or add one from the home screen.'}</p>`}`;
+  return `${bar('Tarjetas',back())}
+  <input class="search" id="q" type="search" placeholder="Busca en español, inglés o etiqueta" value="${esc(ui.q)}">
+  <div class="seg wide">${[['active',`Estudiando (${all.length-nDropped})`],['dropped',`Descartadas (${nDropped})`]].map(([k,l])=>`<button class="${(ui.showDropped?'dropped':'active')===k?'on':''}" data-act="showDropped" data-v="${k}">${l}</button>`).join('')}</div>
+  ${ui.showDropped&&list.length?`<p class="hint">Están fuera de la rotación. Si recuperas una, vuelve en la etapa donde se quedó.</p>`:''}
+  ${list.length?`<div class="rows">${list.slice(0,300).map(c=>`<div class="row ${c.dropped?'off':''}"><button class="rowmain" data-act="detail" data-id="${c.id}"><div class="grow"><div class="es">${esc(c.es)}</div><div class="en">${esc(c.en)}</div></div><div class="mini">${[1,2,3,4,5].map(i=>`<i class="${i<=c.stage?'on':''}"></i>`).join('')}</div></button><button class="rowdrop ${c.dropped?'back':''}" data-act="toggleDrop" data-id="${c.id}" aria-label="${c.dropped?'Recuperar':'Descartar'} ${esc(c.es)}">${c.dropped?'Recuperar':'Descartar'}</button></div>`).join('')}</div>
+  ${list.length>300?`<p class="foot">Mostrando 300 de ${list.length}. Afina la búsqueda para ver el resto.</p>`:''}`:
+  `<p class="empty">${ui.showDropped?'No hay nada descartado. Las palabras que descartes al estudiar aparecen aquí.':S.order.length?'Ninguna tarjeta coincide.':'Aún no hay tarjetas. Importa un CSV o añade una desde el inicio.'}</p>`}`;
 }
 function detailView(c){
-  const due=c.stage===0?'not started':c.due<=Date.now()?'now':todayKey(new Date(c.due));
-  return `${bar('',`<button class="tb" data-act="detail" data-id="">‹ Cards</button>`)}
+  const due=c.stage===0?'sin empezar':c.due<=Date.now()?'ahora':fecha(c.due);
+  return `${bar('',`<button class="tb" data-act="detail" data-id="">‹ Tarjetas</button>`)}
   <div class="detail">${tiles(c.stage)}<div class="word">${esc(c.es)}</div><div class="word sm" style="color:var(--muted);margin-top:6px">${esc(c.en)}</div>
   ${c.ex?`<p class="ex">${esc(c.ex)}</p>`:''}${c.notes?`<p class="notes">${esc(c.notes)}</p>`:''}
-  <button class="speak" data-act="speakId" data-id="${c.id}" aria-label="Hear it">🔊</button>
-  <dl><dt>Next review</dt><dd>${c.dropped?'never, dropped':due}</dd><dt>Interval</dt><dd>${c.ivl?c.ivl+' days':'—'}</dd><dt>Reviews</dt><dd>${c.reps||0}</dd><dt>Misses</dt><dd>${c.lapses||0}</dd>${c.tags?`<dt>Tags</dt><dd>${esc(c.tags)}</dd>`:''}</dl></div>
+  <button class="speak" data-act="speakId" data-id="${c.id}" aria-label="Escúchala">🔊</button>
+  <dl><dt>Próximo repaso</dt><dd>${c.dropped?'nunca, descartada':due}</dd><dt>Intervalo</dt><dd>${c.ivl?c.ivl+(c.ivl===1?' día':' días'):'—'}</dd><dt>Repasos</dt><dd>${c.reps||0}</dd><dt>Fallos</dt><dd>${c.lapses||0}</dd>${c.tags?`<dt>Etiquetas</dt><dd>${esc(c.tags)}</dd>`:''}</dl></div>
   <div class="menu">
-    <button data-act="edit" data-id="${c.id}"><span>Edit card</span></button>
-    <button data-act="toggleDrop" data-id="${c.id}"><span>${c.dropped?'Bring back':'Drop this word'}<small>${c.dropped?'Schedules it again':'Never shown again, survives re-imports'}</small></span></button>
-    <button data-act="resetCard" data-id="${c.id}"><span>${ui.confirm==='reset'?'Tap again to reset progress':'Reset progress'}<small>Back to New</small></span></button>
-    <button class="danger" data-act="deleteCard" data-id="${c.id}"><span>${ui.confirm==='delete'?'Tap again to delete':'Delete card'}</span></button>
+    <button data-act="edit" data-id="${c.id}"><span>Editar tarjeta</span></button>
+    <button data-act="toggleDrop" data-id="${c.id}"><span>${c.dropped?'Recuperar':'Descartar esta palabra'}<small>${c.dropped?'Vuelve a programarse':'No vuelve a salir, aunque la reimportes'}</small></span></button>
+    <button data-act="resetCard" data-id="${c.id}"><span>${ui.confirm==='reset'?'Toca otra vez para reiniciar':'Reiniciar progreso'}<small>Vuelve a Nueva</small></span></button>
+    <button class="danger" data-act="deleteCard" data-id="${c.id}"><span>${ui.confirm==='delete'?'Toca otra vez para borrarla':'Borrar tarjeta'}</span></button>
   </div>`;
 }
 
 function editView(){
   const c=ui.editId?S.cards[ui.editId]:null;
   const v=k=>esc(c?c[k]||'':'');
-  return `${bar(c?'Edit card':'New card',`<button class="tb" data-act="${c?'detail':'go'}" data-id="${c?c.id:''}" data-v="home">‹ ${c?'Card':'Home'}</button>`)}
+  return `${bar(c?'Editar tarjeta':'Tarjeta nueva',`<button class="tb" data-act="${c?'detail':'go'}" data-id="${c?c.id:''}" data-v="home">‹ ${c?'Tarjeta':'Inicio'}</button>`)}
   <form class="form" data-act="saveCard">
-    <label>Spanish<input id="f_es" lang="es" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="el coche / el carro" value="${v('es')}" required></label>
-    <label>English<input id="f_en" placeholder="car" value="${v('en')}" required></label>
-    <label>Example sentence<input id="f_ex" lang="es" autocapitalize="sentences" placeholder="Mi coche es rojo." value="${v('ex')}"></label>
-    <label>Notes<input id="f_notes" placeholder="Spain says coche; Mexico says carro" value="${v('notes')}"></label>
-    <label>Tag<input id="f_tags" autocapitalize="off" placeholder="transport" value="${v('tags')}"></label>
-    <button type="submit" class="cta">${c?'Save changes':'Add card'}</button>
+    <label>Español<input id="f_es" lang="es" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="el coche / el carro" value="${v('es')}" required></label>
+    <label>Inglés<input id="f_en" placeholder="car" value="${v('en')}" required></label>
+    <label>Frase de ejemplo<input id="f_ex" lang="es" autocapitalize="sentences" placeholder="Mi coche es rojo." value="${v('ex')}"></label>
+    <label>Notas<input id="f_notes" placeholder="En España, coche; en México, carro" value="${v('notes')}"></label>
+    <label>Etiqueta<input id="f_tags" autocapitalize="off" placeholder="transporte" value="${v('tags')}"></label>
+    <button type="submit" class="cta">${c?'Guardar cambios':'Añadir tarjeta'}</button>
   </form>
-  <p class="foot">${c?'Changing the Spanish keeps the card\'s progress.':'Alternatives separated by / are all accepted when typing.'}</p>`;
+  <p class="foot">${c?'Si cambias el español, la tarjeta conserva su progreso.':'Si separas alternativas con /, todas valen al escribir.'}</p>`;
 }
 function saveCard(){
   const g=id=>document.getElementById(id).value.trim();
   const r={es:g('f_es'),en:g('f_en'),ex:g('f_ex'),notes:g('f_notes'),tags:g('f_tags').toLowerCase()};
-  if(!r.es||!r.en){toast('Spanish and English are both needed.');return;}
+  if(!r.es||!r.en){toast('Hacen falta el español y el inglés.');return;}
   const newId=hash(strip(r.es));
   if(ui.editId){
     const old=S.cards[ui.editId];
     if(newId!==ui.editId){
-      if(S.cards[newId]){toast('Another card already has that Spanish.');return;}
+      if(S.cards[newId]){toast('Otra tarjeta ya tiene ese español.');return;}
       S.cards[newId]=Object.assign({},old,{id:newId});delete S.cards[ui.editId];
       S.order=S.order.map(x=>x===ui.editId?newId:x);
       if(ui.session)ui.session.queue=ui.session.queue.map(x=>x===ui.editId?newId:x);
     }
     Object.assign(S.cards[newId],{es:r.es,en:r.en,ex:r.ex,notes:r.notes,tags:r.tags});
-    save();ui.detail=newId;ui.editId=null;ui.view='browse';render();toast('Saved');
+    save();ui.detail=newId;ui.editId=null;ui.view='browse';render();toast('Guardada');
   }else{
-    if(S.cards[newId]){toast(`"${r.es}" is already in the deck.`);return;}
+    if(S.cards[newId]){toast(`«${r.es}» ya está en el mazo.`);return;}
     importRecords([r]);
-    toast(`Added "${r.es}"`);render();          // form clears for the next card
+    toast(`Añadida: «${r.es}»`);render();          // form clears for the next card
     document.getElementById('f_es').focus();
   }
 }
 function settingsView(){
-  return `${bar('Settings',back())}
+  return `${bar('Ajustes',back())}
   <div class="menu">
-    <div class="setrow"><div>New cards per day<small>Cards introduced from the New pile</small></div><div class="step"><button data-act="npd" data-d="-5">−</button><b>${S.settings.newPerDay}</b><button data-act="npd" data-d="5">+</button></div></div>
-    <div class="setrow"><div>Speak Spanish aloud<small>When a Spanish word appears</small></div><button class="switch ${S.settings.autoSpeak?'on':''}" data-act="toggleSpeak" role="switch" aria-checked="${S.settings.autoSpeak}" aria-label="Speak Spanish aloud"></button></div>
-    <div class="setrow"><div>Direction<small>${{stage:'Follows the stage: Spanish first, then English',['es-en']:'Always show Spanish, recall English',['en-es']:'Always show English, produce Spanish',mixed:'Random each card'}[S.settings.direction||'stage']}</small></div><div class="seg">${[['stage','Stage'],['es-en','Es→En'],['en-es','En→Es'],['mixed','Mix']].map(([k,l])=>`<button class="${(S.settings.direction||'stage')===k?'on':''}" data-act="direction" data-d="${k}">${l}</button>`).join('')}</div></div>
-    <div class="setrow"><div>Appearance</div><div class="seg">${['auto','light','dark'].map(t=>`<button class="${(S.settings.theme||'auto')===t?'on':''}" data-act="theme" data-t="${t}">${t==='auto'?'System':t==='light'?'Light':'Dark'}</button>`).join('')}</div></div>
-    <div class="setrow"><div>Accent<small>Which Spanish voice iOS uses</small></div><button class="tb" data-act="accent">${S.settings.voiceLang==='es-ES'?'Spain':'Latin America'} ›</button></div>
+    <div class="setrow"><div>Tarjetas nuevas por día<small>Las que se sacan del montón de nuevas</small></div><div class="step"><button data-act="npd" data-d="-5">−</button><b>${S.settings.newPerDay}</b><button data-act="npd" data-d="5">+</button></div></div>
+    <div class="setrow"><div>Pronunciar en voz alta<small>Cuando aparece una palabra en español</small></div><button class="switch ${S.settings.autoSpeak?'on':''}" data-act="toggleSpeak" role="switch" aria-checked="${S.settings.autoSpeak}" aria-label="Pronunciar en voz alta"></button></div>
+    <div class="setrow stack"><div>Dirección<small>${{stage:'Sigue la etapa: primero español, luego inglés',['es-en']:'Siempre ves el español y recuerdas el inglés',['en-es']:'Siempre ves el inglés y produces el español',mixed:'Al azar en cada tarjeta'}[S.settings.direction||'stage']}</small></div><div class="seg">${[['stage','Etapa'],['es-en','Es→In'],['en-es','In→Es'],['mixed','Mezcla']].map(([k,l])=>`<button class="${(S.settings.direction||'stage')===k?'on':''}" data-act="direction" data-d="${k}">${l}</button>`).join('')}</div></div>
+    <div class="setrow"><div>Apariencia</div><div class="seg">${['auto','light','dark'].map(t=>`<button class="${(S.settings.theme||'auto')===t?'on':''}" data-act="theme" data-t="${t}">${t==='auto'?'Sistema':t==='light'?'Claro':'Oscuro'}</button>`).join('')}</div></div>
+    <div class="setrow"><div>Acento<small>La voz en español que usa iOS</small></div><button class="tb" data-act="accent">${S.settings.voiceLang==='es-ES'?'España':'Latinoamérica'} ›</button></div>
   </div>
   <div class="menu">
-    <div class="setrow"><div>Back up with a Shortcut<small>One tap saves to a fixed iCloud Drive path. Needs a one-time setup.</small></div><button class="switch ${S.settings.backupMode==='shortcut'?'on':''}" data-act="toggleBackup" role="switch" aria-checked="${S.settings.backupMode==='shortcut'}" aria-label="Back up with a Shortcut"></button></div>
-    ${S.settings.backupMode==='shortcut'?`<div class="setrow"><div>Shortcut name<small>Must match exactly</small></div><input id="scName" type="text" value="${esc(S.settings.shortcutName)}" style="font-size:16px;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);width:46%"></div>
-    <button data-act="go" data-v="how"><span>How to set up the Shortcut</span></button>`:''}
+    <div class="setrow"><div>Copia con un Atajo<small>Un toque la guarda siempre en el mismo sitio de iCloud Drive. Se configura una sola vez.</small></div><button class="switch ${S.settings.backupMode==='shortcut'?'on':''}" data-act="toggleBackup" role="switch" aria-checked="${S.settings.backupMode==='shortcut'}" aria-label="Copia con un Atajo"></button></div>
+    ${S.settings.backupMode==='shortcut'?`<div class="setrow"><div>Nombre del Atajo<small>Tiene que coincidir exactamente</small></div><input id="scName" type="text" value="${esc(S.settings.shortcutName)}" style="font-size:16px;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);width:46%"></div>
+    <button data-act="go" data-v="how"><span>Cómo configurar el Atajo</span></button>`:''}
   </div>
   <div class="menu">
-    <button data-act="exportCsv"><span>Export cards as CSV<small>Includes stage and next review date, for editing on your Mac</small></span></button>
-    <button class="danger" data-act="erase"><span>${ui.confirm==='erase'?'Tap again to erase everything':'Erase all cards and progress'}</span></button>
+    <button data-act="exportCsv"><span>Exportar tarjetas como CSV<small>Incluye la etapa y el próximo repaso, para editarlas en tu Mac</small></span></button>
+    <button class="danger" data-act="erase"><span>${ui.confirm==='erase'?'Toca otra vez para borrarlo todo':'Borrar todas las tarjetas y el progreso'}</span></button>
   </div>
-  <p class="foot">Cinco, stored only on this device. Back up often.</p>`;
+  <p class="foot">Cinco lo guarda todo solo en este dispositivo. Haz copias a menudo.</p>`;
 }
 
 function restoreView(){
   const s=ui.restoreDraft;const n=Object.keys(s.cards).length;const cur=Object.keys(S.cards).length;
-  return `${bar('Restore',back())}
-  <div class="detail"><div class="word sm">Replace this phone's ${cur} cards with the ${n} in the backup?</div>
-  <p class="notes" style="max-width:none;margin-top:14px">Everything on this phone, including today's progress, is replaced by the backup file. This cannot be undone.</p></div>
-  <button class="cta" data-act="restoreGo">Replace with backup</button>
-  <button class="cta quiet" data-act="go" data-v="home">Keep what I have</button>`;
+  return `${bar('Restaurar',back())}
+  <div class="detail"><div class="word sm">¿Reemplazar las ${cur} tarjetas de este teléfono por las ${n} de la copia?</div>
+  <p class="notes" style="max-width:none;margin-top:14px">Todo lo que hay en este teléfono, incluido el progreso de hoy, se reemplaza por la copia. No se puede deshacer.</p></div>
+  <button class="cta" data-act="restoreGo">Reemplazar con la copia</button>
+  <button class="cta quiet" data-act="go" data-v="home">Quedarme con lo que tengo</button>`;
 }
 
 function howView(){
-  return `${bar('How it works',back())}<div class="how">
-  <h3>Five stages</h3>
-  <p>Every card climbs five stages. Each stage is harder than the last and waits longer before coming back. Answer right and the card moves up (tap <i>Got it</i> or swipe the card right). Miss it (tap <i>Again</i> or swipe left) and it drops one stage and returns a few cards later in the same session.</p>
+  return `${bar('Cómo funciona',back())}<div class="how">
+  <h3>Cinco etapas</h3>
+  <p>Cada tarjeta sube cinco etapas. Cada etapa es más difícil que la anterior y tarda más en volver. Si aciertas, la tarjeta sube (toca <b>¡La sé!</b> o desliza a la derecha). Si fallas (toca <b>Otra vez</b> o desliza a la izquierda), baja una etapa y vuelve unas tarjetas después en la misma sesión.</p>
   ${[1,2,3,4,5].map(i=>`<div class="stg">${tiles(i,'')}<div><b>${STAGES[i].name}</b><p>${STAGES[i].blurb}</p></div></div>`).join('')}
-  <h3>Why this order</h3>
-  <p>Recognizing a word is easier than producing it, so early stages only ask you to recognize. By stage 4 you must type it from English, which is what speaking actually requires. Cards that sail through get out of your way quickly. Cards you struggle with come back sooner.</p>
-  <h3>Choosing the direction</h3>
-  <p>By default the direction follows the stage: Spanish is shown while a word is new, English once you know it, both at random when mastered. Settings › Direction overrides that for every card: always Spanish first, always English first, or random. Typing still only starts at stage 4, so a forced English-first card at an early stage is self-graded.</p>
-  <h3>Drilling one stage</h3>
-  <p>On the home screen, tap any stage tile to study every card at that stage, due or not, and tap the new-cards count to introduce an extra batch. Grading works the same as in a normal session, so a card you get right moves up and is rescheduled. Drilling is useful for a stage that has piled up or before a trip; the daily session is still what keeps the spacing honest.</p>
-  <h3>Dropping words</h3>
-  <p>If a word is not worth your time, tap <i>Drop this word</i> under the card. It is never scheduled again, and stays dropped even if you re-import the CSV it came from. Undo brings it straight back; later, find it at the bottom of Browse and tap <i>Bring back</i>.</p>
-  <h3>Daily rhythm</h3>
-  <p>Open the app once a day. Reviews come first, then new cards up to your daily limit. A session of 30 cards takes about five minutes.</p>
-  <h3>Your data</h3>
-  <p>Cards and progress are stored on this phone. Import decks as CSV from iCloud Drive. Tap Back up to save a file you can restore from later.</p>
-  <p>CSV columns: <code>spanish,english,example,notes,tags</code>. Only the first two are required. Re-importing a file updates existing cards without losing their progress. Cards are matched on the Spanish text.</p>
-  <p>Alternatives in the Spanish column separated by <code>/</code> are all accepted when typing, for example <code>el coche / el carro</code>.</p>
-  <h3>One-tap backups with a Shortcut</h3>
-  <p>Safari cannot write to a folder on its own, so the normal backup goes through the share sheet. A Shortcut removes that step: Cinco copies the backup and asks the Shortcut to save it to the same file every time.</p>
-  <p>Set it up once, in the Shortcuts app:</p>
-  <p>1. Tap + to make a new shortcut. Name it exactly <code>Save Cinco Backup</code>.</p>
-  <p>2. Add the action <b>Save File</b>. Set its input to <b>Shortcut Input</b>.</p>
-  <p>3. In that action, turn off <b>Ask Where to Save</b>, turn on <b>Overwrite If File Exists</b>, and set the destination path to <code>Spanish/backups/cinco-backup.json</code>.</p>
-  <p>4. Back in Cinco, turn on <b>Back up with a Shortcut</b> in Settings.</p>
-  <p>Now Back up copies your progress and opens the Shortcut, which saves it to iCloud Drive › Shortcuts › Spanish › backups. Swipe back to Cinco afterwards. To restore, use Restore from backup and pick that file.</p>
+  <h3>Por qué este orden</h3>
+  <p>Reconocer una palabra es más fácil que producirla, así que las primeras etapas solo te piden reconocer. En la etapa 4 ya tienes que escribirla a partir del inglés, que es lo que de verdad exige hablar. Las tarjetas que te salen fáciles se apartan rápido; las que te cuestan vuelven antes.</p>
+  <h3>Elegir la dirección</h3>
+  <p>Por defecto, la dirección sigue la etapa: ves el español mientras la palabra es nueva, el inglés cuando ya la conoces, y cualquiera de los dos al azar cuando está dominada. En Ajustes › Dirección puedes cambiarlo para todas las tarjetas: siempre español primero, siempre inglés primero o al azar. Escribir solo empieza en la etapa 4, así que una tarjeta temprana con el inglés primero te la calificas tú.</p>
+  <h3>Practicar una etapa</h3>
+  <p>En el inicio, toca cualquier columna para estudiar todas las tarjetas de esa etapa, toquen hoy o no, y toca el número de nuevas para presentar otra tanda. Se califica igual que en una sesión normal: si aciertas, la tarjeta sube y se reprograma. Sirve para una etapa que se ha acumulado o antes de un viaje; la sesión diaria es la que mantiene el ritmo.</p>
+  <h3>Descartar palabras</h3>
+  <p>Si una palabra no te merece la pena, toca <b>Descartar esta palabra</b> debajo de la tarjeta. No vuelve a programarse y sigue descartada aunque reimportes el CSV de donde vino. Deshacer la devuelve al momento; más tarde, búscala en Explorar tarjetas › Descartadas y toca <b>Recuperar</b>.</p>
+  <h3>El ritmo diario</h3>
+  <p>Abre la app una vez al día. Primero van los repasos y después las nuevas, hasta tu límite diario. Una sesión de 30 tarjetas dura unos cinco minutos.</p>
+  <h3>Tus datos</h3>
+  <p>Las tarjetas y el progreso se guardan en este teléfono. Importa mazos en CSV desde iCloud Drive. Toca <b>Guardar copia de seguridad</b> para guardar un archivo que puedas restaurar más tarde.</p>
+  <p>Columnas del CSV: <code>spanish,english,example,notes,tags</code>. Solo las dos primeras son obligatorias. Reimportar un archivo actualiza las tarjetas que ya existen sin perder su progreso; se emparejan por el texto en español.</p>
+  <p>Si en la columna del español separas alternativas con <code>/</code>, todas valen al escribir, por ejemplo <code>el coche / el carro</code>.</p>
+  <h3>Copias de un toque con un Atajo</h3>
+  <p>Safari no puede escribir en una carpeta por su cuenta, así que la copia normal pasa por el menú de compartir. Un Atajo se salta ese paso: Cinco copia tu progreso y le pide al Atajo que lo guarde siempre en el mismo archivo.</p>
+  <p>Se configura una vez, en la app Atajos. Los nombres de las acciones aparecen tal como los muestra tu iPhone:</p>
+  <p>1. Toca + para crear un atajo nuevo. Llámalo exactamente <code>Save Cinco Backup</code>.</p>
+  <p>2. Añade la acción <b>Save File</b> (Guardar archivo). Pon como entrada <b>Shortcut Input</b> (Entrada del atajo).</p>
+  <p>3. En esa acción, desactiva <b>Ask Where to Save</b>, activa <b>Overwrite If File Exists</b> y pon como ruta <code>Spanish/backups/cinco-backup.json</code>.</p>
+  <p>4. De vuelta en Cinco, activa <b>Copia con un Atajo</b> en Ajustes.</p>
+  <p>Ahora <b>Guardar copia de seguridad</b> copia tu progreso y abre el Atajo, que lo guarda en iCloud Drive › Shortcuts › Spanish › backups. Después vuelve a Cinco. Para restaurar, usa <b>Restaurar una copia</b> y elige ese archivo.</p>
   </div>`;
 }
 
@@ -669,7 +698,7 @@ app.addEventListener('click',e=>{
     case 'study':if(ui.session&&ui.session.queue.length){ui.view='study';nextCard();}else startSession();break;
     case 'import':fileCsv.click();break;
     case 'restore':fileJson.click();break;
-    case 'restoreGo':S=Object.assign(fresh(),ui.restoreDraft);ui.restoreDraft=null;ui.session=null;save();ui.view='home';render();toast('Restored');break;
+    case 'restoreGo':S=Object.assign(fresh(),ui.restoreDraft);ui.restoreDraft=null;ui.session=null;save();ui.view='home';render();toast('Restaurado');break;
     case 'backup':backup();break;
     case 'exportCsv':exportCsv();break;
     case 'intro':introDone();break;
@@ -688,13 +717,13 @@ app.addEventListener('click',e=>{
     case 'theme':S.settings.theme=b.dataset.t;save();applyTheme();render();break;
     case 'direction':S.settings.direction=b.dataset.d;save();render();break;
     case 'toggleBackup':S.settings.backupMode=S.settings.backupMode==='shortcut'?'share':'shortcut';save();render();break;
-    case 'toggleDrop':{const c=S.cards[b.dataset.id];if(c.dropped)delete c.dropped;else c.dropped=Date.now();save();render();toast(c.dropped?'Dropped':'Back in the deck');break;}
+    case 'toggleDrop':{const c=S.cards[b.dataset.id];if(c.dropped)delete c.dropped;else c.dropped=Date.now();save();render();toast(c.dropped?'Descartada':'De vuelta al mazo');break;}
     case 'resetCard':if(ui.confirm!=='reset'){ui.confirm='reset';render();break;}
-      {const c=S.cards[b.dataset.id];Object.assign(c,{stage:0,due:0,ivl:0,reps:0,lapses:0});ui.confirm=null;save();render();toast('Progress reset');}break;
+      {const c=S.cards[b.dataset.id];Object.assign(c,{stage:0,due:0,ivl:0,reps:0,lapses:0});ui.confirm=null;save();render();toast('Progreso reiniciado');}break;
     case 'deleteCard':if(ui.confirm!=='delete'){ui.confirm='delete';render();break;}
-      delete S.cards[b.dataset.id];S.order=S.order.filter(x=>x!==b.dataset.id);ui.detail=null;ui.confirm=null;save();render();toast('Card deleted');break;
+      delete S.cards[b.dataset.id];S.order=S.order.filter(x=>x!==b.dataset.id);ui.detail=null;ui.confirm=null;save();render();toast('Tarjeta borrada');break;
     case 'erase':if(ui.confirm!=='erase'){ui.confirm='erase';render();break;}
-      S=fresh();ui.session=null;ui.confirm=null;save();ui.view='home';render();toast('Everything erased');break;
+      S=fresh();ui.session=null;ui.confirm=null;save();ui.view='home';render();toast('Todo borrado');break;
   }
 });
 

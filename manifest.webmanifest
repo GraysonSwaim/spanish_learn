@@ -1,16 +1,30 @@
 {
   "name": "Cinco",
   "short_name": "Cinco",
-  "description": "Five-stage Spanish flashcards that live in your iCloud Drive.",
+  "description": "Tarjetas de español en cinco etapas, guardadas en tu iCloud Drive.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#E8ECF4",
-  "theme_color": "#1E3FBF",
+  "background_color": "#FFE9C9",
+  "theme_color": "#FFE9C9",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ]
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "lang": "es"
 }
