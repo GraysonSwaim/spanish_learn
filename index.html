@@ -133,6 +133,9 @@ input{font:inherit;color:inherit}
 .big.primary{background:var(--accent);color:#fff}
 .big small{display:block;font-family:var(--sans);font-weight:700;font-size:13px;opacity:.85;margin-top:2px;letter-spacing:0}
 .drop{display:block;width:100%;text-align:center;color:var(--muted);font-size:14px;font-weight:700;padding:14px 12px 4px}
+.card.tap{cursor:pointer;transition:transform .1s}
+.card.tap:active{transform:scale(.985)}
+.taphint{color:var(--muted);font-size:13px;font-weight:700;margin-top:22px;opacity:.8}
 .card.swipe{position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:grab}
 .card.swipe.dragging{cursor:grabbing}
 .stamp{position:absolute;top:18px;padding:5px 12px;border-radius:12px;border:3px solid;font-family:var(--disp);font-size:20px;opacity:0;pointer-events:none;transform:rotate(var(--r));background:var(--paper)}
@@ -513,8 +516,10 @@ function studyView(){
     actions=s.phase==='prompt'?'':gradeBtns();
   }
   const swipe=s.mode!=='intro'&&s.phase==='answer';
+  const tap=s.phase==='prompt'&&(s.mode==='es-en'||s.mode==='en-es');   // typing cards reveal by checking
+  if(tap)body+=`<p class="taphint">Toca la tarjeta para ver la respuesta</p>`;
   if(swipe)body+=`<span class="stamp yes">¡La sé!</span><span class="stamp no">Otra vez</span>`;
-  return `${head}${tiles(c.stage)}<section class="card ${s.verdict==='exact'?'flash':''} ${swipe?'swipe':''}">${body}</section><div class="actions">${actions}</div>${swipe?`<p class="swipehint">Desliza la tarjeta: → si la sabías, ← si no</p>`:''}<button class="drop" data-act="drop">Descartar esta palabra, no la necesito</button>`;
+  return `${head}${tiles(c.stage)}<section class="card ${s.verdict==='exact'?'flash':''} ${swipe?'swipe':''} ${tap?'tap':''}" ${tap?'data-act="reveal"':''}>${body}</section><div class="actions">${actions}</div>${swipe?`<p class="swipehint">Desliza la tarjeta: → si la sabías, ← si no</p>`:''}<button class="drop" data-act="drop">Descartar esta palabra, no la necesito</button>`;
 }
 function verdictTag(s){
   const t=esc(s.typed);

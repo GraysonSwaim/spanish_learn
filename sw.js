@@ -1,5 +1,5 @@
 // Bump CACHE whenever you change index.html so phones pick up the new version.
-const CACHE = 'cinco-v16';
+const CACHE = 'cinco-v17';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png', './fonts/lilita-one.woff2', './fonts/nunito.woff2', './fonts/nunito-italic.woff2'];
 
 self.addEventListener('install', e => {
