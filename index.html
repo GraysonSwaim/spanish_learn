@@ -268,12 +268,16 @@ function check(input,es){
 // voice mangling the Spanish), and speak() right after cancel() often produces a noise instead of speech.
 // So: let iOS choose the voice from the language code alone, and only cancel when something is playing.
 let speakTimer=null,currentUtterance=null,speechUnlocked=false;
+// Safari's default audio session is "ambient", which plays quietly and obeys the silent switch.
+// "playback" uses the full media volume, like a music or video app (Safari 16.4+).
+try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}
 // iOS only allows speech that starts from a tap until the engine has been used once from a tap.
 // Speaking an empty utterance on the first touch unlocks automatic speech for the rest of the session.
 function unlockSpeech(){
   if(speechUnlocked||!('speechSynthesis' in window))return;
   speechUnlocked=true;
-  try{const u=new SpeechSynthesisUtterance('');u.volume=0;speechSynthesis.speak(u);}catch(e){}
+  // An empty utterance is silent anyway. Don't set volume 0: iOS can carry it over to later speech.
+  try{speechSynthesis.speak(new SpeechSynthesisUtterance(''));}catch(e){}
 }
 document.addEventListener('touchend',unlockSpeech,{once:true,passive:true});
 document.addEventListener('click',unlockSpeech,{once:true});
@@ -285,7 +289,7 @@ function speak(text){
   clearTimeout(speakTimer);
   const go=()=>{
     const u=new SpeechSynthesisUtterance(t);
-    u.lang=S.settings.voiceLang||'es-MX';u.rate=0.9;
+    u.lang=S.settings.voiceLang||'es-MX';u.rate=0.9;u.volume=1;
     currentUtterance=u;               // keep a reference so the browser cannot garbage-collect it mid-speech
     speechSynthesis.speak(u);
   };
