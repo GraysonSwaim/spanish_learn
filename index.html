@@ -208,7 +208,7 @@ code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--pa
 <main id="app"></main>
 <div id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="fileCsv" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" hidden>
-<input type="file" id="fileJson" accept=".json,application/json" hidden>
+<input type="file" id="fileJson" hidden>
 <script>
 /* ---------- constants ---------- */
 const KEY='cinco.v1';
@@ -452,7 +452,7 @@ fileCsv.onchange=async()=>{const f=fileCsv.files[0];fileCsv.value='';if(!f)retur
   const text=await f.text();const r=importRecords(toRecords(parseDelimited(text)));
   toast(`Añadidas: ${r.added}. Actualizadas: ${r.updated}.`+(r.skipped?` Omitidas: ${r.skipped}.`:''));render();};
 fileJson.onchange=async()=>{const f=fileJson.files[0];fileJson.value='';if(!f)return;
-  try{const s=JSON.parse(await f.text());if(!s||!s.cards)throw 0;ui.restoreDraft=s;ui.view='restore';render();}
+  try{const s=JSON.parse((await f.text()).replace(/^\uFEFF/,'').trim());if(!s||!s.cards)throw 0;ui.restoreDraft=s;ui.view='restore';render();}
   catch(e){toast('Ese archivo no es una copia de Cinco.');}};
 
 /* ---------- views ---------- */
