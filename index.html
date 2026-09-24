@@ -225,12 +225,16 @@ code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--pa
 .gridform{width:100%}
 .gridform .big{width:100%;margin-top:14px}
 .tensechip{background:var(--sea-soft);color:var(--ink);margin-top:10px}
-.tenses{display:flex;flex-direction:column;gap:6px;margin:0 0 14px}
-.tenses .tg{display:grid;grid-template-columns:88px 1fr;gap:6px;align-items:start}
-.tenses .tg>span{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding-top:8px}
-.tenses .tg>div{display:flex;flex-wrap:wrap;gap:5px}
-.tenses button{padding:5px 10px;border-radius:999px;border:2px solid var(--edge);background:var(--paper);font-size:13px;font-weight:800;color:var(--muted)}
+.tenses{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 16px}
+.tenses h4{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:6px 2px 0}
+.tenses h4:first-child{margin-top:0}
+.tenses .s2{grid-column:span 2}
+.tenses .s3{grid-column:1/-1}
+.tenses button{min-width:0;padding:9px 4px;border-radius:12px;border:2px solid var(--edge);background:var(--paper);font-size:13px;font-weight:800;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tenses button.on{background:var(--ink);color:var(--bg)}
+.tenses button:disabled{opacity:.35}
+.tenses button.rand{margin-top:4px}
+@media (max-width:350px){.tenses button{font-size:12px;padding:9px 2px}}
 details.more{width:100%;margin-top:16px;text-align:center}
 details.more summary{cursor:pointer;color:var(--muted);font-weight:800;font-size:14px;padding:6px}
 .tname{font-size:12px;font-weight:800;color:var(--muted);margin-top:16px;text-transform:uppercase;letter-spacing:.05em;text-align:center}
@@ -250,7 +254,7 @@ details.more summary{cursor:pointer;color:var(--muted);font-weight:800;font-size
 <script>
 /* ---------- constants ---------- */
 const KEY='cinco.v1';
-const VERSION=30;               // keep in step with CACHE in sw.js, shown in Ajustes
+const VERSION=31;               // keep in step with CACHE in sw.js, shown in Ajustes
 const DAY=86400000, MIN=60000;
 const RELEARN_GAP=5;           // cards between a miss and its retry
 const MAX_IVL=120;             // days, mastered cards never sleep longer than this
@@ -555,13 +559,17 @@ function tabsBar(){
   return `<div class="seg wide tabs">${[['vocab','Vocabulario'],['conj','Conjugación']].map(([k,l])=>`<button class="${t===k?'on':''}" data-act="tab" data-t="${k}">${l}</button>`).join('')}</div>
   ${t==='conj'?tenseSwitch():''}`;
 }
-// Only tenses that some verb actually has get a button, grouped by mood.
+// One 3-column grid: the nine indicative tenses as a 3×3 block, then the subjunctive (2×2, simple over
+// compound) beside the imperative (1×2), then Aleatorio across. Tenses no verb has yet stay in place, greyed out.
 function tenseSwitch(){
   const have=new Set(Object.values(S.cards).filter(c=>c.kind==='conj').map(c=>c.tense)),cur=curTense();
-  const chip=(k,l)=>`<button class="${cur===k?'on':''}" data-act="tense" data-t="${k}">${l}</button>`;
-  const rows=MOODS.map(([g,label])=>{const ts=TENSES.filter(T=>T.g===g&&(have.has(T.k)||T.k===cur));
-    return ts.length?`<div class="tg"><span>${label}</span><div>${ts.map(T=>chip(T.k,T.short||T.name)).join('')}</div></div>`:'';}).join('');
-  return `<div class="tenses">${rows}<div class="tg"><span></span><div>${chip('random','Aleatorio')}</div></div></div>`;
+  const btn=k=>{const T=TENSE[k];return `<button class="${cur===k?'on':''}" data-act="tense" data-t="${k}" ${have.has(k)||cur===k?'':'disabled'} title="${T.name}">${T.short||T.name}</button>`;};
+  const ind=TENSES.filter(T=>T.g==='ind').map(T=>btn(T.k)).join('');
+  return `<div class="tenses"><h4 class="s3">Indicativo</h4>${ind}
+    <h4 class="s2">Subjuntivo</h4><h4>Imperativo</h4>
+    ${btn('subjuntivo')}${btn('subj_imperfecto')}${btn('imperativo')}
+    ${btn('subj_perfecto')}${btn('subj_pluscuamperfecto')}${btn('imperativo_negativo')}
+    <button class="s3 rand ${cur==='random'?'on':''}" data-act="tense" data-t="random">Aleatorio · todos los tiempos</button></div>`;
 }
 
 /* ---------- scheduling ---------- */
