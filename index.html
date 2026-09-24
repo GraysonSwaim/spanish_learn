@@ -27,6 +27,7 @@
   --accent:#FF5A36; --accent-ink:#C93A18; --sea:#00B4C6; --sea-soft:#D4F4F7;
   --good:#00A67E; --on-good:#FFFFFF; --good-soft:#D2F3E8; --again:#E8364F; --again-soft:#FFD6DA;
   --s1:#FF5A8C; --s2:#FF9F1C; --s3:#00B4C6; --s4:#00A67E; --s5:#7B3FE4;
+  --m-ind:#007F8C; --m-ind-soft:#D6F2F4; --m-sub:#6A33D1; --m-sub-soft:#ECE3FF; --m-imp:#C2410C; --m-imp-soft:#FFE6D5; --on-m:#FFFFFF;
   --disp:"Lilita One","Arial Rounded MT Bold",system-ui,sans-serif;
   --sans:"Nunito",ui-rounded,-apple-system,system-ui,sans-serif;
   --r:22px;
@@ -36,6 +37,7 @@
   --accent:#FF6B47; --accent-ink:#FF9474; --sea:#2FD0E0; --sea-soft:#134A4E;
   --good:#2BC79A; --on-good:#062019; --good-soft:#123F33; --again:#FF6275; --again-soft:#4A1C24;
   --s1:#FF6F9C; --s2:#FFAE3D; --s3:#22C8D8; --s4:#22BD8E; --s5:#9A6BFF;
+  --m-ind:#2FD0E0; --m-ind-soft:#134A4E; --m-sub:#B39BFF; --m-sub-soft:#2E2A55; --m-imp:#FFA25E; --m-imp-soft:#4A2E1C; --on-m:#062019;
   color-scheme:dark;
 }}
 :root[data-theme="dark"]{
@@ -43,6 +45,7 @@
   --accent:#FF6B47; --accent-ink:#FF9474; --sea:#2FD0E0; --sea-soft:#134A4E;
   --good:#2BC79A; --on-good:#062019; --good-soft:#123F33; --again:#FF6275; --again-soft:#4A1C24;
   --s1:#FF6F9C; --s2:#FFAE3D; --s3:#22C8D8; --s4:#22BD8E; --s5:#9A6BFF;
+  --m-ind:#2FD0E0; --m-ind-soft:#134A4E; --m-sub:#B39BFF; --m-sub-soft:#2E2A55; --m-imp:#FFA25E; --m-imp-soft:#4A2E1C; --on-m:#062019;
   color-scheme:dark;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -224,14 +227,22 @@ code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--pa
 .conj input{display:block;width:100%;min-width:0;font-size:18px;font-weight:700;padding:4px 0 2px;border:0;border-bottom:2px solid var(--edge);border-radius:0;background:transparent;color:var(--ink)}
 .gridform{width:100%}
 .gridform .big{width:100%;margin-top:14px}
-.tensechip{background:var(--sea-soft);color:var(--ink);margin-top:10px}
+/* moods: indicativo teal, subjuntivo purple, imperativo orange, on the tense switch and the study card's tense chip */
+.m-ind{--m:var(--m-ind);--ms:var(--m-ind-soft)}
+.m-sub{--m:var(--m-sub);--ms:var(--m-sub-soft)}
+.m-imp{--m:var(--m-imp);--ms:var(--m-imp-soft)}
+.tensechip{background:var(--ms,var(--sea-soft));color:var(--m,var(--ink));margin-top:10px}
 .tenses{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 16px}
-.tenses h4{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:6px 2px 0}
+.tenses h4{font-size:11px;font-weight:800;color:var(--m,var(--muted));text-transform:uppercase;letter-spacing:.06em;margin:6px 2px 0;display:flex;align-items:center;gap:6px}
+.tenses h4::before{content:"";width:9px;height:9px;border-radius:3px;background:var(--m)}
 .tenses h4:first-child{margin-top:0}
 .tenses .s2{grid-column:span 2}
 .tenses .s3{grid-column:1/-1}
-.tenses button{min-width:0;padding:9px 4px;border-radius:12px;border:2px solid var(--edge);background:var(--paper);font-size:13px;font-weight:800;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tenses button.on{background:var(--ink);color:var(--bg)}
+.tenses button{min-width:0;padding:9px 4px;border-radius:12px;border:2px solid var(--m,var(--edge));background:var(--ms,var(--paper));font-size:13px;font-weight:800;color:var(--m,var(--muted));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tenses button.on{background:var(--m,var(--ink));color:var(--on-m);box-shadow:0 3px 0 var(--edge)}
+.tenses button.rand.on{background:var(--ink);color:var(--bg)}
+.tenses .dots{display:inline-flex;gap:3px;margin-right:8px;vertical-align:1px}
+.tenses .dots i{width:8px;height:8px;border-radius:3px;background:var(--m)}
 .tenses button:disabled{opacity:.35}
 .tenses button.rand{margin-top:4px}
 @media (max-width:350px){.tenses button{font-size:12px;padding:9px 2px}}
@@ -254,7 +265,7 @@ details.more summary{cursor:pointer;color:var(--muted);font-weight:800;font-size
 <script>
 /* ---------- constants ---------- */
 const KEY='cinco.v1';
-const VERSION=31;               // keep in step with CACHE in sw.js, shown in Ajustes
+const VERSION=32;               // keep in step with CACHE in sw.js, shown in Ajustes
 const DAY=86400000, MIN=60000;
 const RELEARN_GAP=5;           // cards between a miss and its retry
 const MAX_IVL=120;             // days, mastered cards never sleep longer than this
@@ -563,13 +574,13 @@ function tabsBar(){
 // compound) beside the imperative (1×2), then Aleatorio across. Tenses no verb has yet stay in place, greyed out.
 function tenseSwitch(){
   const have=new Set(Object.values(S.cards).filter(c=>c.kind==='conj').map(c=>c.tense)),cur=curTense();
-  const btn=k=>{const T=TENSE[k];return `<button class="${cur===k?'on':''}" data-act="tense" data-t="${k}" ${have.has(k)||cur===k?'':'disabled'} title="${T.name}">${T.short||T.name}</button>`;};
+  const btn=k=>{const T=TENSE[k];return `<button class="m-${T.g} ${cur===k?'on':''}" data-act="tense" data-t="${k}" ${have.has(k)||cur===k?'':'disabled'} title="${T.name}">${T.short||T.name}</button>`;};
   const ind=TENSES.filter(T=>T.g==='ind').map(T=>btn(T.k)).join('');
-  return `<div class="tenses"><h4 class="s3">Indicativo</h4>${ind}
-    <h4 class="s2">Subjuntivo</h4><h4>Imperativo</h4>
+  return `<div class="tenses"><h4 class="s3 m-ind">Indicativo</h4>${ind}
+    <h4 class="s2 m-sub">Subjuntivo</h4><h4 class="m-imp">Imperativo</h4>
     ${btn('subjuntivo')}${btn('subj_imperfecto')}${btn('imperativo')}
     ${btn('subj_perfecto')}${btn('subj_pluscuamperfecto')}${btn('imperativo_negativo')}
-    <button class="s3 rand ${cur==='random'?'on':''}" data-act="tense" data-t="random">Aleatorio · todos los tiempos</button></div>`;
+    <button class="s3 rand ${cur==='random'?'on':''}" data-act="tense" data-t="random"><span class="dots"><i class="m-ind"></i><i class="m-sub"></i><i class="m-imp"></i></span>Aleatorio · todos los tiempos</button></div>`;
 }
 
 /* ---------- scheduling ---------- */
@@ -852,7 +863,7 @@ function studyView(){
 }
 function conjBody(s,c){
   const vb=S.cards[c.verb],T=TENSE[c.tense],f=cardForms(c),ps=asked(f);
-  const top=k=>`<p class="k">${k}</p><div class="word">${esc(c.es)}</div><p class="notes" style="margin-top:6px">${esc(vb?vb.en:'')}</p><span class="verdict tensechip">${T.name}</span>`;
+  const top=k=>`<p class="k">${k}</p><div class="word">${esc(c.es)}</div><p class="notes" style="margin-top:6px">${esc(vb?vb.en:'')}</p><span class="verdict tensechip m-${T.g}">${T.name}</span>`;
   // A verb's note describes its present tense (o→ue, yo-go…), so it would mislead under any other tense.
   const notes=vb&&vb.notes&&c.tense==='presente'?`<p class="notes">${esc(vb.notes)}</p>`:'';
   const spk=`<button class="speak" data-act="speakTable" aria-label="Escucha la tabla">🔊</button>`;
