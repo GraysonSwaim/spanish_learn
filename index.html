@@ -225,8 +225,11 @@ code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--pa
 .gridform{width:100%}
 .gridform .big{width:100%;margin-top:14px}
 .tensechip{background:var(--sea-soft);color:var(--ink);margin-top:10px}
-.tenses{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
-.tenses button{padding:7px 12px;border-radius:999px;border:2px solid var(--edge);background:var(--paper);font-size:14px;font-weight:800;color:var(--muted)}
+.tenses{display:flex;flex-direction:column;gap:6px;margin:0 0 14px}
+.tenses .tg{display:grid;grid-template-columns:88px 1fr;gap:6px;align-items:start}
+.tenses .tg>span{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding-top:8px}
+.tenses .tg>div{display:flex;flex-wrap:wrap;gap:5px}
+.tenses button{padding:5px 10px;border-radius:999px;border:2px solid var(--edge);background:var(--paper);font-size:13px;font-weight:800;color:var(--muted)}
 .tenses button.on{background:var(--ink);color:var(--bg)}
 details.more{width:100%;margin-top:16px;text-align:center}
 details.more summary{cursor:pointer;color:var(--muted);font-weight:800;font-size:14px;padding:6px}
@@ -247,7 +250,7 @@ details.more summary{cursor:pointer;color:var(--muted);font-weight:800;font-size
 <script>
 /* ---------- constants ---------- */
 const KEY='cinco.v1';
-const VERSION=28;               // keep in step with CACHE in sw.js, shown in Ajustes
+const VERSION=29;               // keep in step with CACHE in sw.js, shown in Ajustes
 const DAY=86400000, MIN=60000;
 const RELEARN_GAP=5;           // cards between a miss and its retry
 const MAX_IVL=120;             // days, mastered cards never sleep longer than this
@@ -262,10 +265,24 @@ const STAGES=[
 // Persons in the order of every tense column in a CSV (yo|tú|él|nosotros|vosotros|ellos).
 const PERSONS=['yo','tú','él / ella / usted','nosotros','vosotros','ellos / ellas / ustedes'];
 const PRONOUNS=[['yo'],['tú','tu','vos'],['él','el','ella','usted'],['nosotros','nosotras'],['vosotros','vosotras'],['ellos','ellas','ustedes']];
-const TENSES=[{k:'presente',name:'Presente'},{k:'preterito',name:'Pretérito'},{k:'imperfecto',name:'Imperfecto'},{k:'futuro',name:'Futuro'},
-  {k:'condicional',name:'Condicional'},{k:'subjuntivo',name:'Subjuntivo',long:'Presente de subjuntivo',que:true}];
+// Keys are CSV column names; new tenses go at the end so headerless files keep their column order.
+// short labels the tense switch, where the tenses are grouped by mood.
+const IMP_PERSONS=['','tú','usted','nosotros','vosotros','ustedes'];   // commands have no yo
+const TENSES=[
+  {k:'presente',name:'Presente',g:'ind'},{k:'preterito',name:'Pretérito',g:'ind'},{k:'imperfecto',name:'Imperfecto',g:'ind'},
+  {k:'futuro',name:'Futuro',g:'ind'},{k:'condicional',name:'Condicional',g:'ind'},
+  {k:'subjuntivo',name:'Presente de subjuntivo',short:'Presente',g:'sub',que:true},
+  {k:'subj_imperfecto',name:'Imperfecto de subjuntivo',short:'Imperfecto',g:'sub',que:true},
+  {k:'imperativo',name:'Imperativo afirmativo',short:'Afirmativo',g:'imp',persons:IMP_PERSONS},
+  {k:'imperativo_negativo',name:'Imperativo negativo',short:'Negativo',g:'imp',persons:IMP_PERSONS},
+  {k:'perfecto',name:'Pretérito perfecto',short:'Perfecto',g:'ind'},{k:'pluscuamperfecto',name:'Pluscuamperfecto',short:'Pluscuamp.',g:'ind'},
+  {k:'futuro_perfecto',name:'Futuro perfecto',short:'Fut. perfecto',g:'ind'},{k:'condicional_perfecto',name:'Condicional perfecto',short:'Cond. perfecto',g:'ind'},
+  {k:'subj_perfecto',name:'Perfecto de subjuntivo',short:'Perfecto',g:'sub',que:true},
+  {k:'subj_pluscuamperfecto',name:'Pluscuamperfecto de subjuntivo',short:'Pluscuamp.',g:'sub',que:true},
+];
 const TENSE=Object.fromEntries(TENSES.map(t=>[t.k,t]));
-const person=(p,t)=>(TENSE[t]&&TENSE[t].que?'que ':'')+PERSONS[p];
+const MOODS=[['ind','Indicativo'],['sub','Subjuntivo'],['imp','Imperativo']];
+const person=(p,t)=>{const T=TENSE[t]||{};return T.persons?T.persons[p]:(T.que?'que ':'')+PERSONS[p];};
 
 /* ---------- state ---------- */
 let S=load();
@@ -514,8 +531,9 @@ function syncConj(v){
   }
   for(const o of old)removeCard(o.id);
 }
+// Brings older saves up to date (v.conj, per-person drills) and refreshes tense names on existing cards.
 (function migrateConj(){
-  const verbs=Object.values(S.cards).filter(c=>!c.kind&&c.conj);
+  const verbs=Object.values(S.cards).filter(c=>!c.kind&&(c.conj||c.tenses));
   if(!verbs.length)return;
   verbs.forEach(syncConj);save();
 })();
@@ -529,13 +547,21 @@ function conjTable(f,tense,cell){
 }
 function moreTables(v,skip,label){
   const t=tables(v);
-  const h=TENSES.filter(T=>t[T.k]&&T.k!==skip).map(T=>`<p class="tname">${T.long||T.name}</p>${conjTable(splitForms(t[T.k]),T.k)}`).join('');
+  const h=TENSES.filter(T=>t[T.k]&&T.k!==skip).map(T=>`<p class="tname">${T.name}</p>${conjTable(splitForms(t[T.k]),T.k)}`).join('');
   return h?`<details class="more"><summary>${label}</summary>${h}</details>`:'';
 }
 function tabsBar(){
   const t=S.settings.tab;
   return `<div class="seg wide tabs">${[['vocab','Vocabulario'],['conj','Conjugación']].map(([k,l])=>`<button class="${t===k?'on':''}" data-act="tab" data-t="${k}">${l}</button>`).join('')}</div>
-  ${t==='conj'?`<div class="tenses">${[...TENSES.map(T=>[T.k,T.name]),['random','Aleatorio']].map(([k,l])=>`<button class="${curTense()===k?'on':''}" data-act="tense" data-t="${k}">${l}</button>`).join('')}</div>`:''}`;
+  ${t==='conj'?tenseSwitch():''}`;
+}
+// Only tenses that some verb actually has get a button, grouped by mood.
+function tenseSwitch(){
+  const have=new Set(Object.values(S.cards).filter(c=>c.kind==='conj').map(c=>c.tense)),cur=curTense();
+  const chip=(k,l)=>`<button class="${cur===k?'on':''}" data-act="tense" data-t="${k}">${l}</button>`;
+  const rows=MOODS.map(([g,label])=>{const ts=TENSES.filter(T=>T.g===g&&(have.has(T.k)||T.k===cur));
+    return ts.length?`<div class="tg"><span>${label}</span><div>${ts.map(T=>chip(T.k,T.short||T.name)).join('')}</div></div>`:'';}).join('');
+  return `<div class="tenses">${rows}<div class="tg"><span></span><div>${chip('random','Aleatorio')}</div></div></div>`;
 }
 
 /* ---------- scheduling ---------- */
@@ -549,11 +575,11 @@ function counts(){
 function unseenIds(){
   const ids=S.order.filter(id=>inTab(S.cards[id])&&!S.cards[id].dropped&&S.cards[id].stage===0);
   if(S.settings.tab!=='conj'||curTense()!=='random')return ids;
-  // Aleatorio staggers the tenses: a verb's present comes first, and each later tense arrives five verbs further on,
+  // Aleatorio staggers the tenses: a verb's present comes first, and each later tense arrives three verbs further on,
   // so new cards mix tenses without one verb's six tables arriving together.
   const rank={},ti=Object.fromEntries(TENSES.map((T,i)=>[T.k,i]));let n=0;
   for(const id of S.order){const c=S.cards[id];if(c&&!c.kind&&c.tenses)rank[id]=n++;}
-  const key=c=>c.tense?(rank[c.verb]??n)+ti[c.tense]*5:Infinity;
+  const key=c=>c.tense?(rank[c.verb]??n)+ti[c.tense]*3:Infinity;
   return ids.map(id=>S.cards[id]).sort((a,b)=>key(a)-key(b)||(ti[a.tense]??9)-(ti[b.tense]??9)).map(c=>c.id);
 }
 function buildQueue(){
@@ -656,6 +682,7 @@ function parseDelimited(text){
 const ALIASES={es:['spanish','es','español','espanol','front','word','term','palabra'],en:['english','en','back','meaning','definition','translation','inglés','ingles'],ex:['example','ex','sentence','ejemplo','context'],notes:['notes','note','hint','notas'],tags:['tags','tag','category','topic'],presente:['presente','present','conjugation','conjugación','conjugacion','conj','forms','formas'],
   preterito:['preterito','pretérito','preterite'],imperfecto:['imperfecto','imperfect'],futuro:['futuro','future'],
   condicional:['condicional','conditional'],subjuntivo:['subjuntivo','subjunctive','presente de subjuntivo']};
+for(const T of TENSES)if(!ALIASES[T.k])ALIASES[T.k]=[T.k,norm(T.name)];
 function toRecords(rows){
   if(!rows.length)return [];
   const head=rows[0].map(h=>norm(h));
@@ -796,7 +823,7 @@ function studyView(){
 }
 function conjBody(s,c){
   const vb=S.cards[c.verb],T=TENSE[c.tense],f=cardForms(c),ps=asked(f);
-  const top=k=>`<p class="k">${k}</p><div class="word">${esc(c.es)}</div><p class="notes" style="margin-top:6px">${esc(vb?vb.en:'')}</p><span class="verdict tensechip">${T.long||T.name}</span>`;
+  const top=k=>`<p class="k">${k}</p><div class="word">${esc(c.es)}</div><p class="notes" style="margin-top:6px">${esc(vb?vb.en:'')}</p><span class="verdict tensechip">${T.name}</span>`;
   // A verb's note describes its present tense (o→ue, yo-go…), so it would mislead under any other tense.
   const notes=vb&&vb.notes&&c.tense==='presente'?`<p class="notes">${esc(vb.notes)}</p>`:'';
   const spk=`<button class="speak" data-act="speakTable" aria-label="Escucha la tabla">🔊</button>`;
@@ -889,7 +916,7 @@ function editView(){
     <label>Notas<input id="f_notes" placeholder="En España, coche; en México, carro" value="${v('notes')}"></label>
     <label>Etiqueta<input id="f_tags" autocapitalize="off" placeholder="transporte" value="${v('tags')}"></label>
     <div class="fl">Conjugación<small style="display:block;font-weight:600">Solo para verbos. Cada tiempo que rellenes es una tarjeta en la pestaña Conjugación.</small>
-      ${TENSES.map(T=>{const f=splitForms(tables(c)[T.k]);return `<details class="more" ${T.k==='presente'?'open':''}><summary>${T.long||T.name}${f.some(Boolean)?' ✓':''}</summary><div class="forms">${[0,1,2,3,4,5].map(p=>`<label>${person(p,T.k)}<input id="f_${T.k}_${p}" lang="es" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(f[p]||'')}"></label>`).join('')}</div></details>`;}).join('')}</div>
+      ${TENSES.map(T=>{const f=splitForms(tables(c)[T.k]);return `<details class="more" ${T.k==='presente'?'open':''}><summary>${T.name}${f.some(Boolean)?' ✓':''}</summary><div class="forms">${[0,1,2,3,4,5].map(p=>`<label>${person(p,T.k)||'yo (no tiene)'}<input id="f_${T.k}_${p}" lang="es" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(f[p]||'')}"></label>`).join('')}</div></details>`;}).join('')}</div>
     <button type="submit" class="cta">${c?'Guardar cambios':'Añadir tarjeta'}</button>
   </form>
   <p class="foot">${c?'Si cambias el español, la tarjeta conserva su progreso.':'Si separas alternativas con /, todas valen al escribir.'}</p>`;
@@ -971,7 +998,7 @@ function howView(){
   <h3>Vocabulario y conjugación</h3>
   <p>Arriba del inicio eliges entre dos mazos. Cada uno tiene sus propias etapas, sus repasos y su límite de nuevas por día, así que puedes dedicar una sesión a palabras y otra a verbos.</p>
   <p>Un verbo sale una sola vez en <b>Vocabulario</b> (<i>tener</i> ↔ <i>to have</i>); al ver la respuesta puedes abrir todas sus tablas. En <b>Conjugación</b> cada tiempo de cada verbo es una tarjeta: ves <b>tener · Pretérito</b> y conjugas la tabla entera. Primero la estudias, luego la dices en voz alta y te calificas, y desde la etapa 4 escribes las seis formas. Si todas están bien, sube sola; si no, ves cuáles fallaste y decides tú. El pronombre es opcional: <i>nosotros tuvimos</i> también vale.</p>
-  <p>Debajo de las pestañas eliges el tiempo: Presente, Pretérito, Imperfecto, Futuro, Condicional o Subjuntivo. Cada tiempo lleva su propio progreso, así que dominar <i>tener</i> en presente no lo da por sabido en pretérito. <b>Aleatorio</b> mezcla todos los tiempos en la misma sesión y te dice cuál toca en cada tarjeta.</p>
+  <p>Debajo de las pestañas eliges el tiempo, agrupado en indicativo, subjuntivo e imperativo; solo aparecen los tiempos que tienen tus verbos. En el imperativo no hay forma de yo, así que se piden tú, usted, nosotros, vosotros y ustedes. Cada tiempo lleva su propio progreso, así que dominar <i>tener</i> en presente no lo da por sabido en pretérito. <b>Aleatorio</b> mezcla todos los tiempos en la misma sesión y te dice cuál toca en cada tarjeta.</p>
   <p>Las formas de vosotros aparecen en la tabla, pero solo se piden si activas <b>Ajustes › Practicar vosotros</b>.</p>
   <h3>Descartar palabras</h3>
   <p>Si una palabra no te merece la pena, toca <b>Descartar esta palabra</b> debajo de la tarjeta. No vuelve a programarse y sigue descartada aunque reimportes el CSV de donde vino. Deshacer la devuelve al momento; más tarde, búscala en Explorar tarjetas › Descartadas y toca <b>Recuperar</b>.</p>
@@ -982,7 +1009,7 @@ function howView(){
   <p>Hasta que la descargues, las palabras suenan con grabaciones hechas en el Mac y, si no hay grabación, con la voz del iPhone. Si cambias el acento a España, esa voz se descarga aparte.</p>
   <h3>Tus datos</h3>
   <p>Las tarjetas y el progreso se guardan en este teléfono. Importa mazos en CSV desde iCloud Drive. Toca <b>Guardar copia de seguridad</b> para guardar un archivo que puedas restaurar más tarde.</p>
-  <p>Columnas del CSV: <code>spanish,english,example,notes,tags</code>. Solo las dos primeras son obligatorias. Los verbos pueden llevar una columna por tiempo (<code>presente</code>, <code>preterito</code>, <code>imperfecto</code>, <code>futuro</code>, <code>condicional</code>, <code>subjuntivo</code>), cada una con las seis formas separadas por <code>|</code>: <code>tengo|tienes|tiene|tenemos|tenéis|tienen</code>. Reimportar un archivo actualiza las tarjetas que ya existen sin perder su progreso; se emparejan por el texto en español.</p>
+  <p>Columnas del CSV: <code>spanish,english,example,notes,tags</code>. Solo las dos primeras son obligatorias. Los verbos pueden llevar una columna por tiempo (<code>presente</code>, <code>preterito</code>, <code>imperfecto</code>, <code>futuro</code>, <code>condicional</code>, <code>subjuntivo</code>, <code>subj_imperfecto</code>, <code>imperativo</code>, <code>imperativo_negativo</code>, <code>perfecto</code>, <code>pluscuamperfecto</code>, <code>futuro_perfecto</code>, <code>condicional_perfecto</code>, <code>subj_perfecto</code>, <code>subj_pluscuamperfecto</code>), cada una con las seis formas separadas por <code>|</code>: <code>tengo|tienes|tiene|tenemos|tenéis|tienen</code>. Reimportar un archivo actualiza las tarjetas que ya existen sin perder su progreso; se emparejan por el texto en español.</p>
   <p>Si en la columna del español separas alternativas con <code>/</code>, todas valen al escribir, por ejemplo <code>el coche / el carro</code>.</p>
   <h3>Copias de un toque con un Atajo</h3>
   <p>Safari no puede escribir en una carpeta por su cuenta, así que la copia normal pasa por el menú de compartir. Un Atajo se salta ese paso: Cinco copia tu progreso y le pide al Atajo que lo guarde siempre en el mismo archivo.</p>

@@ -5,13 +5,16 @@ Usage: validate_cards.py deck.csv [--existing other.csv ...]
 
 Checks the header, required fields, quoting/column counts, duplicate Spanish
 (within the file and against any --existing decks), that each example
-contains its word, and that each tense column (presente, preterito, imperfecto,
-futuro, condicional, subjuntivo) has six |-separated forms. Exit code 1 if there are errors; warnings don't fail.
+contains its word, and that each tense column (see TENSES) has six |-separated
+forms (imperatives leave yo empty). Exit code 1 if there are errors; warnings don't fail.
 """
 import csv, io, re, sys, unicodedata
 
 REQUIRED = ["spanish", "english"]
-TENSES = ["presente", "preterito", "imperfecto", "futuro", "condicional", "subjuntivo"]
+TENSES = ["presente", "preterito", "imperfecto", "futuro", "condicional", "subjuntivo", "subj_imperfecto",
+          "imperativo", "imperativo_negativo", "perfecto", "pluscuamperfecto", "futuro_perfecto",
+          "condicional_perfecto", "subj_perfecto", "subj_pluscuamperfecto"]
+IMPERATIVES = {"imperativo", "imperativo_negativo"}   # no yo form: the first slot stays empty
 COLUMNS = ["spanish", "english", "example", "notes", "tags"] + TENSES
 
 def strip(s):
@@ -94,7 +97,9 @@ def main(argv):
             forms = [f.strip() for f in table.split("|")]
             if len(forms) != 6:
                 errors.append(f"line {n}: {t} needs 6 forms separated by | (yo|tú|él|nosotros|vosotros|ellos), got {len(forms)}")
-            elif any(not f for i, f in enumerate(forms) if i != 4):
+            elif t in IMPERATIVES and forms[0]:
+                errors.append(f"line {n}: {t} has a yo form; commands have none, so leave the first slot empty")
+            elif any(not f for i, f in enumerate(forms) if i != 4 and not (i == 0 and t in IMPERATIVES)):
                 errors.append(f"line {n}: {t} has an empty form; only vosotros (the 5th) may be left empty")
         if tables:
             if tables and "presente" not in tables:
