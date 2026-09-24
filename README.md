@@ -66,16 +66,17 @@ Your progress is stored on the phone itself. The iCloud Drive backup file is the
 A CSV with a header row. Only the first two columns are required.
 
 ```csv
-spanish,english,example,notes,tags
-el coche / el carro,car,"Mi coche es rojo.",Spain says coche; Mexico says carro,transport
-saber,to know,"No sé la respuesta.",Facts and skills; conocer is for people,verbs
+spanish,english,example,notes,tags,conjugation
+el coche / el carro,car,"Mi coche es rojo.",Spain says coche; Mexico says carro,transport,
+saber,to know,"No sé la respuesta.",Facts and skills; conocer is for people,verbs,sé|sabes|sabe|sabemos|sabéis|saben
 ```
 
 - Write it in Numbers, Excel, Google Sheets, or a text editor and export as CSV (UTF-8). Put it in iCloud Drive/Spanish.
 - Alternatives separated by `/` are all accepted when typing. Text in parentheses is ignored when checking.
 - Cards are matched on the Spanish text. Re-importing the same file updates the English, example and notes of existing cards **without losing their progress**, and adds any new rows. So you can keep one big `words.csv` and re-import it after editing.
-- Anki exports work too: in Anki, File → Export → Notes in Plain Text (.txt), then import that file. Tab-separated files and files without a header row are read as Spanish, English, example, notes, tags in that order.
-- Column names are flexible: `spanish`/`es`/`front`, `english`/`en`/`back`, `example`/`sentence`, `notes`, `tags`.
+- Anki exports work too: in Anki, File → Export → Notes in Plain Text (.txt), then import that file. Tab-separated files and files without a header row are read as Spanish, English, example, notes, tags, conjugation in that order.
+- **Verbs and the Conjugación tab.** Give a verb its six present-tense forms in `conjugation`, separated by `|` (yo, tú, él, nosotros, vosotros, ellos). The verb stays one card on the Vocabulario tab (with its table on the answer), and each form becomes its own card on the Conjugación tab: you see *nosotros · saber* and type *sabemos*. Each tab has its own stages and daily new-card limit. Vosotros forms are only drilled if you turn on Settings → *Practicar vosotros*. Edit the forms on the verb's card; don't write a row per form.
+- Column names are flexible: `spanish`/`es`/`front`, `english`/`en`/`back`, `example`/`sentence`, `notes`, `tags`, `conjugation`/`forms`.
 
 **Export:** Settings → *Export cards as CSV* gives you every card with its stage and next review date, for editing or analysis on your Mac.
 

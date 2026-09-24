@@ -59,10 +59,11 @@ def spoken(text):
     return re.sub(r'\s*[/;].*$', '', text).replace('…', '').strip()
 
 # ---- reading decks the way the app imports them ----
+CONJ_HEADERS = {'conjugation', 'conjugación', 'conjugacion', 'conj', 'forms', 'formas'}
 ES_HEADERS = {'spanish', 'es', 'español', 'espanol', 'front', 'word', 'term', 'palabra'}
 KNOWN = ES_HEADERS | {'english', 'en', 'back', 'meaning', 'definition', 'translation', 'inglés', 'ingles',
                       'example', 'ex', 'sentence', 'ejemplo', 'context', 'notes', 'note', 'hint', 'notas',
-                      'tags', 'tag', 'category', 'topic'}
+                      'tags', 'tag', 'category', 'topic'} | CONJ_HEADERS
 
 def csv_words(path):
     text = path.read_text(encoding='utf-8-sig', errors='replace')
@@ -73,11 +74,19 @@ def csv_words(path):
     if not rows:
         return []
     head = [norm(h) for h in rows[0]]
-    col = 0
+    col, conj = 0, None
     if any(h in KNOWN for h in head):
         col = next((i for i, h in enumerate(head) if h in ES_HEADERS), 0)
+        conj = next((i for i, h in enumerate(head) if h in CONJ_HEADERS), None)
         rows = rows[1:]
-    return [r[col].strip() for r in rows if len(r) > 1 and r[col].strip() and r[1].strip()]
+    words = []
+    for r in rows:
+        if len(r) > 1 and r[col].strip() and r[1].strip():
+            words.append(r[col].strip())
+            # Each form of a verb's conjugation column is a card of its own in the app's Conjugación tab.
+            if conj is not None and conj < len(r):
+                words += [f.strip() for f in r[conj].split('|') if f.strip()]
+    return words
 
 def newest_backup():
     found = [p for d in (ICLOUD / 'backups', SHORTCUTS / 'backups') if d.is_dir()

@@ -4,13 +4,13 @@
 Usage: validate_cards.py deck.csv [--existing other.csv ...]
 
 Checks the header, required fields, quoting/column counts, duplicate Spanish
-(within the file and against any --existing decks), and that each example
-contains its word. Exit code 1 if there are errors; warnings don't fail.
+(within the file and against any --existing decks), that each example
+contains its word, and that a conjugation column has six |-separated forms. Exit code 1 if there are errors; warnings don't fail.
 """
 import csv, io, re, sys, unicodedata
 
 REQUIRED = ["spanish", "english"]
-COLUMNS = ["spanish", "english", "example", "notes", "tags"]
+COLUMNS = ["spanish", "english", "example", "notes", "tags", "conjugation"]
 
 def strip(s):
     s = s.lower().strip().replace("ñ", "\x01")
@@ -74,7 +74,7 @@ def main(argv):
             errors.append(f"line {n}: {len(r)} fields, expected {len(header)}. A comma inside a field needs quotes.")
             continue
         g = lambda c: r[idx[c]].strip() if c in idx and idx[c] < len(r) else ""
-        es, en, ex, notes, tag = (g(c) for c in COLUMNS)
+        es, en, ex, notes, tag, conj = (g(c) for c in COLUMNS)
         if not es or not en:
             errors.append(f"line {n}: spanish and english are both required ({es!r}, {en!r})"); continue
         k = key(es)
@@ -85,7 +85,15 @@ def main(argv):
             warnings.append(f"line {n}: '{es}' already exists in the deck you passed with --existing (re-import will update it, not add it)")
         if len(es.split()) > 6:
             warnings.append(f"line {n}: spanish is long ({len(es.split())} words); the learner has to type this")
-        if ex and stem(es) not in strip(ex):
+        if conj:
+            forms = [f.strip() for f in conj.split("|")]
+            if len(forms) != 6:
+                errors.append(f"line {n}: conjugation needs 6 forms separated by | (yo|tú|él|nosotros|vosotros|ellos), got {len(forms)}")
+            elif any(not f for i, f in enumerate(forms) if i != 4):
+                errors.append(f"line {n}: conjugation has an empty form; only vosotros (the 5th) may be left empty")
+            if not re.search(r"(ar|er|ir|ír)(se)?$", strip(es.split("/")[0].strip())):
+                warnings.append(f"line {n}: '{es}' has a conjugation but doesn't look like an infinitive")
+        if ex and stem(es) not in strip(ex) and not (conj and any(strip(f.split("/")[0]).split()[-1] in strip(ex) for f in conj.split("|") if f.strip())):
             warnings.append(f"line {n}: example may not contain '{es}' (fine if the verb is irregular): {ex}")
         if notes and len(notes) > 100:
             warnings.append(f"line {n}: note is {len(notes)} chars; keep notes to one line")

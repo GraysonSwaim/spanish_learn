@@ -12,10 +12,10 @@ Cinco is a personal Spanish flashcard app. Cards climb five stages: first the le
 A UTF-8 CSV with this exact header, one card per row:
 
 ```csv
-spanish,english,example,notes,tags
+spanish,english,example,notes,tags,conjugation
 ```
 
-- `spanish` and `english` are required. The other three may be empty.
+- `spanish` and `english` are required. The others may be empty. `conjugation` is only for verbs; a deck without verbs can leave the column out.
 - Quote any field containing a comma, a quote, or a line break (`"Hola, ¿cómo estás?"`). Double a quote inside a quoted field (`""`).
 - Keep the columns in this order. The app also reads Anki tab-separated exports, but produce CSV.
 
@@ -32,6 +32,8 @@ The Spanish text is the card's identity. Re-importing a row with the same Spanis
 **notes** — only when a note earns its place: an irregular conjugation (`tengo, tienes, tiene`), a gender exception (`el agua` is feminine), a false friend, a ser/estar or saber/conocer contrast, a Spain-vs-Latin-America difference. One line, under about 80 characters. An empty notes field is the normal case; a deck where every row has a note is padded.
 
 **tags** — one lowercase word (`food`, `verbs`, `travel`). Keep the set small and reuse tags across decks so Browse filtering stays useful.
+
+**conjugation** — for a verb, its six present-tense forms separated by `|`, in the order yo, tú, él, nosotros, vosotros, ellos: `tengo|tienes|tiene|tenemos|tenéis|tienen`. The app keeps the verb as one vocabulary card (infinitive ↔ meaning, with the table shown on the answer) and makes a separate drill for each form in its Conjugación tab, where the learner sees `nosotros · tener` and types `tenemos`. So never write a separate row per conjugated form; put the forms here. Reflexive verbs include the pronoun (`me visto|te vistes|se viste|nos vestimos|os vestís|se visten`). Vosotros is always filled in (drilling it is a setting in the app); only leave it empty for a verb that has no vosotros form. When the verb's spanish has alternatives, give each form the same alternatives (`empiezo / comienzo|...`). Once the table is there, notes should name the pattern (`o→ue, except nosotros and vosotros`) rather than list forms. Double-check every form: a wrong form typed a hundred times is worse than none.
 
 ## Choosing and ordering words
 
