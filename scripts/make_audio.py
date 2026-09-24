@@ -16,7 +16,7 @@ see norm(), strip(), hash() and speak() in index.html.
 Cleanup: a recording is deleted once its word is in no deck and no backup, or is dropped in the backup.
 Mastered words keep their audio, since they still come back for review.
 """
-import argparse, csv, io, json, os, re, subprocess, sys, tempfile, unicodedata
+import argparse, base64, csv, gzip, io, json, os, re, subprocess, sys, tempfile, unicodedata
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -95,12 +95,18 @@ def table_text(table):
     forms = [f.strip() for f in table.split('|')]
     return ', '.join(f.split('/')[0].strip() for i, f in enumerate(forms) if f and i != 4)
 
+def unpack(text):
+    """Shortcut backups are gzipped and base64'd behind the app's PACKED marker; share-sheet ones are plain JSON."""
+    if text.startswith('cinco-gz:'):
+        return gzip.decompress(base64.b64decode(''.join(text[9:].split()))).decode('utf-8')
+    return text
+
 def newest_backup():
     found = [p for d in (ICLOUD / 'backups', SHORTCUTS / 'backups') if d.is_dir()
              for p in d.iterdir() if p.suffix in ('.json', '.txt') and 'cinco' in p.name.lower()]
     for p in sorted(found, key=lambda p: p.stat().st_mtime, reverse=True):
         try:
-            data = json.loads(p.read_text(encoding='utf-8-sig').strip())
+            data = json.loads(unpack(p.read_text(encoding='utf-8-sig').strip()))
             if isinstance(data, dict) and 'cards' in data:
                 return p, data
         except (ValueError, OSError):

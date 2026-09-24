@@ -250,7 +250,7 @@ details.more summary{cursor:pointer;color:var(--muted);font-weight:800;font-size
 <script>
 /* ---------- constants ---------- */
 const KEY='cinco.v1';
-const VERSION=29;               // keep in step with CACHE in sw.js, shown in Ajustes
+const VERSION=30;               // keep in step with CACHE in sw.js, shown in Ajustes
 const DAY=86400000, MIN=60000;
 const RELEARN_GAP=5;           // cards between a miss and its retry
 const MAX_IVL=120;             // days, mastered cards never sleep longer than this
@@ -726,13 +726,34 @@ async function shareFile(name,text,type){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);return true;
 }
+// Shortcut backups travel through the clipboard, and a large clipboard makes the Shortcut's Save File fail
+// ("file doesn't exist"). With conjugation tables a backup passed 400 KB, so it goes gzipped and base64'd
+// (about 60 KB), marked with PACKED. Restore and scripts/make_audio.py read both forms.
+const PACKED='cinco-gz:';
+async function packBackup(json){
+  if(!('CompressionStream' in window))return json;
+  const gz=new Uint8Array(await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
+  let bin='';for(let i=0;i<gz.length;i+=0x8000)bin+=String.fromCharCode.apply(null,gz.subarray(i,i+0x8000));
+  return PACKED+btoa(bin);
+}
+async function unpackBackup(text){
+  text=text.replace(/^\uFEFF/,'').trim();
+  if(!text.startsWith(PACKED))return text;
+  const bin=atob(text.slice(PACKED.length).replace(/\s+/g,''));
+  return new Response(new Blob([Uint8Array.from(bin,c=>c.charCodeAt(0))]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+}
 async function backup(){
-  const json=JSON.stringify(S,null,1);
   if(S.settings.backupMode==='shortcut'){
     // Copy the backup to the clipboard, then hand it to a Shortcut that saves it to a fixed iCloud path.
+    // Safari only allows a clipboard write during the tap, so the still-compressing text goes in as a promise.
     let copied=false;
-    try{await navigator.clipboard.writeText(json);copied=true;}
-    catch(e){toast('No se pudo copiar. Usaremos el menú de compartir.');}
+    const packed=packBackup(JSON.stringify(S));
+    try{
+      if(window.ClipboardItem&&navigator.clipboard.write)
+        await navigator.clipboard.write([new ClipboardItem({'text/plain':packed.then(t=>new Blob([t],{type:'text/plain'}))})]);
+      else await navigator.clipboard.writeText(await packed);
+      copied=true;
+    }catch(e){toast('No se pudo copiar. Usaremos el menú de compartir.');}
     if(copied){
       S.lastBackup=Date.now();save();
       location.href='shortcuts://run-shortcut?name='+encodeURIComponent(S.settings.shortcutName)+'&input=clipboard';
@@ -740,7 +761,7 @@ async function backup(){
       return;
     }
   }
-  const ok=await shareFile('cinco-backup-'+todayKey()+'.json',json,'application/json');
+  const ok=await shareFile('cinco-backup-'+todayKey()+'.json',JSON.stringify(S,null,1),'application/json');
   if(ok){S.lastBackup=Date.now();save();render();}
 }
 
@@ -750,7 +771,7 @@ fileCsv.onchange=async()=>{const f=fileCsv.files[0];fileCsv.value='';if(!f)retur
   const text=await f.text();const r=importRecords(toRecords(parseDelimited(text)));
   toast(`Añadidas: ${r.added}. Actualizadas: ${r.updated}.`+(r.verbs?` Verbos con conjugación: ${r.verbs}.`:'')+(r.skipped?` Omitidas: ${r.skipped}.`:''));render();};
 fileJson.onchange=async()=>{const f=fileJson.files[0];fileJson.value='';if(!f)return;
-  try{const s=JSON.parse((await f.text()).replace(/^\uFEFF/,'').trim());if(!s||!s.cards)throw 0;ui.restoreDraft=s;ui.view='restore';render();}
+  try{const s=JSON.parse(await unpackBackup(await f.text()));if(!s||!s.cards)throw 0;ui.restoreDraft=s;ui.view='restore';render();}
   catch(e){toast('Ese archivo no es una copia de Cinco.');}};
 
 /* ---------- views ---------- */
