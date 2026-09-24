@@ -273,17 +273,35 @@ let speakTimer=null,currentUtterance=null,speechUnlocked=false;
 try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}
 // iOS only allows speech that starts from a tap until the engine has been used once from a tap.
 // Speaking an empty utterance on the first touch unlocks automatic speech for the rest of the session.
+// iPhone sends web speech to the earpiece (quiet, top of the phone) unless the page is playing media.
+// A looping, silent <audio> puts the page in playback mode, so speech comes out of the loudspeaker.
+// It has to start from a tap, and pauses while the app is in the background.
+let silent=null;
+function keepSpeaker(){
+  if(!silent){
+    const n=800,b=new Uint8Array(44+n),v=new DataView(b.buffer);   // 0.1s of 8 kHz, 8-bit silence
+    const w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i);};
+    w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
+    v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);
+    silent=new Audio(URL.createObjectURL(new Blob([b],{type:'audio/wav'})));
+    silent.loop=true;silent.setAttribute('playsinline','');silent.setAttribute('x-webkit-airplay','deny');
+  }
+  if(silent.paused&&!document.hidden)silent.play().catch(()=>{});
+}
 function unlockSpeech(){
+  keepSpeaker();
   if(speechUnlocked||!('speechSynthesis' in window))return;
   speechUnlocked=true;
   // An empty utterance is silent anyway. Don't set volume 0: iOS can carry it over to later speech.
   try{speechSynthesis.speak(new SpeechSynthesisUtterance(''));}catch(e){}
 }
-document.addEventListener('touchend',unlockSpeech,{once:true,passive:true});
-document.addEventListener('click',unlockSpeech,{once:true});
+// Not once: iOS can refuse the first play() or stop the silent track after a call, so every tap retries it.
+document.addEventListener('touchend',unlockSpeech,{passive:true});
+document.addEventListener('click',unlockSpeech);
 function speak(text){
   if(!('speechSynthesis' in window))return;
   if(document.hidden)return;
+  keepSpeaker();
   const t=text.replace(/\s*[\/;].*$/,'').replace(/[…]/g,'').trim();
   if(!t)return;
   clearTimeout(speakTimer);
@@ -778,7 +796,11 @@ app.addEventListener('pointercancel',endDrag);
 app.addEventListener('click',e=>{if(Date.now()-swipedAt<400)e.stopImmediatePropagation();},true);
 
 render();
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&'speechSynthesis' in window)speechSynthesis.resume();});
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){if(silent)silent.pause();return;}
+  if('speechSynthesis' in window)speechSynthesis.resume();
+  keepSpeaker();
+});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
 </script>
