@@ -215,7 +215,7 @@ code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--pa
 <script>
 /* ---------- constants ---------- */
 const KEY='cinco.v1';
-const VERSION=20;               // keep in step with CACHE in sw.js, shown in Ajustes
+const VERSION=21;               // keep in step with CACHE in sw.js, shown in Ajustes
 const DAY=86400000, MIN=60000;
 const RELEARN_GAP=5;           // cards between a miss and its retry
 const MAX_IVL=120;             // days, mastered cards never sleep longer than this
@@ -272,57 +272,71 @@ let speakTimer=null,currentUtterance=null,speechUnlocked=false;
 // Safari's default audio session is "ambient", which plays quietly and obeys the silent switch.
 // "playback" uses the full media volume, like a music or video app (Safari 16.4+).
 try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}
-// iOS only allows speech that starts from a tap until the engine has been used once from a tap.
-// Speaking an empty utterance on the first touch unlocks automatic speech for the rest of the session.
-// iPhone sends web speech to the earpiece (quiet, top of the phone) unless the page is playing media.
-// A looping, silent <audio> puts the page in playback mode, so speech comes out of the loudspeaker.
-// It has to start from a tap, and pauses while the app is in the background.
-let silent=null;
-// A short, loud three-note chime as a real audio file. Ajustes › Probar sonido plays it before the voice,
-// so a quiet voice after a loud chime points at the speech engine rather than the phone's audio routing.
-function chime(){
-  const rate=22050,notes=[523.25,659.25,783.99],len=Math.round(rate*.18),n=len*notes.length;
+
+// Recorded audio. iOS speech turned out quiet or silent on the phone speaker, so words are recorded on
+// the Mac by scripts/make_audio.py into audio/es-MX/<key>.m4a, where key is hash(strip(the spoken text)).
+// index.json lists what exists; anything missing, or the Spain accent, falls back to iOS speech.
+const REC_LANG='es-MX';
+let recorded=new Set();
+fetch(`audio/${REC_LANG}/index.json`,{cache:'no-cache'}).then(r=>r.ok?r.json():[]).then(a=>{recorded=new Set(a);}).catch(()=>{});
+// One shared <audio> element. iOS only lets an element play after a tap has played it once;
+// after that, changing its src and calling play() works from anywhere, including automatic speech.
+const player=new Audio();player.setAttribute('playsinline','');player.setAttribute('x-webkit-airplay','deny');
+let playerUnlocked=false,speakSeq=0;
+const clips=new Map();   // key -> blob URL of recordings already played this session
+function wav(rate,n,sample){
   const b=new Uint8Array(44+n*2),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i);};
   w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
   v.setUint32(24,rate,true);v.setUint32(28,rate*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
-  for(let i=0;i<n;i++){const k=i%len,f=notes[Math.floor(i/len)],env=Math.min(1,k/200)*Math.min(1,(len-k)/800);
-    v.setInt16(44+i*2,Math.round(Math.sin(2*Math.PI*f*i/rate)*env*0.9*32767),true);}
-  return new Audio(URL.createObjectURL(new Blob([b],{type:'audio/wav'})));
+  for(let i=0;i<n;i++)v.setInt16(44+i*2,Math.round(sample(i)*32767),true);
+  return URL.createObjectURL(new Blob([b],{type:'audio/wav'}));
+}
+const SILENCE=wav(8000,400,()=>0);
+// A short, loud three-note chime. Ajustes › Probar sonido plays it before the voice to compare volumes.
+function chime(){
+  const rate=22050,notes=[523.25,659.25,783.99],len=Math.round(rate*.18);
+  return new Audio(wav(rate,len*notes.length,i=>{const k=i%len,env=Math.min(1,k/200)*Math.min(1,(len-k)/800);return Math.sin(2*Math.PI*notes[Math.floor(i/len)]*i/rate)*env*0.9;}));
 }
 function soundTest(){
-  keepSpeaker();
   const a=chime();
   a.onended=()=>speak('Hola. ¿Me oyes bien?');
   a.play().catch(()=>speak('Hola. ¿Me oyes bien?'));
 }
-function keepSpeaker(){
-  if(!silent){
-    const n=800,b=new Uint8Array(44+n),v=new DataView(b.buffer);   // 0.1s of 8 kHz, 8-bit silence
-    const w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i);};
-    w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
-    v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);
-    silent=new Audio(URL.createObjectURL(new Blob([b],{type:'audio/wav'})));
-    silent.loop=true;silent.setAttribute('playsinline','');silent.setAttribute('x-webkit-airplay','deny');
-  }
-  if(silent.paused&&!document.hidden)silent.play().catch(()=>{});
-}
+// iOS only allows speech and audio that start from a tap until each has been used once from a tap.
+// Taps keep trying until the shared player has actually played, since iOS can refuse the first attempt.
 function unlockSpeech(){
-  keepSpeaker();
+  if(!playerUnlocked&&player.paused){player.src=SILENCE;player.play().then(()=>{playerUnlocked=true;}).catch(()=>{});}
   if(speechUnlocked||!('speechSynthesis' in window))return;
   speechUnlocked=true;
   // An empty utterance is silent anyway. Don't set volume 0: iOS can carry it over to later speech.
   try{speechSynthesis.speak(new SpeechSynthesisUtterance(''));}catch(e){}
 }
-// Not once: iOS can refuse the first play() or stop the silent track after a call, so every tap retries it.
 document.addEventListener('touchend',unlockSpeech,{passive:true});
 document.addEventListener('click',unlockSpeech);
 function speak(text){
-  if(!('speechSynthesis' in window))return;
   if(document.hidden)return;
-  keepSpeaker();
   const t=text.replace(/\s*[\/;].*$/,'').replace(/[…]/g,'').trim();
   if(!t)return;
   clearTimeout(speakTimer);
+  if('speechSynthesis' in window&&(speechSynthesis.speaking||speechSynthesis.pending))speechSynthesis.cancel();
+  const key=hash(strip(t));
+  if((S.settings.voiceLang||'es-MX')===REC_LANG&&recorded.has(key)){
+    // Fetched whole and played from a blob: Safari plays media with range requests, which the
+    // service worker's cached copy can't answer, so pointing the player at the file breaks offline.
+    const mine=++speakSeq;
+    let fell=false;const fallback=()=>{if(!fell&&mine===speakSeq){fell=true;speakSynth(t);}};
+    player.pause();
+    (clips.has(key)?Promise.resolve(clips.get(key)):fetch(`audio/${REC_LANG}/${key}.m4a`)
+      .then(r=>{if(!r.ok)throw 0;return r.blob();}).then(b=>{const u=URL.createObjectURL(b);clips.set(key,u);return u;}))
+      .then(u=>{if(mine!==speakSeq)return;player.onerror=fallback;player.src=u;return player.play();})
+      .catch(e=>{if(!(e&&e.name==='AbortError'))fallback();});   // AbortError: a newer word replaced this one
+    return;
+  }
+  speakSeq++;player.pause();   // a word without a recording also cancels one still loading
+  speakSynth(t);
+}
+function speakSynth(t){
+  if(!('speechSynthesis' in window))return;
   const go=()=>{
     const u=new SpeechSynthesisUtterance(t);
     u.lang=S.settings.voiceLang||'es-MX';u.rate=0.9;u.volume=1;
@@ -698,6 +712,8 @@ function howView(){
   <p>Si una palabra no te merece la pena, toca <b>Descartar esta palabra</b> debajo de la tarjeta. No vuelve a programarse y sigue descartada aunque reimportes el CSV de donde vino. Deshacer la devuelve al momento; más tarde, búscala en Explorar tarjetas › Descartadas y toca <b>Recuperar</b>.</p>
   <h3>El ritmo diario</h3>
   <p>Abre la app una vez al día. Primero van los repasos y después las nuevas, hasta tu límite diario. Una sesión de 30 tarjetas dura unos cinco minutos.</p>
+  <h3>La voz</h3>
+  <p>Las palabras suenan con grabaciones hechas en el Mac con la voz de Paulina (México), porque la voz integrada del iPhone suena muy baja. Una palabra que añades aquí a mano usa la voz del iPhone hasta que se graba: haz una copia de seguridad y la próxima grabación en el Mac la incluye. Con el acento de España se usa siempre la voz del iPhone.</p>
   <h3>Tus datos</h3>
   <p>Las tarjetas y el progreso se guardan en este teléfono. Importa mazos en CSV desde iCloud Drive. Toca <b>Guardar copia de seguridad</b> para guardar un archivo que puedas restaurar más tarde.</p>
   <p>Columnas del CSV: <code>spanish,english,example,notes,tags</code>. Solo las dos primeras son obligatorias. Reimportar un archivo actualiza las tarjetas que ya existen sin perder su progreso; se emparejan por el texto en español.</p>
@@ -817,9 +833,8 @@ app.addEventListener('click',e=>{if(Date.now()-swipedAt<400)e.stopImmediatePropa
 
 render();
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){if(silent)silent.pause();return;}
+  if(document.hidden){player.pause();return;}
   if('speechSynthesis' in window)speechSynthesis.resume();
-  keepSpeaker();
 });
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});

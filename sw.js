@@ -1,5 +1,5 @@
 // Bump CACHE whenever you change index.html so phones pick up the new version.
-const CACHE = 'cinco-v20';
+const CACHE = 'cinco-v21';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png', './fonts/lilita-one.woff2', './fonts/nunito.woff2', './fonts/nunito-italic.woff2'];
 
 self.addEventListener('install', e => {
@@ -11,6 +11,14 @@ self.addEventListener('activate', e => {
 // Network first so updates arrive; cached copy keeps the app working offline.
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // Recordings never change for a given file name, so serve them from the cache once they've been fetched.
+  if (/\/audio\/.+\.m4a$/.test(new URL(e.request.url).pathname)) {
+    e.respondWith(caches.open(CACHE).then(c => c.match(e.request).then(hit => hit || fetch(e.request).then(res => {
+      if (res.ok) c.put(e.request, res.clone());
+      return res;
+    }))));
+    return;
+  }
   e.respondWith(
     fetch(e.request).then(res => {
       const copy = res.clone();

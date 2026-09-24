@@ -62,6 +62,14 @@ Default deck size is 20 to 40 cards unless the user asks for something else. At 
 
 5. Before writing, glance at the existing `.csv` files in that folder and pass them to the validator with `--existing`, so new decks don't repeat words the user already has.
 
+6. Record the audio. The app plays a recording of each word instead of iOS speech, which is too quiet on the phone. If you are on the user's Mac and the Cinco repo exists at `~/Documents/github/spanish_learn`, run:
+
+   ```sh
+   cd ~/Documents/github/spanish_learn && python3 scripts/make_audio.py && git add audio && git commit -m "Audio for <deck name>" && git push
+   ```
+
+   The script records only the words that don't have audio yet (and removes recordings for words that are no longer in any deck), so it is safe to run every time. Pushing is what gets the recordings to the phone. If you can't run commands there, tell the user the new words will use the phone's built-in voice until the script is run.
+
 Tell the user the filename, where it was saved, how many cards, and the tags used. Don't explain the CSV format back to them; they know it.
 
 ## Example
