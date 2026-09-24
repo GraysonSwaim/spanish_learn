@@ -217,7 +217,7 @@ code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--pa
 <script>
 /* ---------- constants ---------- */
 const KEY='cinco.v1';
-const VERSION=25;               // keep in step with CACHE in sw.js, shown in Ajustes
+const VERSION=26;               // keep in step with CACHE in sw.js, shown in Ajustes
 const DAY=86400000, MIN=60000;
 const RELEARN_GAP=5;           // cards between a miss and its retry
 const MAX_IVL=120;             // days, mastered cards never sleep longer than this
@@ -458,7 +458,8 @@ function startSession(focus){
 }
 function nextCard(){
   const s=ui.session;
-  if(!s.queue.length){ui.view='done';save();render();return;}
+  // Keep the results for the done screen, which can be redrawn (after a backup, for example).
+  if(!s.queue.length){ui.doneStats={done:s.done,right:s.right};ui.session=null;ui.view='done';save();render();return;}
   const c=S.cards[s.queue[0]];
   if(!c||c.dropped){s.queue.shift();return nextCard();}
   s.current=c.id;
@@ -570,12 +571,15 @@ async function backup(){
   const json=JSON.stringify(S,null,1);
   if(S.settings.backupMode==='shortcut'){
     // Copy the backup to the clipboard, then hand it to a Shortcut that saves it to a fixed iCloud path.
-    try{
-      await navigator.clipboard.writeText(json);
-      S.lastBackup=Date.now();save();render();
+    let copied=false;
+    try{await navigator.clipboard.writeText(json);copied=true;}
+    catch(e){toast('No se pudo copiar. Usaremos el menú de compartir.');}
+    if(copied){
+      S.lastBackup=Date.now();save();
       location.href='shortcuts://run-shortcut?name='+encodeURIComponent(S.settings.shortcutName)+'&input=clipboard';
+      render();
       return;
-    }catch(e){toast('No se pudo copiar. Usaremos el menú de compartir.');}
+    }
   }
   const ok=await shareFile('cinco-backup-'+todayKey()+'.json',json,'application/json');
   if(ok){S.lastBackup=Date.now();save();render();}
@@ -666,14 +670,14 @@ function verdictTag(s){
 function gradeBtns(){return `<button class="big again" data-act="grade" data-p="0">Otra vez<small>baja una etapa</small></button><button class="big good" data-act="grade" data-p="1">¡La sé!<small>sube una etapa</small></button>`;}
 
 function doneView(){
-  const s=ui.session;const d=dayRec();
-  ui.session=null;
+  const s=ui.doneStats||{done:0,right:0};const d=dayRec();
+  const saved=S.lastBackup&&Date.now()-S.lastBackup<10*MIN;
   return `${bar('')}<h1 class="brand">¡Listo!</h1>
-  <p class="lede">Hoy subieron <strong>${s.done}</strong> ${s.done===1?'tarjeta':'tarjetas'}${s.right<d.reviewed?` y ${d.reviewed-d.correct} necesitaron un segundo vistazo`:''}. ${streak()>1?`Llevas ${streak()} días seguidos.`:''}</p>
+  <p class="lede">Hoy subieron <strong>${s.done}</strong> ${s.done===1?'tarjeta':'tarjetas'}${d.reviewed>d.correct?` y ${d.reviewed-d.correct} ${d.reviewed-d.correct===1?'necesitó':'necesitaron'} un segundo vistazo`:''}. ${streak()>1?`Llevas ${streak()} días seguidos.`:''}</p>
   <div class="ladder">${[1,2,3,4,5].map(i=>{const n=counts().byStage[i];return `<div class="tile"><span class="n">${n}</span><div class="fill" style="height:${Math.round(100*n/(counts().total||1))}%"></div></div>`;}).join('')}</div>
   <div class="legend">${[1,2,3,4,5].map(i=>`<div><span class="s">${i}</span><span>${STAGES[i].name}</span></div>`).join('')}</div>
   <div style="height:16px"></div>
-  <button class="cta" data-act="backup">Guardar copia en iCloud Drive</button>
+  <button class="cta ${saved?'quiet':''}" data-act="backup">${saved?'Copia guardada ✓':'Guardar copia en iCloud Drive'}</button>
   <button class="cta quiet" data-act="go" data-v="home">Inicio</button>`;
 }
 
