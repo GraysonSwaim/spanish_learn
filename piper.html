@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cinco · Prueba de voz</title>
+<meta name="theme-color" content="#FFE9C9">
+<!-- Experiment: Piper text-to-speech running on the phone (ONNX + WebAssembly), compared with the Mac recordings.
+     piper-tts-web imports "onnxruntime-web/wasm" and expects the 1.18.0 engine files, so pin exactly that. -->
+<script type="importmap">
+{"imports":{"onnxruntime-web/wasm":"https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/esm/ort.wasm.min.js"}}
+</script>
+<style>
+@font-face{font-family:"Lilita One";src:url(fonts/lilita-one.woff2) format("woff2")}
+@font-face{font-family:"Nunito";src:url(fonts/nunito.woff2) format("woff2");font-weight:200 1000}
+:root{--bg:#FFE9C9;--paper:#fff;--sunk:#FFF6E8;--ink:#12302A;--muted:#4F6A61;--line:#F2D3A8;--edge:#12302A;--accent:#FF5A36;--sea:#00B4C6;--good:#00A67E;--again:#E8364F;--s5:#7B3FE4}
+@media (prefers-color-scheme:dark){:root{--bg:#0E2A28;--paper:#163B37;--sunk:#12332F;--ink:#FFF1DE;--muted:#A5C7BD;--line:#285A54;--edge:#051412;--accent:#FF6B47;--sea:#2FD0E0;--good:#2BC79A;--again:#FF6275;color-scheme:dark}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:600 16px/1.45 "Nunito",system-ui,sans-serif;overflow-x:clip}
+main{max-width:560px;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:16px}
+a.back{color:var(--accent);font-weight:800;text-decoration:none;padding:10px 0}
+h1{font:400 34px/1.05 "Lilita One",system-ui,sans-serif;color:var(--accent);text-shadow:2px 2px 0 var(--edge)}
+p.lede{color:var(--muted);font-weight:500}
+.box{background:var(--paper);border:2px solid var(--edge);border-radius:22px;box-shadow:0 4px 0 var(--edge);padding:16px;display:flex;flex-direction:column;gap:12px}
+.box h2{font:400 20px "Lilita One",system-ui,sans-serif}
+.seg{display:flex;background:var(--sunk);border:2px solid var(--edge);border-radius:14px;padding:3px;gap:2px}
+.seg button{flex:1;padding:8px 6px;border-radius:10px;font-size:14px;color:var(--muted)}
+.seg button.on{background:var(--sea);color:#fff;font-weight:800}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;touch-action:manipulation}
+.cta{padding:14px;border-radius:18px;background:var(--accent);color:#fff;font:400 20px "Lilita One",system-ui,sans-serif;box-shadow:0 4px 0 var(--edge)}
+.cta:disabled{opacity:.5}
+.cta:active{transform:translateY(3px);box-shadow:0 1px 0 var(--edge)}
+.bar{height:14px;border-radius:7px;background:var(--sunk);border:2px solid var(--edge);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--good);transition:width .2s}
+.small{font-size:13px;color:var(--muted);font-weight:600}
+.rows{display:flex;flex-direction:column}
+.row{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1.5px solid var(--line)}
+.row:first-child{border-top:0}
+.row .w{flex:1;min-width:0;font-weight:800;font-size:17px;overflow-wrap:anywhere}
+.row .t{font-size:12px;color:var(--muted);min-width:64px;text-align:right;font-variant-numeric:tabular-nums}
+.pill{padding:8px 12px;border-radius:999px;font-size:13px;font-weight:800;white-space:nowrap}
+.pill.piper{background:var(--sea);color:#fff}
+.pill.mac{background:var(--sunk);border:2px solid var(--edge)}
+.pill:disabled{opacity:.35}
+.typein{display:flex;gap:8px}
+.typein input{flex:1;min-width:0;font:700 18px "Nunito",system-ui,sans-serif;padding:12px 14px;border:2px solid var(--edge);border-radius:14px;background:var(--sunk);color:var(--ink)}
+#log{font:12px ui-monospace,Menlo,monospace;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto}
+.err{color:var(--again)}
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="./">‹ Volver a Cinco</a>
+  <h1>Prueba de voz</h1>
+  <p class="lede">Piper genera la voz aquí mismo, en el teléfono. Descarga una voz una vez, prueba palabras y compárala con la grabación del Mac (Paulina).</p>
+
+  <section class="box">
+    <h2>1. Elige y descarga una voz</h2>
+    <div class="seg" id="voices"></div>
+    <p class="small" id="voiceInfo"></p>
+    <button class="cta" id="load">Descargar y preparar</button>
+    <div class="bar"><i id="prog"></i></div>
+    <p class="small" id="status">Aún no has descargado ninguna voz.</p>
+  </section>
+
+  <section class="box">
+    <h2>2. Escucha</h2>
+    <p class="small">El número es lo que tardó el teléfono en generar la palabra. La primera suele tardar más.</p>
+    <div class="rows" id="words"></div>
+    <form class="typein" id="own"><input id="text" placeholder="Escribe cualquier frase" autocomplete="off" autocapitalize="off" lang="es"><button class="pill piper" type="submit">Piper</button></form>
+  </section>
+
+  <section class="box">
+    <h2>Detalles</h2>
+    <p class="small" id="storage"></p>
+    <div id="log"></div>
+  </section>
+</main>
+
+<script type="module">
+const $=id=>document.getElementById(id);
+const log=(m,cls)=>{const d=document.createElement('div');if(cls)d.className=cls;d.textContent=m;$('log').prepend(d);};
+window.addEventListener('error',e=>log('Error: '+e.message,'err'));
+window.addEventListener('unhandledrejection',e=>log('Error: '+(e.reason&&e.reason.message||e.reason),'err'));
+
+const VOICES=[
+  {id:'es_MX-claude-high',label:'México · Claude',note:'Calidad alta.'},
+  {id:'es_MX-ald-medium',label:'México · Ald',note:'Calidad media.'},
+  {id:'es_ES-davefx-medium',label:'España · Davefx',note:'Calidad media, acento de España.'},
+];
+const WORDS=['hola','gracias','buenos días','la manzana','el baño','¿dónde?','¿cuánto?','el médico / la médica','¿a qué te dedicas?','conocer'];
+let voice=VOICES[0].id,session=null,tts=null;
+
+// Same text handling and file keys as the app, to find the Mac recording of each word.
+function norm(s){return String(s).toLowerCase().trim().replace(/[¿?¡!.,;:"“”…]/g,'').replace(/\s+/g,' ');}
+function strip(s){return norm(s).replace(/ñ/g,'\u0001').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\u0001/g,'ñ');}
+function hash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return (h>>>0).toString(36);}
+const spoken=t=>t.replace(/\s*[\/;].*$/,'').replace(/[…]/g,'').trim();
+let recorded=new Set();
+fetch('audio/es-MX/index.json').then(r=>r.json()).then(a=>{recorded=new Set(a);renderWords();}).catch(()=>{});
+
+try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}
+const player=new Audio();player.setAttribute('playsinline','');
+// AbortError just means a newer word replaced this one before it finished.
+function play(url){player.pause();player.src=url;return player.play().catch(e=>{if(e.name!=='AbortError')throw e;});}
+
+function renderVoices(){
+  $('voices').innerHTML=VOICES.map(v=>`<button data-v="${v.id}" class="${v.id===voice?'on':''}">${v.label}</button>`).join('');
+  $('voiceInfo').textContent=VOICES.find(v=>v.id===voice).note+' Unos 63 MB, una sola vez; se queda guardada en el teléfono.';
+}
+function renderWords(){
+  $('words').innerHTML=WORDS.map((w,i)=>{const k=hash(strip(spoken(w)));
+    return `<div class="row"><span class="w">${w}</span><span class="t" id="t${i}"></span>
+      <button class="pill piper" data-i="${i}" ${session?'':'disabled'}>Piper</button>
+      <button class="pill mac" data-mac="${k}" ${recorded.has(k)?'':'disabled'}>Mac</button></div>`;}).join('');
+}
+$('voices').onclick=e=>{const b=e.target.closest('button');if(!b||b.dataset.v===voice)return;
+  voice=b.dataset.v;session=null;renderVoices();renderWords();$('status').textContent='Voz cambiada. Descárgala o prepárala.';$('prog').style.width='0';};
+
+async function showStorage(){
+  try{const e=await navigator.storage.estimate();$('storage').textContent=`Espacio usado por Cinco en este teléfono: ${Math.round(e.usage/1e6)} MB.`;}catch(e){}
+  try{if(tts)$('storage').textContent+=` Voces guardadas: ${(await tts.stored()).join(', ')||'ninguna'}.`;}catch(e){}
+}
+
+$('load').onclick=async()=>{
+  $('load').disabled=true;$('status').textContent='Cargando el motor…';
+  const t0=performance.now();
+  try{
+    tts=tts||await import('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.5/dist/piper-tts-web.js');
+    log(`crossOriginIsolated: ${self.crossOriginIsolated}, núcleos: ${navigator.hardwareConcurrency}`);
+    tts.TtsSession._instance=null;   // the library keeps one session; clear it so a new voice really loads
+    session=await tts.TtsSession.create({voiceId:voice,logger:m=>log(m),
+      progress:p=>{if(p.total){const pc=Math.round(100*p.loaded/p.total);$('prog').style.width=pc+'%';$('status').textContent=`Descargando la voz: ${Math.round(p.loaded/1e6)} de ${Math.round(p.total/1e6)} MB`;}}});
+    $('prog').style.width='100%';
+    $('status').textContent=`Lista en ${((performance.now()-t0)/1000).toFixed(1)} s. Toca «Piper» en cualquier palabra.`;
+    renderWords();showStorage();
+  }catch(e){session=null;$('status').textContent='No se pudo preparar la voz. Mira los detalles abajo.';log('Error: '+(e&&e.message||e),'err');}
+  $('load').disabled=false;
+};
+
+async function sayPiper(text,cell){
+  if(!session)return;
+  const t0=performance.now();
+  try{
+    const wav=await session.predict(spoken(text));
+    const ms=Math.round(performance.now()-t0);
+    if(cell)cell.textContent=ms+' ms';
+    log(`"${text}": ${ms} ms, ${Math.round(wav.size/1024)} KB`);
+    await play(URL.createObjectURL(wav));
+  }catch(e){log('Error: '+(e&&e.message||e),'err');}
+}
+$('words').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.i!=null){const i=+b.dataset.i;sayPiper(WORDS[i],$('t'+i));}
+  else if(b.dataset.mac)play(`audio/es-MX/${b.dataset.mac}.m4a`).catch(err=>log('Error: '+err.message,'err'));};
+$('own').onsubmit=e=>{e.preventDefault();const t=$('text').value.trim();if(t)sayPiper(t,null);};
+
+renderVoices();renderWords();showStorage();
+</script>
+</body>
+</html>
