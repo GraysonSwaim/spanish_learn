@@ -12,10 +12,10 @@ Cinco is a personal Spanish flashcard app. Cards climb five stages: first the le
 A UTF-8 CSV with this exact header, one card per row:
 
 ```csv
-spanish,english,example,notes,tags,conjugation
+spanish,english,example,notes,tags,presente,preterito,imperfecto,futuro,condicional,subjuntivo
 ```
 
-- `spanish` and `english` are required. The others may be empty. `conjugation` is only for verbs; a deck without verbs can leave the column out.
+- `spanish` and `english` are required. The others may be empty. The six tense columns are only for verbs; a deck without verbs can leave them out.
 - Quote any field containing a comma, a quote, or a line break (`"Hola, ¿cómo estás?"`). Double a quote inside a quoted field (`""`).
 - Keep the columns in this order. The app also reads Anki tab-separated exports, but produce CSV.
 
@@ -33,7 +33,7 @@ The Spanish text is the card's identity. Re-importing a row with the same Spanis
 
 **tags** — one lowercase word (`food`, `verbs`, `travel`). Keep the set small and reuse tags across decks so Browse filtering stays useful.
 
-**conjugation** — for a verb, its six present-tense forms separated by `|`, in the order yo, tú, él, nosotros, vosotros, ellos: `tengo|tienes|tiene|tenemos|tenéis|tienen`. The app keeps the verb as one vocabulary card (infinitive ↔ meaning, with the table shown on the answer) and makes a separate drill for each form in its Conjugación tab, where the learner sees `nosotros · tener` and types `tenemos`. So never write a separate row per conjugated form; put the forms here. Reflexive verbs include the pronoun (`me visto|te vistes|se viste|nos vestimos|os vestís|se visten`). Vosotros is always filled in (drilling it is a setting in the app); only leave it empty for a verb that has no vosotros form. When the verb's spanish has alternatives, give each form the same alternatives (`empiezo / comienzo|...`). Once the table is there, notes should name the pattern (`o→ue, except nosotros and vosotros`) rather than list forms. Double-check every form: a wrong form typed a hundred times is worse than none.
+**presente, preterito, imperfecto, futuro, condicional, subjuntivo** — for a verb, one column per tense, each holding its six forms separated by `|` in the order yo, tú, él, nosotros, vosotros, ellos: `tengo|tienes|tiene|tenemos|tenéis|tienen`. `subjuntivo` is the present subjunctive, written without "que" (`tenga|tengas|…`). The app keeps the verb as one vocabulary card (infinitive ↔ meaning, with its tables on the answer) and makes one conjugation card per tense in its Conjugación tab, where the learner conjugates the whole table (`tener · Pretérito`), each tense with its own progress. So never write a separate row per conjugated form or per tense; fill the columns. Fill all six tenses for a verb unless the user asks for fewer; a verb with no presente gets a warning. Reflexive verbs include the pronoun (`me visto|te vistes|…`). Always fill vosotros (drilling it is a setting); leave it empty only for a verb without one. When the verb's spanish has alternatives, give each form the same alternatives (`empiezo / comienzo|…`). Notes describe the present tense only (`o→ue, except nosotros and vosotros`), since the app shows them only on the present card. Check every form, especially irregular preterites, -ir stem changes in the preterite (pidió, durmieron) and subjunctive (durmamos), and spelling changes (jugué, empecé, busque): a wrong form typed a hundred times is worse than none. Older decks with a single `conjugation` column are read as `presente`.
 
 ## Choosing and ordering words
 

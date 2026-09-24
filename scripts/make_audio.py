@@ -59,7 +59,10 @@ def spoken(text):
     return re.sub(r'\s*[/;].*$', '', text).replace('…', '').strip()
 
 # ---- reading decks the way the app imports them ----
-CONJ_HEADERS = {'conjugation', 'conjugación', 'conjugacion', 'conj', 'forms', 'formas'}
+# Tense columns (the app's ALIASES). Each table is spoken whole, as the app's speakTable() does with vosotros off.
+CONJ_HEADERS = {'presente', 'present', 'conjugation', 'conjugación', 'conjugacion', 'conj', 'forms', 'formas',
+                'preterito', 'pretérito', 'preterite', 'imperfecto', 'imperfect', 'futuro', 'future',
+                'condicional', 'conditional', 'subjuntivo', 'subjunctive', 'presente de subjuntivo'}
 ES_HEADERS = {'spanish', 'es', 'español', 'espanol', 'front', 'word', 'term', 'palabra'}
 KNOWN = ES_HEADERS | {'english', 'en', 'back', 'meaning', 'definition', 'translation', 'inglés', 'ingles',
                       'example', 'ex', 'sentence', 'ejemplo', 'context', 'notes', 'note', 'hint', 'notas',
@@ -74,19 +77,23 @@ def csv_words(path):
     if not rows:
         return []
     head = [norm(h) for h in rows[0]]
-    col, conj = 0, None
+    col, conj = 0, []
     if any(h in KNOWN for h in head):
         col = next((i for i, h in enumerate(head) if h in ES_HEADERS), 0)
-        conj = next((i for i, h in enumerate(head) if h in CONJ_HEADERS), None)
+        conj = [i for i, h in enumerate(head) if h in CONJ_HEADERS]
         rows = rows[1:]
     words = []
     for r in rows:
         if len(r) > 1 and r[col].strip() and r[1].strip():
             words.append(r[col].strip())
-            # Each form of a verb's conjugation column is a card of its own in the app's Conjugación tab.
-            if conj is not None and conj < len(r):
-                words += [f.strip() for f in r[conj].split('|') if f.strip()]
+            for i in conj:
+                if i < len(r) and r[i].strip():
+                    words.append(table_text(r[i]))
     return words
+
+def table_text(table):
+    forms = [f.strip() for f in table.split('|')]
+    return ', '.join(f.split('/')[0].strip() for i, f in enumerate(forms) if f and i != 4)
 
 def newest_backup():
     found = [p for d in (ICLOUD / 'backups', SHORTCUTS / 'backups') if d.is_dir()

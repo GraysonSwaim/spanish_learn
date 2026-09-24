@@ -211,13 +211,29 @@ code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--pa
 /* conjugation */
 .seg.tabs{margin:2px 0 14px}
 .seg.tabs button{font-size:15px;padding:9px}
-.conj{display:grid;grid-template-columns:1fr 1fr;gap:6px;width:100%;max-width:340px;margin:16px auto 0;text-align:left}
-.conj div{padding:7px 11px;border-radius:12px;background:var(--sunk);font-size:17px;font-weight:800;overflow-wrap:anywhere}
+.conj{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,auto);grid-auto-flow:column;gap:6px;width:100%;max-width:340px;margin:16px auto 0;text-align:left}
+.conj>div{padding:7px 11px;border-radius:12px;background:var(--sunk);font-size:17px;font-weight:800;overflow-wrap:anywhere;min-width:0}
 .conj small{display:block;font-size:12px;font-weight:700;color:var(--muted)}
-.conj .hi{background:var(--s4);color:var(--on-good)}
-.conj .hi small{color:inherit;opacity:.85}
 .conj .dim{opacity:.45}
-.form .forms{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.conj .blank{visibility:hidden}
+.conj .ok{background:var(--good-soft)}
+.conj .near{background:var(--s2);color:#12302A}
+.conj .near small{color:inherit}
+.conj .no{background:var(--again-soft)}
+.conj s{display:block;color:var(--again);font-size:14px;font-weight:700}
+.conj input{display:block;width:100%;min-width:0;font-size:18px;font-weight:700;padding:4px 0 2px;border:0;border-bottom:2px solid var(--edge);border-radius:0;background:transparent;color:var(--ink)}
+.gridform{width:100%}
+.gridform .big{width:100%;margin-top:14px}
+.tensechip{background:var(--sea-soft);color:var(--ink);margin-top:10px}
+.tenses{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+.tenses button{padding:7px 12px;border-radius:999px;border:2px solid var(--edge);background:var(--paper);font-size:14px;font-weight:800;color:var(--muted)}
+.tenses button.on{background:var(--ink);color:var(--bg)}
+details.more{width:100%;margin-top:16px;text-align:center}
+details.more summary{cursor:pointer;color:var(--muted);font-weight:800;font-size:14px;padding:6px}
+.tname{font-size:12px;font-weight:800;color:var(--muted);margin-top:16px;text-transform:uppercase;letter-spacing:.05em;text-align:center}
+.form .forms{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,auto);grid-auto-flow:column;gap:8px;margin:4px 0 8px}
+.form details.more{text-align:left;margin-top:4px}
+.form details.more summary{padding:6px 0}
 .form .forms input{margin-top:2px;font-size:17px}
 .form .forms label{font-size:12px}
 .form .fl{font-size:13px;font-weight:800;color:var(--muted)}
@@ -231,7 +247,7 @@ code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--pa
 <script>
 /* ---------- constants ---------- */
 const KEY='cinco.v1';
-const VERSION=27;               // keep in step with CACHE in sw.js, shown in Ajustes
+const VERSION=28;               // keep in step with CACHE in sw.js, shown in Ajustes
 const DAY=86400000, MIN=60000;
 const RELEARN_GAP=5;           // cards between a miss and its retry
 const MAX_IVL=120;             // days, mastered cards never sleep longer than this
@@ -243,9 +259,13 @@ const STAGES=[
   {name:'Producir',  mode:'type',  ivl:7,  blurb:'Ves el inglés y escribes el español. Los acentos cuentan, pero un casi se marca en vez de fallarse. Vuelve a los 7 días.'},
   {name:'Dominada',  mode:'mixed', ivl:21, blurb:'Escribir o reconocer, al azar. Vuelve a los 21 días y luego el plazo se duplica cada vez, hasta 120 días. Un fallo la baja una etapa.'},
 ];
-// Present-tense persons, in the order of a CSV's conjugation column (yo|tú|él|nosotros|vosotros|ellos).
+// Persons in the order of every tense column in a CSV (yo|tú|él|nosotros|vosotros|ellos).
 const PERSONS=['yo','tú','él / ella / usted','nosotros','vosotros','ellos / ellas / ustedes'];
 const PRONOUNS=[['yo'],['tú','tu','vos'],['él','el','ella','usted'],['nosotros','nosotras'],['vosotros','vosotras'],['ellos','ellas','ustedes']];
+const TENSES=[{k:'presente',name:'Presente'},{k:'preterito',name:'Pretérito'},{k:'imperfecto',name:'Imperfecto'},{k:'futuro',name:'Futuro'},
+  {k:'condicional',name:'Condicional'},{k:'subjuntivo',name:'Subjuntivo',long:'Presente de subjuntivo',que:true}];
+const TENSE=Object.fromEntries(TENSES.map(t=>[t.k,t]));
+const person=(p,t)=>(TENSE[t]&&TENSE[t].que?'que ':'')+PERSONS[p];
 
 /* ---------- state ---------- */
 let S=load();
@@ -282,8 +302,11 @@ function check(input,es){
   if(alts.some(a=>noArticle(a)===noArticle(input)))return 'article';
   return 'wrong';
 }
-// On a conjugation card the subject pronoun is optional: "nosotros tenemos" counts as "tenemos".
-function dropPronoun(t,p){const w=norm(t).split(' ');return w.length>1&&PRONOUNS[p].includes(w[0])?t.trim().replace(/^\S+\s+/,''):t;}
+// In a conjugation table the subject pronoun (and the subjunctive's "que") is optional: "que nosotros tengamos" counts.
+function dropPronoun(t,p){
+  let x=t.trim();if(/^que\s/i.test(x))x=x.replace(/^\S+\s+/,'');
+  const w=norm(x).split(' ');return w.length>1&&PRONOUNS[p].includes(w[0])?x.replace(/^\S+\s+/,''):x;
+}
 
 /* ---------- speech ---------- */
 // iOS quirks: getVoices() lists voices that are not downloaded (picking one gives a blip or an English
@@ -444,38 +467,75 @@ function speakSynth(t){
 }
 
 /* ---------- two tabs: vocabulary and conjugation ---------- */
-// A verb row with a conjugation column stays one vocabulary card (tener ↔ to have) and also spawns one
-// drill card per person (id <verb id>.<person>), which lives in the Conjugación tab with its own stages.
-// Cards tagged "conjugation" from the older one-form-per-card decks count as conjugation too.
+// A verb can carry a table per tense (CSV columns presente, preterito, …, each yo|tú|él|nosotros|vosotros|ellos).
+// The verb stays one vocabulary card (tener ↔ to have), and each tense it has becomes one conjugation card
+// (id <verb id>:<tense>) in the Conjugación tab: the whole table is recited or typed, with its own stages per tense.
+// Cards tagged "conjugation" from the first one-form-per-card deck still count as conjugation until a verb absorbs them.
 const isConj=c=>c.kind==='conj'||(c.tags||'').split(/[\s,]+/).includes('conjugation');
-const inTab=c=>!!c&&!(c.kind==='conj'&&c.p===4&&!S.settings.vosotros)&&(S.settings.tab==='conj')===isConj(c);
+const curTense=()=>S.settings.tense||'presente';
+function inTab(c){
+  if(!c)return false;
+  if(S.settings.tab!=='conj')return !isConj(c);
+  if(!isConj(c))return false;
+  const t=curTense();
+  return t==='random'||(c.kind==='conj'?c.tense===t:t==='presente');
+}
 const tabCards=()=>Object.values(S.cards).filter(inTab);
 const newKey=()=>S.settings.tab==='conj'?'newConj':'new';   // each tab has its own daily allowance of new cards
 const newRoom=()=>Math.max(0,S.settings.newPerDay-(dayRec()[newKey()]||0));
-const forms=v=>(v&&v.conj||'').split('|').map(x=>x.trim());
-function syncDrills(v){
-  const f=forms(v);
-  for(let p=0;p<6;p++){
-    const id=v.id+'.'+p;let d=S.cards[id];
-    if(!f[p]){if(d){delete S.cards[id];S.order=S.order.filter(x=>x!==id);}continue;}
-    const en=`${PERSONS[p]} · ${v.es}`;
-    if(d){d.es=f[p];d.en=en;continue;}
-    d=S.cards[id]={id,kind:'conj',verb:v.id,p,es:f[p],en,ex:'',notes:'',tags:v.tags,stage:0,due:0,ivl:0,reps:0,lapses:0,added:Date.now()};
-    // A card for this form from an old conjugation deck turns into the drill and keeps its progress.
-    const old=S.cards[hash(strip(f[p]))];
-    if(old&&!old.kind&&isConj(old)){
-      for(const k of ['stage','due','ivl','reps','lapses','seen','last','dropped'])if(old[k]!=null)d[k]=old[k];
-      delete S.cards[old.id];S.order=S.order.map(x=>x===old.id?id:x);
-    }else S.order.push(id);
+const splitForms=x=>String(x||'').split('|').map(f=>f.trim());
+const tables=v=>v&&v.tenses||{};
+const cardForms=c=>splitForms(tables(S.cards[c.verb])[c.tense]);
+const asked=f=>[0,1,2,3,4,5].filter(p=>f[p]&&(p!==4||S.settings.vosotros));   // the persons a table asks for
+function removeCard(id){delete S.cards[id];S.order=S.order.filter(x=>x!==id);}
+function syncConj(v){
+  // The previous version kept only the present, in v.conj,
+  if(v.conj){v.tenses=Object.assign({presente:v.conj},v.tenses);delete v.conj;}
+  const t=tables(v);
+  // and drilled it one person per card (<verb id>.0 to .5), or as cards tagged conjugation holding one form.
+  const old=[];
+  for(let p=0;p<6;p++){const d=S.cards[v.id+'.'+p];if(d)old.push(d);}
+  if(t.presente)for(const f of splitForms(t.presente)){const o=f&&S.cards[hash(strip(f))];if(o&&!o.kind&&isConj(o)&&!old.includes(o))old.push(o);}
+  for(const T of TENSES){
+    const id=v.id+':'+T.k;let d=S.cards[id];
+    if(!t[T.k]){if(d)removeCard(id);continue;}
+    if(d){d.es=v.es;d.en=T.name;d.tags=v.tags;continue;}
+    d=S.cards[id]={id,kind:'conj',verb:v.id,tense:T.k,es:v.es,en:T.name,ex:'',notes:'',tags:v.tags,stage:0,due:0,ivl:0,reps:0,lapses:0,added:Date.now()};
+    const at=T.k==='presente'?old.map(o=>S.order.indexOf(o.id)).filter(i=>i>=0).sort((a,b)=>a-b)[0]:undefined;
+    if(at!=null)S.order.splice(at,0,id);else S.order.push(id);
+    if(T.k==='presente'&&old.length){
+      // The table starts where its weakest form was, so nothing unlearned is skipped. A vosotros drill that was
+      // switched off never left stage 0, so it only counts when vosotros is being practised.
+      const seen=old.filter(o=>o.p!==4||S.settings.vosotros);
+      const low=(seen.length?seen:old).reduce((a,b)=>b.stage<a.stage?b:a);
+      Object.assign(d,{stage:low.stage,due:low.due,ivl:low.ivl,seen:low.seen,reps:old.reduce((n,o)=>n+(o.reps||0),0),lapses:old.reduce((n,o)=>n+(o.lapses||0),0)});
+      if(old.every(o=>o.dropped))d.dropped=Date.now();
+    }
   }
+  for(const o of old)removeCard(o.id);
 }
-function conjTable(v,hi){
-  const f=forms(v);if(!f.some(Boolean))return '';
-  return `<div class="conj">${[0,3,1,4,2,5].map(p=>f[p]?`<div class="${p===hi?'hi':''} ${p===4&&!S.settings.vosotros&&p!==hi?'dim':''}"><small>${PERSONS[p]}</small>${esc(f[p])}</div>`:'<div></div>').join('')}</div>`;
+(function migrateConj(){
+  const verbs=Object.values(S.cards).filter(c=>!c.kind&&c.conj);
+  if(!verbs.length)return;
+  verbs.forEach(syncConj);save();
+})();
+// One tense as a 3×2 table, persons down the columns like a textbook. cell(p) can restyle or replace a cell.
+function conjTable(f,tense,cell){
+  if(!f.some(Boolean))return '';
+  return `<div class="conj">${[0,1,2,3,4,5].map(p=>{
+    const x=f[p]?(cell?cell(p):{}):{hide:true};
+    if(x.hide)return '<div class="blank"></div>';
+    return `<div class="${x.cls||''} ${p===4&&!S.settings.vosotros?'dim':''}"><small>${person(p,tense)}</small>${x.html??esc(f[p])}</div>`;}).join('')}</div>`;
+}
+function moreTables(v,skip,label){
+  const t=tables(v);
+  const h=TENSES.filter(T=>t[T.k]&&T.k!==skip).map(T=>`<p class="tname">${T.long||T.name}</p>${conjTable(splitForms(t[T.k]),T.k)}`).join('');
+  return h?`<details class="more"><summary>${label}</summary>${h}</details>`:'';
 }
 function tabsBar(){
   const t=S.settings.tab;
-  return `<div class="seg wide tabs">${[['vocab','Vocabulario'],['conj','Conjugación']].map(([k,l])=>`<button class="${t===k?'on':''}" data-act="tab" data-t="${k}">${l}</button>`).join('')}</div>`;
+  return `<div class="seg wide tabs">${[['vocab','Vocabulario'],['conj','Conjugación']].map(([k,l])=>`<button class="${t===k?'on':''}" data-act="tab" data-t="${k}">${l}</button>`).join('')}</div>
+  ${t==='conj'?`<div class="tenses">${[...TENSES.map(T=>[T.k,T.name]),['random','Aleatorio']].map(([k,l])=>`<button class="${curTense()===k?'on':''}" data-act="tense" data-t="${k}">${l}</button>`).join('')}</div>`:''}`;
 }
 
 /* ---------- scheduling ---------- */
@@ -486,7 +546,16 @@ function counts(){
   c.newToday=Math.min(c.newRoom,c.unseen);
   return c;
 }
-const unseenIds=()=>S.order.filter(id=>inTab(S.cards[id])&&!S.cards[id].dropped&&S.cards[id].stage===0);
+function unseenIds(){
+  const ids=S.order.filter(id=>inTab(S.cards[id])&&!S.cards[id].dropped&&S.cards[id].stage===0);
+  if(S.settings.tab!=='conj'||curTense()!=='random')return ids;
+  // Aleatorio staggers the tenses: a verb's present comes first, and each later tense arrives five verbs further on,
+  // so new cards mix tenses without one verb's six tables arriving together.
+  const rank={},ti=Object.fromEntries(TENSES.map((T,i)=>[T.k,i]));let n=0;
+  for(const id of S.order){const c=S.cards[id];if(c&&!c.kind&&c.tenses)rank[id]=n++;}
+  const key=c=>c.tense?(rank[c.verb]??n)+ti[c.tense]*5:Infinity;
+  return ids.map(id=>S.cards[id]).sort((a,b)=>key(a)-key(b)||(ti[a.tense]??9)-(ti[b.tense]??9)).map(c=>c.id);
+}
 function buildQueue(){
   const now=Date.now();
   const due=tabCards().filter(c=>!c.dropped&&c.stage>0&&c.due<=now+15*MIN).sort((a,b)=>a.due-b.due).map(c=>c.id);
@@ -518,13 +587,15 @@ function nextCard(){
   s.current=c.id;
   let mode=c.stage===0?'intro':STAGES[c.stage].mode;
   const dir=S.settings.direction||'stage';
-  if(c.stage>0&&dir!=='stage'){
+  // A table is studied (1), recited aloud and self-graded (2–3), then typed in full (4–5).
+  if(c.kind==='conj')mode=c.stage===0?'intro':c.stage>=4?'grid':'recite';
+  else if(c.stage>0&&dir!=='stage'){
     // Override the stage's direction. Typing still only kicks in from stage 4, so early cards stay self-graded.
     const prod=c.stage>=4?'type':'en-es';
     mode=dir==='es-en'?'es-en':dir==='en-es'?prod:(Math.random()<0.5?'es-en':prod);
   }
   if(mode==='mixed')mode=Math.random()<0.5?'type':'es-en';
-  s.mode=mode;s.phase=mode==='intro'?'intro':'prompt';s.verdict=null;s.typed='';
+  s.mode=mode;s.phase=mode==='intro'?'intro':'prompt';s.verdict=null;s.typed='';s.cells=null;
   render();
   if(S.settings.autoSpeak&&(mode==='intro'||mode==='es-en'))speak(c.es);
   piperPrefetch();
@@ -582,35 +653,41 @@ function parseDelimited(text){
   if(f.length||row.length){row.push(f);rows.push(row);}
   return rows.filter(r=>r.some(x=>x.trim())&&!String(r[0]).startsWith('#'));
 }
-const ALIASES={es:['spanish','es','español','espanol','front','word','term','palabra'],en:['english','en','back','meaning','definition','translation','inglés','ingles'],ex:['example','ex','sentence','ejemplo','context'],notes:['notes','note','hint','notas'],tags:['tags','tag','category','topic'],conj:['conjugation','conjugación','conjugacion','conj','forms','formas']};
+const ALIASES={es:['spanish','es','español','espanol','front','word','term','palabra'],en:['english','en','back','meaning','definition','translation','inglés','ingles'],ex:['example','ex','sentence','ejemplo','context'],notes:['notes','note','hint','notas'],tags:['tags','tag','category','topic'],presente:['presente','present','conjugation','conjugación','conjugacion','conj','forms','formas'],
+  preterito:['preterito','pretérito','preterite'],imperfecto:['imperfecto','imperfect'],futuro:['futuro','future'],
+  condicional:['condicional','conditional'],subjuntivo:['subjuntivo','subjunctive','presente de subjuntivo']};
 function toRecords(rows){
   if(!rows.length)return [];
   const head=rows[0].map(h=>norm(h));
   const map={};let isHeader=false;
   for(const k in ALIASES){const i=head.findIndex(h=>ALIASES[k].includes(h));if(i>=0){map[k]=i;isHeader=true;}}
   const body=isHeader?rows.slice(1):rows;
-  const idx=isHeader?{es:map.es??0,en:map.en??1,ex:map.ex,notes:map.notes,tags:map.tags,conj:map.conj}:{es:0,en:1,ex:2,notes:3,tags:4,conj:5};
+  const idx=isHeader?{es:map.es??0,en:map.en??1,ex:map.ex,notes:map.notes,tags:map.tags}:{es:0,en:1,ex:2,notes:3,tags:4};
+  TENSES.forEach((T,i)=>{idx[T.k]=isHeader?map[T.k]:5+i;});   // headerless files: the tenses follow tags, in this order
   const g=(r,i)=>i==null?'':(r[i]||'').trim();
-  return body.map(r=>({es:g(r,idx.es),en:g(r,idx.en),ex:g(r,idx.ex),notes:g(r,idx.notes),tags:g(r,idx.tags),conj:g(r,idx.conj)}));
+  return body.map(r=>{
+    const tenses={};for(const T of TENSES){const f=g(r,idx[T.k]);if(f)tenses[T.k]=f;}
+    return {es:g(r,idx.es),en:g(r,idx.en),ex:g(r,idx.ex),notes:g(r,idx.notes),tags:g(r,idx.tags),tenses};
+  });
 }
 function importRecords(recs){
-  let added=0,updated=0,skipped=0,drills=0;
+  let added=0,updated=0,skipped=0,verbs=0;
   for(const r of recs){
     if(!r.es||!r.en){skipped++;continue;}
     const id=hash(strip(r.es));
     let c=S.cards[id];
     if(c){c.en=r.en;if(r.ex)c.ex=r.ex;if(r.notes)c.notes=r.notes;if(r.tags)c.tags=r.tags;updated++;}
     else{c=S.cards[id]={id,es:r.es,en:r.en,ex:r.ex,notes:r.notes,tags:r.tags,stage:0,due:0,ivl:0,reps:0,lapses:0,added:Date.now()};S.order.push(id);added++;}
-    if(r.conj){c.conj=r.conj;syncDrills(c);drills++;}
+    if(r.tenses&&Object.keys(r.tenses).length){c.tenses=Object.assign({},c.tenses,r.tenses);syncConj(c);verbs++;}
   }
-  save();return {added,updated,skipped,drills};
+  save();return {added,updated,skipped,verbs};
 }
 function csvCell(v){v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
 function exportCsv(){
-  // Conjugation drills aren't rows of their own: they come back from the verb's conjugation column.
-  const lines=['spanish,english,example,notes,tags,conjugation,stage,due,reps,lapses,dropped'];
+  // Conjugation cards aren't rows of their own: they come back from the verb's tense columns.
+  const lines=[['spanish','english','example','notes','tags',...TENSES.map(T=>T.k),'stage','due','reps','lapses','dropped'].join(',')];
   for(const id of S.order){const c=S.cards[id];if(!c||c.kind==='conj')continue;
-    lines.push([c.es,c.en,c.ex,c.notes,c.tags,c.conj,c.stage,c.due?todayKey(new Date(c.due)):'',c.reps||0,c.lapses||0,c.dropped?'yes':''].map(csvCell).join(','));}
+    lines.push([c.es,c.en,c.ex,c.notes,c.tags,...TENSES.map(T=>tables(c)[T.k]),c.stage,c.due?todayKey(new Date(c.due)):'',c.reps||0,c.lapses||0,c.dropped?'yes':''].map(csvCell).join(','));}
   shareFile('cinco-cards-'+todayKey()+'.csv',lines.join('\n'),'text/csv');
 }
 async function shareFile(name,text,type){
@@ -644,7 +721,7 @@ async function backup(){
 const fileCsv=document.getElementById('fileCsv'),fileJson=document.getElementById('fileJson');
 fileCsv.onchange=async()=>{const f=fileCsv.files[0];fileCsv.value='';if(!f)return;
   const text=await f.text();const r=importRecords(toRecords(parseDelimited(text)));
-  toast(`Añadidas: ${r.added}. Actualizadas: ${r.updated}.`+(r.drills?` Verbos con conjugación: ${r.drills}.`:'')+(r.skipped?` Omitidas: ${r.skipped}.`:''));render();};
+  toast(`Añadidas: ${r.added}. Actualizadas: ${r.updated}.`+(r.verbs?` Verbos con conjugación: ${r.verbs}.`:'')+(r.skipped?` Omitidas: ${r.skipped}.`:''));render();};
 fileJson.onchange=async()=>{const f=fileJson.files[0];fileJson.value='';if(!f)return;
   try{const s=JSON.parse((await f.text()).replace(/^\uFEFF/,'').trim());if(!s||!s.cards)throw 0;ui.restoreDraft=s;ui.view='restore';render();}
   catch(e){toast('Ese archivo no es una copia de Cinco.');}};
@@ -659,7 +736,7 @@ function homeView(){
   const inSession=ui.session&&ui.session.queue.length;
   const total=c.total||1;
   const conjTab=S.settings.tab==='conj';
-  const lede=c.total===0?(conjTab?`Aún no hay verbos con conjugación. Importa un CSV con la columna <code>conjugation</code> o añádela al editar un verbo.`:`Importa un CSV de palabras para empezar.`):
+  const lede=c.total===0?(conjTab?`Aún no hay verbos con conjugación. Importa un CSV con columnas de tiempos (<code>presente</code>, <code>preterito</code>…) o añádelas al editar un verbo.`:`Importa un CSV de palabras para empezar.`):
     c.due+c.newToday===0?`Nada pendiente. ${d.reviewed?`Hoy repasaste ${d.reviewed}.`:'Vuelve mañana.'}`:
     `Hoy te tocan <strong>${c.due}</strong> por repasar${c.newToday?` y <strong>${c.newToday}</strong> nuevas`:''}.`;
   const stale=c.total>0&&(!S.lastBackup||Date.now()-S.lastBackup>3*DAY);
@@ -669,7 +746,7 @@ function homeView(){
   <p class="lede">${lede}</p>
   <div class="ladder">${[1,2,3,4,5].map(i=>`<button class="tile" data-act="stage" data-s="${i}" ${c.byStage[i]?'':'disabled'} aria-label="Estudiar las ${c.byStage[i]} tarjetas de la etapa ${i}, ${STAGES[i].name}"><span class="n">${c.byStage[i]}</span><div class="fill" style="height:${Math.round(100*c.byStage[i]/total)}%"></div></button>`).join('')}</div>
   <div class="legend">${[1,2,3,4,5].map(i=>`<div><span class="s">${i}</span><span>${STAGES[i].name}</span></div>`).join('')}</div>
-  <p class="newline"><button class="link" data-act="fresh" ${c.unseen?'':'disabled'}>${c.unseen} nuevas esperando</button>, ${c.total} ${conjTab?'formas':'en el mazo'}${c.dropped?`, ${c.dropped} descartadas`:''}. Toca una etapa para practicar solo esas tarjetas.</p>
+  <p class="newline"><button class="link" data-act="fresh" ${c.unseen?'':'disabled'}>${c.unseen} nuevas esperando</button>, ${c.total} ${conjTab?(c.total===1?'tabla':'tablas'):'en el mazo'}${c.dropped?`, ${c.dropped} descartadas`:''}. Toca una etapa para practicar solo esas tarjetas.</p>
   <button class="cta" data-act="study" ${c.due+c.newToday===0&&!inSession?'disabled':''}>${inSession?'Seguir la sesión':'¡Vamos!'}</button>
   ${stale?`<div class="note">Tu progreso vive en este teléfono. Haz una copia en iCloud Drive cada pocos días.</div>`:''}
   <div class="menu">
@@ -688,14 +765,13 @@ function studyView(){
   const left=s.queue.length;
   const head=bar(`${s.label?s.label+' · ':''}${left===1?'Queda 1':`Quedan ${left}`}`,`<button class="tb" data-act="go" data-v="home">‹ Inicio</button>`,`<button class="tb" data-act="undo" ${s.undo?'':'disabled'}>Deshacer</button>`);
   const spk=`<button class="speak" data-act="speak" aria-label="Escúchala">🔊</button>`;
-  // A conjugation drill has no example of its own: its answer shows the verb's meaning, notes and full table.
-  const drill=c.kind==='conj',vb=drill?S.cards[c.verb]:null;
   const ex=c.ex?`<p class="ex">${esc(c.ex)}</p>`:'';
-  const notes=drill?(vb&&vb.notes?`<p class="notes">${esc(vb.notes)}</p>`:'')+conjTable(vb,c.p):(c.notes?`<p class="notes">${esc(c.notes)}</p>`:'')+conjTable(c,-1);
-  const en=drill&&vb?`${esc(c.en)}<p class="notes" style="margin-top:6px">${esc(vb.en)}</p>`:esc(c.en);
-  const K=drill?{intro:'Conjugación nueva','es-en':'¿Qué persona y qué verbo?','en-es':'Conjúgalo en voz alta',type:'Escribe la forma'}:{intro:'Palabra nueva','es-en':'¿Qué significa?','en-es':'Dilo en español',type:'Escríbelo en español'};
+  const notes=(c.notes?`<p class="notes">${esc(c.notes)}</p>`:'')+moreTables(c,null,'Ver conjugación');
+  const en=esc(c.en);
+  const K={intro:'Palabra nueva','es-en':'¿Qué significa?','en-es':'Dilo en español',type:'Escríbelo en español'};
   let body='',actions='';
-  if(s.mode==='intro'){
+  if(c.kind==='conj')({body,actions}=conjBody(s,c));
+  else if(s.mode==='intro'){
     body=`<p class="k">${K.intro}</p><div class="word">${esc(c.es)}</div><div class="answer" style="border:0;margin-top:10px;padding-top:0"><div class="word sm">${en}</div>${ex}${notes}${spk}</div>`;
     actions=`<button class="big primary one" data-act="intro">Entendido, pregúntame luego<small>Vuelve dentro de unas tarjetas</small></button>`;
   }else if(s.mode==='es-en'){
@@ -713,10 +789,36 @@ function studyView(){
     actions=s.phase==='prompt'?'':gradeBtns();
   }
   const swipe=s.mode!=='intro'&&s.phase==='answer';
-  const tap=s.phase==='prompt'&&(s.mode==='es-en'||s.mode==='en-es');   // typing cards reveal by checking
+  const tap=s.phase==='prompt'&&(s.mode==='es-en'||s.mode==='en-es'||s.mode==='recite');   // typing cards reveal by checking
   if(tap)body+=`<p class="taphint">Toca la tarjeta para ver la respuesta</p>`;
   if(swipe)body+=`<span class="stamp yes">¡La sé!</span><span class="stamp no">Otra vez</span>`;
-  return `${head}${tiles(c.stage)}<section class="card ${s.verdict==='exact'?'flash':''} ${swipe?'swipe':''} ${tap?'tap':''}" ${tap?'data-act="reveal"':''}>${body}</section><div class="actions">${actions}</div>${swipe?`<p class="swipehint">Desliza la tarjeta: → si la sabías, ← si no</p>`:''}<button class="drop" data-act="drop">Descartar esta palabra, no la necesito</button>`;
+  return `${head}${tiles(c.stage)}<section class="card ${s.verdict==='exact'?'flash':''} ${swipe?'swipe':''} ${tap?'tap':''}" ${tap?'data-act="reveal"':''}>${body}</section><div class="actions">${actions}</div>${swipe?`<p class="swipehint">Desliza la tarjeta: → si la sabías, ← si no</p>`:''}<button class="drop" data-act="drop">${c.kind==='conj'?'Descartar este tiempo de este verbo':'Descartar esta palabra, no la necesito'}</button>`;
+}
+function conjBody(s,c){
+  const vb=S.cards[c.verb],T=TENSE[c.tense],f=cardForms(c),ps=asked(f);
+  const top=k=>`<p class="k">${k}</p><div class="word">${esc(c.es)}</div><p class="notes" style="margin-top:6px">${esc(vb?vb.en:'')}</p><span class="verdict tensechip">${T.long||T.name}</span>`;
+  // A verb's note describes its present tense (o→ue, yo-go…), so it would mislead under any other tense.
+  const notes=vb&&vb.notes&&c.tense==='presente'?`<p class="notes">${esc(vb.notes)}</p>`:'';
+  const spk=`<button class="speak" data-act="speakTable" aria-label="Escucha la tabla">🔊</button>`;
+  const more=moreTables(vb,c.tense,'Otros tiempos');
+  // Unasked cells (vosotros, unless it's switched on) stay empty while you answer, so they don't give the stem away.
+  const hideUnasked=p=>ps.includes(p)?null:{hide:true};
+  const reveal=`<button class="big primary one" data-act="reveal">Mostrar la tabla</button>`;
+  if(s.mode==='intro')return {body:`${top('Conjugación nueva')}${conjTable(f,c.tense)}${notes}${spk}${more}`,
+    actions:`<button class="big primary one" data-act="intro">Entendido, pregúntame luego<small>Vuelve dentro de unas tarjetas</small></button>`};
+  if(s.mode==='recite')return {body:top('Conjúgalo en voz alta')+(s.phase==='answer'?`<div class="answer">${conjTable(f,c.tense)}${notes}${spk}${more}</div>`:''),
+    actions:s.phase==='prompt'?reveal:gradeBtns()};
+  if(s.phase==='prompt')return {actions:'',body:`${top('Escribe la tabla')}<form class="gridform" data-act="checkGrid">${conjTable(f,c.tense,p=>hideUnasked(p)||{html:
+    `<input id="g${p}" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" lang="es" enterkeyhint="${p===ps[ps.length-1]?'done':'next'}" aria-label="${person(p,c.tense)}">`})}
+    <button type="submit" class="big primary">Comprobar</button></form>`};
+  const res=s.cells||{},right=ps.filter(p=>res[p]&&res[p].v==='exact').length;
+  const near=ps.filter(p=>res[p]&&(res[p].v==='accent'||res[p].v==='article')).length;
+  const tag=right===ps.length?`<span class="verdict ok">¡Todo correcto!</span>`:
+    `<span class="verdict ${right+near===ps.length?'near':'no'}">${right} de ${ps.length} bien${near?`, ${near} casi (acentos)`:''}</span>`;
+  const table=conjTable(f,c.tense,p=>hideUnasked(p)||(()=>{const r=res[p]||{v:'skip',typed:''};
+    const cls=r.v==='exact'?'ok':r.v==='accent'||r.v==='article'?'near':'no';
+    return {cls,html:esc(f[p])+(r.v==='exact'?'':`<s>${esc(r.typed)||'—'}</s>`)};})());
+  return {body:`${top('Escribe la tabla')}<div class="answer">${tag}${table}${notes}${spk}${more}</div>`,actions:gradeBtns()};
 }
 function verdictTag(s){
   const t=esc(s.typed);
@@ -765,12 +867,12 @@ function detailView(c){
   return `${bar('',`<button class="tb" data-act="detail" data-id="">‹ Tarjetas</button>`)}
   <div class="detail">${tiles(c.stage)}<div class="word">${esc(c.es)}</div><div class="word sm" style="color:var(--muted);margin-top:6px">${esc(c.en)}</div>
   ${c.ex?`<p class="ex">${esc(c.ex)}</p>`:''}${c.notes?`<p class="notes">${esc(c.notes)}</p>`:''}
-  ${drill?conjTable(vb,c.p):conjTable(c,-1)}
-  <button class="speak" data-act="speakId" data-id="${c.id}" aria-label="Escúchala">🔊</button>
+  ${drill?`${vb?`<p class="notes">${esc(vb.en)}</p>`:''}${conjTable(cardForms(c),c.tense)}${moreTables(vb,c.tense,'Otros tiempos')}`:moreTables(c,null,'Conjugación')}
+  <button class="speak" data-act="${drill?'speakTable':'speakId'}" data-id="${c.id}" aria-label="Escúchala">🔊</button>
   <dl><dt>Próximo repaso</dt><dd>${c.dropped?'nunca, descartada':due}</dd><dt>Intervalo</dt><dd>${c.ivl?c.ivl+(c.ivl===1?' día':' días'):'—'}</dd><dt>Repasos</dt><dd>${c.reps||0}</dd><dt>Fallos</dt><dd>${c.lapses||0}</dd>${c.tags?`<dt>Etiquetas</dt><dd>${esc(c.tags)}</dd>`:''}</dl></div>
   <div class="menu">
-    ${drill?(vb?`<button data-act="edit" data-id="${vb.id}"><span>Editar el verbo<small>Las formas se cambian en la tarjeta de «${esc(vb.es)}»</small></span></button>`:''):`<button data-act="edit" data-id="${c.id}"><span>Editar tarjeta</span></button>`}
-    <button data-act="toggleDrop" data-id="${c.id}"><span>${c.dropped?'Recuperar':'Descartar esta palabra'}<small>${c.dropped?'Vuelve a programarse':'No vuelve a salir, aunque la reimportes'}</small></span></button>
+    ${drill?(vb?`<button data-act="edit" data-id="${vb.id}"><span>Editar el verbo<small>Las tablas se cambian en la tarjeta de «${esc(vb.es)}»</small></span></button>`:''):`<button data-act="edit" data-id="${c.id}"><span>Editar tarjeta</span></button>`}
+    <button data-act="toggleDrop" data-id="${c.id}"><span>${c.dropped?'Recuperar':drill?'Descartar este tiempo':'Descartar esta palabra'}<small>${c.dropped?'Vuelve a programarse':'No vuelve a salir, aunque la reimportes'}</small></span></button>
     <button data-act="resetCard" data-id="${c.id}"><span>${ui.confirm==='reset'?'Toca otra vez para reiniciar':'Reiniciar progreso'}<small>Vuelve a Nueva</small></span></button>
     <button class="danger" data-act="deleteCard" data-id="${c.id}"><span>${ui.confirm==='delete'?'Toca otra vez para borrarla':'Borrar tarjeta'}</span></button>
   </div>`;
@@ -786,16 +888,17 @@ function editView(){
     <label>Frase de ejemplo<input id="f_ex" lang="es" autocapitalize="sentences" placeholder="Mi coche es rojo." value="${v('ex')}"></label>
     <label>Notas<input id="f_notes" placeholder="En España, coche; en México, carro" value="${v('notes')}"></label>
     <label>Etiqueta<input id="f_tags" autocapitalize="off" placeholder="transporte" value="${v('tags')}"></label>
-    <div class="fl">Conjugación en presente<small style="display:block;font-weight:600">Solo para verbos. Cada forma se practica aparte en la pestaña Conjugación.</small>
-      <div class="forms">${[0,3,1,4,2,5].map(p=>`<label>${PERSONS[p]}<input id="f_c${p}" lang="es" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(forms(c)[p]||'')}"></label>`).join('')}</div></div>
+    <div class="fl">Conjugación<small style="display:block;font-weight:600">Solo para verbos. Cada tiempo que rellenes es una tarjeta en la pestaña Conjugación.</small>
+      ${TENSES.map(T=>{const f=splitForms(tables(c)[T.k]);return `<details class="more" ${T.k==='presente'?'open':''}><summary>${T.long||T.name}${f.some(Boolean)?' ✓':''}</summary><div class="forms">${[0,1,2,3,4,5].map(p=>`<label>${person(p,T.k)}<input id="f_${T.k}_${p}" lang="es" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(f[p]||'')}"></label>`).join('')}</div></details>`;}).join('')}</div>
     <button type="submit" class="cta">${c?'Guardar cambios':'Añadir tarjeta'}</button>
   </form>
   <p class="foot">${c?'Si cambias el español, la tarjeta conserva su progreso.':'Si separas alternativas con /, todas valen al escribir.'}</p>`;
 }
 function saveCard(){
   const g=id=>document.getElementById(id).value.trim();
-  const cf=[0,1,2,3,4,5].map(p=>g('f_c'+p));
-  const r={es:g('f_es'),en:g('f_en'),ex:g('f_ex'),notes:g('f_notes'),tags:g('f_tags').toLowerCase(),conj:cf.some(Boolean)?cf.join('|'):''};
+  const tenses={};
+  for(const T of TENSES){const f=[0,1,2,3,4,5].map(p=>g(`f_${T.k}_${p}`));if(f.some(Boolean))tenses[T.k]=f.join('|');}
+  const r={es:g('f_es'),en:g('f_en'),ex:g('f_ex'),notes:g('f_notes'),tags:g('f_tags').toLowerCase(),tenses};
   if(!r.es||!r.en){toast('Hacen falta el español y el inglés.');return;}
   const newId=hash(strip(r.es));
   if(ui.editId){
@@ -808,11 +911,11 @@ function saveCard(){
     if(newId!==ui.editId){
       if(S.cards[newId]){toast('Otra tarjeta ya tiene ese español.');return;}
       rekey(ui.editId,newId);
-      // The verb's drills follow it, so a re-import of the renamed verb finds them.
-      for(let p=0;p<6;p++){const d=S.cards[ui.editId+'.'+p];if(d){rekey(d.id,newId+'.'+p);d.verb=newId;}}
+      // The verb's tense cards follow it, so a re-import of the renamed verb finds them.
+      for(const T of TENSES){const d=S.cards[ui.editId+':'+T.k];if(d){rekey(d.id,newId+':'+T.k);d.verb=newId;}}
     }
-    Object.assign(S.cards[newId],{es:r.es,en:r.en,ex:r.ex,notes:r.notes,tags:r.tags,conj:r.conj});
-    syncDrills(S.cards[newId]);
+    Object.assign(S.cards[newId],{es:r.es,en:r.en,ex:r.ex,notes:r.notes,tags:r.tags,tenses:r.tenses});
+    syncConj(S.cards[newId]);
     save();ui.detail=newId;ui.editId=null;ui.view='browse';render();toast('Guardada');
   }else{
     if(S.cards[newId]){toast(`«${r.es}» ya está en el mazo.`);return;}
@@ -867,8 +970,9 @@ function howView(){
   <p>En el inicio, toca cualquier columna para estudiar todas las tarjetas de esa etapa, toquen hoy o no, y toca el número de nuevas para presentar otra tanda. Se califica igual que en una sesión normal: si aciertas, la tarjeta sube y se reprograma. Sirve para una etapa que se ha acumulado o antes de un viaje; la sesión diaria es la que mantiene el ritmo.</p>
   <h3>Vocabulario y conjugación</h3>
   <p>Arriba del inicio eliges entre dos mazos. Cada uno tiene sus propias etapas, sus repasos y su límite de nuevas por día, así que puedes dedicar una sesión a palabras y otra a verbos.</p>
-  <p>Un verbo con conjugación sale una sola vez en <b>Vocabulario</b> (<i>tener</i> ↔ <i>to have</i>) y al ver la respuesta aparece su tabla. En <b>Conjugación</b> cada forma es una tarjeta: ves <b>nosotros · tener</b> y escribes <b>tenemos</b>. Cada forma sube de etapa por su cuenta, así que las que se te resisten vuelven antes. Puedes escribir el pronombre o no: <i>nosotros tenemos</i> también vale.</p>
-  <p>Las formas de vosotros aparecen en la tabla, pero solo se practican si activas <b>Ajustes › Practicar vosotros</b>.</p>
+  <p>Un verbo sale una sola vez en <b>Vocabulario</b> (<i>tener</i> ↔ <i>to have</i>); al ver la respuesta puedes abrir todas sus tablas. En <b>Conjugación</b> cada tiempo de cada verbo es una tarjeta: ves <b>tener · Pretérito</b> y conjugas la tabla entera. Primero la estudias, luego la dices en voz alta y te calificas, y desde la etapa 4 escribes las seis formas. Si todas están bien, sube sola; si no, ves cuáles fallaste y decides tú. El pronombre es opcional: <i>nosotros tuvimos</i> también vale.</p>
+  <p>Debajo de las pestañas eliges el tiempo: Presente, Pretérito, Imperfecto, Futuro, Condicional o Subjuntivo. Cada tiempo lleva su propio progreso, así que dominar <i>tener</i> en presente no lo da por sabido en pretérito. <b>Aleatorio</b> mezcla todos los tiempos en la misma sesión y te dice cuál toca en cada tarjeta.</p>
+  <p>Las formas de vosotros aparecen en la tabla, pero solo se piden si activas <b>Ajustes › Practicar vosotros</b>.</p>
   <h3>Descartar palabras</h3>
   <p>Si una palabra no te merece la pena, toca <b>Descartar esta palabra</b> debajo de la tarjeta. No vuelve a programarse y sigue descartada aunque reimportes el CSV de donde vino. Deshacer la devuelve al momento; más tarde, búscala en Explorar tarjetas › Descartadas y toca <b>Recuperar</b>.</p>
   <h3>El ritmo diario</h3>
@@ -878,7 +982,7 @@ function howView(){
   <p>Hasta que la descargues, las palabras suenan con grabaciones hechas en el Mac y, si no hay grabación, con la voz del iPhone. Si cambias el acento a España, esa voz se descarga aparte.</p>
   <h3>Tus datos</h3>
   <p>Las tarjetas y el progreso se guardan en este teléfono. Importa mazos en CSV desde iCloud Drive. Toca <b>Guardar copia de seguridad</b> para guardar un archivo que puedas restaurar más tarde.</p>
-  <p>Columnas del CSV: <code>spanish,english,example,notes,tags</code>. Solo las dos primeras son obligatorias. Los verbos pueden llevar una sexta columna, <code>conjugation</code>, con las seis formas del presente separadas por <code>|</code>: <code>tengo|tienes|tiene|tenemos|tenéis|tienen</code>. Reimportar un archivo actualiza las tarjetas que ya existen sin perder su progreso; se emparejan por el texto en español.</p>
+  <p>Columnas del CSV: <code>spanish,english,example,notes,tags</code>. Solo las dos primeras son obligatorias. Los verbos pueden llevar una columna por tiempo (<code>presente</code>, <code>preterito</code>, <code>imperfecto</code>, <code>futuro</code>, <code>condicional</code>, <code>subjuntivo</code>), cada una con las seis formas separadas por <code>|</code>: <code>tengo|tienes|tiene|tenemos|tenéis|tienen</code>. Reimportar un archivo actualiza las tarjetas que ya existen sin perder su progreso; se emparejan por el texto en español.</p>
   <p>Si en la columna del español separas alternativas con <code>/</code>, todas valen al escribir, por ejemplo <code>el coche / el carro</code>.</p>
   <h3>Copias de un toque con un Atajo</h3>
   <p>Safari no puede escribir en una carpeta por su cuenta, así que la copia normal pasa por el menú de compartir. Un Atajo se salta ese paso: Cinco copia tu progreso y le pide al Atajo que lo guarde siempre en el mismo archivo.</p>
@@ -896,7 +1000,7 @@ const app=document.getElementById('app');
 function render(){
   const v=ui.view;
   app.innerHTML=v==='study'?studyView():v==='done'?doneView():v==='browse'?browseView():v==='settings'?settingsView():v==='edit'?editView():v==='how'?howView():v==='restore'?restoreView():homeView();
-  const inp=document.getElementById('ans')||document.getElementById('f_es');if(inp&&!inp.value){inp.focus();}
+  const inp=document.getElementById('ans')||document.querySelector('.gridform input')||document.getElementById('f_es');if(inp&&!inp.value){inp.focus();}
   const sc=document.getElementById('scName');if(sc){sc.onchange=()=>{S.settings.shortcutName=sc.value.trim()||'Save Cinco Backup';save();};}
   const q=document.getElementById('q');if(q){q.oninput=()=>{ui.q=q.value;const pos=q.selectionStart;render();const nq=document.getElementById('q');nq.focus();nq.setSelectionRange(pos,pos);};}
   window.scrollTo(0,0);
@@ -905,9 +1009,17 @@ let toastT;function toast(m){const t=document.getElementById('toast');t.textCont
 
 app.addEventListener('submit',e=>{
   const sf=e.target.closest('[data-act="saveCard"]');if(sf){e.preventDefault();saveCard();return;}
+  const gf=e.target.closest('[data-act="checkGrid"]');
+  if(gf){
+    e.preventDefault();const s=ui.session,c=S.cards[s.current],f=cardForms(c);
+    s.cells={};for(const p of asked(f)){const typed=(document.getElementById('g'+p)||{}).value||'';s.cells[p]={typed,v:check(dropPronoun(typed,p),f[p])};}
+    s.phase='answer';const all=Object.values(s.cells).every(x=>x.v==='exact');s.verdict=all?'exact':'wrong';render();
+    if(all)setTimeout(()=>{if(ui.view==='study'&&ui.session&&ui.session.current===c.id&&ui.session.phase==='answer')grade(true);},1200);
+    return;
+  }
   const f=e.target.closest('[data-act="check"]');if(!f)return;e.preventDefault();
   const s=ui.session,c=S.cards[s.current];s.typed=document.getElementById('ans').value;
-  s.verdict=check(c.kind==='conj'?dropPronoun(s.typed,c.p):s.typed,c.es);s.phase='answer';render();
+  s.verdict=check(s.typed,c.es);s.phase='answer';render();
   if(S.settings.autoSpeak)speak(c.es);
   if(s.verdict==='exact')setTimeout(()=>{if(ui.view==='study'&&ui.session&&ui.session.current===c.id&&ui.session.phase==='answer')grade(true);},900);
 });
@@ -932,6 +1044,8 @@ app.addEventListener('click',e=>{
     case 'drop':dropCard();break;
     case 'speak':speak(S.cards[ui.session.current].es);break;
     case 'speakId':speak(S.cards[b.dataset.id].es);break;
+    case 'speakTable':{const c=S.cards[b.dataset.id||ui.session.current];speak(asked(cardForms(c)).map(p=>cardForms(c)[p].split('/')[0].trim()).join(', '));break;}
+    case 'tense':if(curTense()!==b.dataset.t){S.settings.tense=b.dataset.t;ui.session=null;save();}render();break;
     case 'showDropped':ui.showDropped=b.dataset.v==='dropped';render();break;
     case 'detail':ui.detail=b.dataset.id||null;ui.view='browse';render();break;
     case 'edit':ui.editId=b.dataset.id||null;ui.view='edit';render();break;
@@ -954,6 +1068,13 @@ app.addEventListener('click',e=>{
     case 'erase':if(ui.confirm!=='erase'){ui.confirm='erase';render();break;}
       S=fresh();ui.session=null;ui.confirm=null;save();ui.view='home';render();toast('Todo borrado');break;
   }
+});
+
+// In a table being typed, Enter (or the keyboard's Next) moves on to the next person; the last one checks.
+app.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||!e.target.closest('.gridform'))return;
+  const ins=[...document.querySelectorAll('.gridform input')],i=ins.indexOf(e.target);
+  if(i>=0&&i<ins.length-1){e.preventDefault();ins[i+1].focus();}
 });
 
 /* swipe to grade: right = got it, left = again */

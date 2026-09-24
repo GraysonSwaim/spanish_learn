@@ -5,12 +5,14 @@ Usage: validate_cards.py deck.csv [--existing other.csv ...]
 
 Checks the header, required fields, quoting/column counts, duplicate Spanish
 (within the file and against any --existing decks), that each example
-contains its word, and that a conjugation column has six |-separated forms. Exit code 1 if there are errors; warnings don't fail.
+contains its word, and that each tense column (presente, preterito, imperfecto,
+futuro, condicional, subjuntivo) has six |-separated forms. Exit code 1 if there are errors; warnings don't fail.
 """
 import csv, io, re, sys, unicodedata
 
 REQUIRED = ["spanish", "english"]
-COLUMNS = ["spanish", "english", "example", "notes", "tags", "conjugation"]
+TENSES = ["presente", "preterito", "imperfecto", "futuro", "condicional", "subjuntivo"]
+COLUMNS = ["spanish", "english", "example", "notes", "tags"] + TENSES
 
 def strip(s):
     s = s.lower().strip().replace("ñ", "\x01")
@@ -64,6 +66,7 @@ def main(argv):
         idx = {c: i for i, c in enumerate(COLUMNS)}
         body = rows
     else:
+        header = ["presente" if h == "conjugation" else h for h in header]   # older decks
         idx = {c: header.index(c) for c in COLUMNS if c in header}
         body = rows[1:]
         for extra in set(header) - set(COLUMNS):
@@ -74,7 +77,9 @@ def main(argv):
             errors.append(f"line {n}: {len(r)} fields, expected {len(header)}. A comma inside a field needs quotes.")
             continue
         g = lambda c: r[idx[c]].strip() if c in idx and idx[c] < len(r) else ""
-        es, en, ex, notes, tag, conj = (g(c) for c in COLUMNS)
+        es, en, ex, notes, tag = (g(c) for c in COLUMNS[:5])
+        tables = {t: g(t) for t in TENSES if g(t)}
+        conj = tables.get("presente", "")
         if not es or not en:
             errors.append(f"line {n}: spanish and english are both required ({es!r}, {en!r})"); continue
         k = key(es)
@@ -85,14 +90,17 @@ def main(argv):
             warnings.append(f"line {n}: '{es}' already exists in the deck you passed with --existing (re-import will update it, not add it)")
         if len(es.split()) > 6:
             warnings.append(f"line {n}: spanish is long ({len(es.split())} words); the learner has to type this")
-        if conj:
-            forms = [f.strip() for f in conj.split("|")]
+        for t, table in tables.items():
+            forms = [f.strip() for f in table.split("|")]
             if len(forms) != 6:
-                errors.append(f"line {n}: conjugation needs 6 forms separated by | (yo|tú|él|nosotros|vosotros|ellos), got {len(forms)}")
+                errors.append(f"line {n}: {t} needs 6 forms separated by | (yo|tú|él|nosotros|vosotros|ellos), got {len(forms)}")
             elif any(not f for i, f in enumerate(forms) if i != 4):
-                errors.append(f"line {n}: conjugation has an empty form; only vosotros (the 5th) may be left empty")
+                errors.append(f"line {n}: {t} has an empty form; only vosotros (the 5th) may be left empty")
+        if tables:
+            if tables and "presente" not in tables:
+                warnings.append(f"line {n}: '{es}' has other tenses but no presente")
             if not re.search(r"(ar|er|ir|ír)(se)?$", strip(es.split("/")[0].strip())):
-                warnings.append(f"line {n}: '{es}' has a conjugation but doesn't look like an infinitive")
+                warnings.append(f"line {n}: '{es}' has conjugation tables but doesn't look like an infinitive")
         if ex and stem(es) not in strip(ex) and not (conj and any(strip(f.split("/")[0]).split()[-1] in strip(ex) for f in conj.split("|") if f.strip())):
             warnings.append(f"line {n}: example may not contain '{es}' (fine if the verb is irregular): {ex}")
         if notes and len(notes) > 100:

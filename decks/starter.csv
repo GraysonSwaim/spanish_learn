@@ -1,63 +1,63 @@
-spanish,english,example,notes,tags,conjugation
-hola,hello,"Hola, ¿cómo estás?",,greetings,
-gracias,thank you,Muchas gracias por tu ayuda.,,greetings,
-por favor,please,"Un café, por favor.",,greetings,
-lo siento,I'm sorry,"Lo siento, no te entendí.",,greetings,
-buenos días,good morning,"Buenos días, señora.",Used until about noon,greetings,
-buenas noches,good night / good evening,"Buenas noches, hasta mañana.",,greetings,
-sí,yes,"Sí, claro.",Accent distinguishes it from “si” (if),basics,
-no,no,"No, gracias.",,basics,
-el agua,water,Quiero un vaso de agua.,Feminine noun that takes “el” in the singular,food,
-el pan,bread,El pan está caliente.,,food,
-la leche,milk,No tomo leche.,,food,
-la manzana,apple,Como una manzana cada día.,,food,
-el pollo,chicken,El pollo con arroz es mi plato favorito.,,food,
-la cuenta,the bill / the check,"La cuenta, por favor.",,food,
-comer,to eat,Vamos a comer a las dos.,,verbs,como|comes|come|comemos|coméis|comen
-beber,to drink,¿Quieres beber algo?,,verbs,bebo|bebes|bebe|bebemos|bebéis|beben
-hablar,to speak / to talk,Hablo un poco de español.,,verbs,hablo|hablas|habla|hablamos|habláis|hablan
-tener,to have,Tengo dos hermanos.,"Irregular: tengo, tienes, tiene",verbs,tengo|tienes|tiene|tenemos|tenéis|tienen
-ser,to be,Soy de Estados Unidos.,Permanent traits and identity,verbs,soy|eres|es|somos|sois|son
-estar,to be,Estoy cansado hoy.,Location and temporary states,verbs,estoy|estás|está|estamos|estáis|están
-ir,to go,Voy al mercado.,"Irregular: voy, vas, va",verbs,voy|vas|va|vamos|vais|van
-querer,to want / to love,Quiero aprender español.,,verbs,quiero|quieres|quiere|queremos|queréis|quieren
-poder,to be able to / can,¿Puedes ayudarme?,,verbs,puedo|puedes|puede|podemos|podéis|pueden
-saber,to know,No sé la respuesta.,Facts and skills; “conocer” is for people and places,verbs,sé|sabes|sabe|sabemos|sabéis|saben
-conocer,to know / to be familiar with,¿Conoces a mi hermana?,People and places,verbs,conozco|conoces|conoce|conocemos|conocéis|conocen
-la casa,house / home,Mi casa está cerca del parque.,,places,
-la calle,street,Vivo en la calle Mayor.,,places,
-la ciudad,city,Madrid es una ciudad grande.,,places,
-el mercado,market,Compro fruta en el mercado.,,places,
-la playa,beach,Vamos a la playa el sábado.,,places,
-el baño,bathroom,¿Dónde está el baño?,,places,
-¿dónde?,where?,¿Dónde vives?,,questions,
-¿cuánto?,how much?,¿Cuánto cuesta esto?,,questions,
-¿por qué?,why?,¿Por qué estudias español?,Two words with accent; “porque” means because,questions,
-¿cuándo?,when?,¿Cuándo llegas?,,questions,
-¿quién?,who?,¿Quién es ella?,,questions,
-hoy,today,Hoy es lunes.,,time,
-mañana,tomorrow / morning,Mañana trabajo por la mañana.,,time,
-ayer,yesterday,Ayer llovió mucho.,,time,
-ahora,now,Ahora no puedo hablar.,,time,
-siempre,always,Siempre desayuno a las siete.,,time,
-nunca,never,Nunca he estado en Perú.,,time,
-la semana,week,La semana que viene tengo vacaciones.,,time,
-grande,big,Es una casa muy grande.,,adjectives,
-pequeño,small,El perro es pequeño.,,adjectives,
-bueno,good,Es un buen libro.,Shortens to “buen” before a masculine noun,adjectives,
-malo,bad,Hace mal tiempo.,,adjectives,
-caro,expensive,Este restaurante es muy caro.,,adjectives,
-barato,cheap,Encontré un vuelo barato.,,adjectives,
-cansado,tired,Estoy muy cansado.,,adjectives,
-feliz,happy,Estoy feliz de verte.,,adjectives,
-el trabajo,work / job,Mi trabajo empieza a las nueve.,,life,
-el dinero,money,No tengo dinero.,,life,
-el tiempo,time / weather,No tengo tiempo. Hace buen tiempo.,,life,
-el amigo,friend,Mi amigo vive en Bogotá.,,people,
-la familia,family,Mi familia es pequeña.,,people,
-el hermano,brother,Tengo un hermano mayor.,,people,
-la hija,daughter,Su hija tiene cinco años.,,people,
-pero,but,"Quiero ir, pero estoy cansado.",,connectors,
-porque,because,Estudio porque me gusta.,,connectors,
-también,also / too,Yo también quiero café.,,connectors,
-entonces,then / so,"Entonces, ¿qué hacemos?",,connectors,
+spanish,english,example,notes,tags,presente,preterito,imperfecto,futuro,condicional,subjuntivo
+hola,hello,"Hola, ¿cómo estás?",,greetings,,,,,,
+gracias,thank you,Muchas gracias por tu ayuda.,,greetings,,,,,,
+por favor,please,"Un café, por favor.",,greetings,,,,,,
+lo siento,I'm sorry,"Lo siento, no te entendí.",,greetings,,,,,,
+buenos días,good morning,"Buenos días, señora.",Used until about noon,greetings,,,,,,
+buenas noches,good night / good evening,"Buenas noches, hasta mañana.",,greetings,,,,,,
+sí,yes,"Sí, claro.",Accent distinguishes it from “si” (if),basics,,,,,,
+no,no,"No, gracias.",,basics,,,,,,
+el agua,water,Quiero un vaso de agua.,Feminine noun that takes “el” in the singular,food,,,,,,
+el pan,bread,El pan está caliente.,,food,,,,,,
+la leche,milk,No tomo leche.,,food,,,,,,
+la manzana,apple,Como una manzana cada día.,,food,,,,,,
+el pollo,chicken,El pollo con arroz es mi plato favorito.,,food,,,,,,
+la cuenta,the bill / the check,"La cuenta, por favor.",,food,,,,,,
+comer,to eat,Vamos a comer a las dos.,,verbs,como|comes|come|comemos|coméis|comen,comí|comiste|comió|comimos|comisteis|comieron,comía|comías|comía|comíamos|comíais|comían,comeré|comerás|comerá|comeremos|comeréis|comerán,comería|comerías|comería|comeríamos|comeríais|comerían,coma|comas|coma|comamos|comáis|coman
+beber,to drink,¿Quieres beber algo?,,verbs,bebo|bebes|bebe|bebemos|bebéis|beben,bebí|bebiste|bebió|bebimos|bebisteis|bebieron,bebía|bebías|bebía|bebíamos|bebíais|bebían,beberé|beberás|beberá|beberemos|beberéis|beberán,bebería|beberías|bebería|beberíamos|beberíais|beberían,beba|bebas|beba|bebamos|bebáis|beban
+hablar,to speak / to talk,Hablo un poco de español.,,verbs,hablo|hablas|habla|hablamos|habláis|hablan,hablé|hablaste|habló|hablamos|hablasteis|hablaron,hablaba|hablabas|hablaba|hablábamos|hablabais|hablaban,hablaré|hablarás|hablará|hablaremos|hablaréis|hablarán,hablaría|hablarías|hablaría|hablaríamos|hablaríais|hablarían,hable|hables|hable|hablemos|habléis|hablen
+tener,to have,Tengo dos hermanos.,"Irregular: tengo, tienes, tiene",verbs,tengo|tienes|tiene|tenemos|tenéis|tienen,tuve|tuviste|tuvo|tuvimos|tuvisteis|tuvieron,tenía|tenías|tenía|teníamos|teníais|tenían,tendré|tendrás|tendrá|tendremos|tendréis|tendrán,tendría|tendrías|tendría|tendríamos|tendríais|tendrían,tenga|tengas|tenga|tengamos|tengáis|tengan
+ser,to be,Soy de Estados Unidos.,Permanent traits and identity,verbs,soy|eres|es|somos|sois|son,fui|fuiste|fue|fuimos|fuisteis|fueron,era|eras|era|éramos|erais|eran,seré|serás|será|seremos|seréis|serán,sería|serías|sería|seríamos|seríais|serían,sea|seas|sea|seamos|seáis|sean
+estar,to be,Estoy cansado hoy.,Location and temporary states,verbs,estoy|estás|está|estamos|estáis|están,estuve|estuviste|estuvo|estuvimos|estuvisteis|estuvieron,estaba|estabas|estaba|estábamos|estabais|estaban,estaré|estarás|estará|estaremos|estaréis|estarán,estaría|estarías|estaría|estaríamos|estaríais|estarían,esté|estés|esté|estemos|estéis|estén
+ir,to go,Voy al mercado.,"Irregular: voy, vas, va",verbs,voy|vas|va|vamos|vais|van,fui|fuiste|fue|fuimos|fuisteis|fueron,iba|ibas|iba|íbamos|ibais|iban,iré|irás|irá|iremos|iréis|irán,iría|irías|iría|iríamos|iríais|irían,vaya|vayas|vaya|vayamos|vayáis|vayan
+querer,to want / to love,Quiero aprender español.,,verbs,quiero|quieres|quiere|queremos|queréis|quieren,quise|quisiste|quiso|quisimos|quisisteis|quisieron,quería|querías|quería|queríamos|queríais|querían,querré|querrás|querrá|querremos|querréis|querrán,querría|querrías|querría|querríamos|querríais|querrían,quiera|quieras|quiera|queramos|queráis|quieran
+poder,to be able to / can,¿Puedes ayudarme?,,verbs,puedo|puedes|puede|podemos|podéis|pueden,pude|pudiste|pudo|pudimos|pudisteis|pudieron,podía|podías|podía|podíamos|podíais|podían,podré|podrás|podrá|podremos|podréis|podrán,podría|podrías|podría|podríamos|podríais|podrían,pueda|puedas|pueda|podamos|podáis|puedan
+saber,to know,No sé la respuesta.,Facts and skills; “conocer” is for people and places,verbs,sé|sabes|sabe|sabemos|sabéis|saben,supe|supiste|supo|supimos|supisteis|supieron,sabía|sabías|sabía|sabíamos|sabíais|sabían,sabré|sabrás|sabrá|sabremos|sabréis|sabrán,sabría|sabrías|sabría|sabríamos|sabríais|sabrían,sepa|sepas|sepa|sepamos|sepáis|sepan
+conocer,to know / to be familiar with,¿Conoces a mi hermana?,People and places,verbs,conozco|conoces|conoce|conocemos|conocéis|conocen,conocí|conociste|conoció|conocimos|conocisteis|conocieron,conocía|conocías|conocía|conocíamos|conocíais|conocían,conoceré|conocerás|conocerá|conoceremos|conoceréis|conocerán,conocería|conocerías|conocería|conoceríamos|conoceríais|conocerían,conozca|conozcas|conozca|conozcamos|conozcáis|conozcan
+la casa,house / home,Mi casa está cerca del parque.,,places,,,,,,
+la calle,street,Vivo en la calle Mayor.,,places,,,,,,
+la ciudad,city,Madrid es una ciudad grande.,,places,,,,,,
+el mercado,market,Compro fruta en el mercado.,,places,,,,,,
+la playa,beach,Vamos a la playa el sábado.,,places,,,,,,
+el baño,bathroom,¿Dónde está el baño?,,places,,,,,,
+¿dónde?,where?,¿Dónde vives?,,questions,,,,,,
+¿cuánto?,how much?,¿Cuánto cuesta esto?,,questions,,,,,,
+¿por qué?,why?,¿Por qué estudias español?,Two words with accent; “porque” means because,questions,,,,,,
+¿cuándo?,when?,¿Cuándo llegas?,,questions,,,,,,
+¿quién?,who?,¿Quién es ella?,,questions,,,,,,
+hoy,today,Hoy es lunes.,,time,,,,,,
+mañana,tomorrow / morning,Mañana trabajo por la mañana.,,time,,,,,,
+ayer,yesterday,Ayer llovió mucho.,,time,,,,,,
+ahora,now,Ahora no puedo hablar.,,time,,,,,,
+siempre,always,Siempre desayuno a las siete.,,time,,,,,,
+nunca,never,Nunca he estado en Perú.,,time,,,,,,
+la semana,week,La semana que viene tengo vacaciones.,,time,,,,,,
+grande,big,Es una casa muy grande.,,adjectives,,,,,,
+pequeño,small,El perro es pequeño.,,adjectives,,,,,,
+bueno,good,Es un buen libro.,Shortens to “buen” before a masculine noun,adjectives,,,,,,
+malo,bad,Hace mal tiempo.,,adjectives,,,,,,
+caro,expensive,Este restaurante es muy caro.,,adjectives,,,,,,
+barato,cheap,Encontré un vuelo barato.,,adjectives,,,,,,
+cansado,tired,Estoy muy cansado.,,adjectives,,,,,,
+feliz,happy,Estoy feliz de verte.,,adjectives,,,,,,
+el trabajo,work / job,Mi trabajo empieza a las nueve.,,life,,,,,,
+el dinero,money,No tengo dinero.,,life,,,,,,
+el tiempo,time / weather,No tengo tiempo. Hace buen tiempo.,,life,,,,,,
+el amigo,friend,Mi amigo vive en Bogotá.,,people,,,,,,
+la familia,family,Mi familia es pequeña.,,people,,,,,,
+el hermano,brother,Tengo un hermano mayor.,,people,,,,,,
+la hija,daughter,Su hija tiene cinco años.,,people,,,,,,
+pero,but,"Quiero ir, pero estoy cansado.",,connectors,,,,,,
+porque,because,Estudio porque me gusta.,,connectors,,,,,,
+también,also / too,Yo también quiero café.,,connectors,,,,,,
+entonces,then / so,"Entonces, ¿qué hacemos?",,connectors,,,,,,
