@@ -66,6 +66,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;touch-
   <section class="box">
     <h2>2. Escucha</h2>
     <p class="small">El número es lo que tardó el teléfono en generar la palabra. La primera suele tardar más.</p>
+    <p class="small" id="wordsHint">Los botones «Piper» se activan cuando termina «Descargar y preparar».</p>
     <div class="rows" id="words"></div>
     <form class="typein" id="own"><input id="text" placeholder="Escribe cualquier frase" autocomplete="off" autocapitalize="off" lang="es"><button class="pill piper" type="submit">Piper</button></form>
   </section>
@@ -87,6 +88,7 @@ const VOICES=[
   {id:'es_MX-claude-high',label:'México · Claude',note:'Calidad alta.'},
   {id:'es_MX-ald-medium',label:'México · Ald',note:'Calidad media.'},
   {id:'es_ES-davefx-medium',label:'España · Davefx',note:'Calidad media, acento de España.'},
+  {id:'es_ES-carlfm-x_low',label:'España · Carlfm (ligera)',note:'Calidad baja, acento de España. Sirve para ver si el problema es la memoria.',mb:28},
 ];
 const WORDS=['hola','gracias','buenos días','la manzana','el baño','¿dónde?','¿cuánto?','el médico / la médica','¿a qué te dedicas?','conocer'];
 let voice=VOICES[0].id,session=null,tts=null;
@@ -96,6 +98,12 @@ function norm(s){return String(s).toLowerCase().trim().replace(/[¿?¡!.,;:"“�
 function strip(s){return norm(s).replace(/ñ/g,'\u0001').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\u0001/g,'ñ');}
 function hash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return (h>>>0).toString(36);}
 const spoken=t=>t.replace(/\s*[\/;].*$/,'').replace(/[…]/g,'').trim();
+// iOS silently reloads a page that uses too much memory, which wipes everything on screen.
+// Each step is saved first, so after a reload the page can say where it died.
+const STEP='cinco.piper.step';
+function step(m){try{localStorage.setItem(STEP,m);}catch(e){}log('→ '+m);}
+function stepDone(){try{localStorage.removeItem(STEP);}catch(e){}}
+let crashed=null;try{crashed=localStorage.getItem(STEP);}catch(e){}
 let recorded=new Set();
 fetch('audio/es-MX/index.json').then(r=>r.json()).then(a=>{recorded=new Set(a);renderWords();}).catch(()=>{});
 
@@ -106,9 +114,11 @@ function play(url){player.pause();player.src=url;return player.play().catch(e=>{
 
 function renderVoices(){
   $('voices').innerHTML=VOICES.map(v=>`<button data-v="${v.id}" class="${v.id===voice?'on':''}">${v.label}</button>`).join('');
-  $('voiceInfo').textContent=VOICES.find(v=>v.id===voice).note+' Unos 63 MB, una sola vez; se queda guardada en el teléfono.';
+  const v=VOICES.find(v=>v.id===voice);
+  $('voiceInfo').textContent=`${v.note} Unos ${v.mb||63} MB, una sola vez.`;
 }
 function renderWords(){
+  $('wordsHint').hidden=!!session;
   $('words').innerHTML=WORDS.map((w,i)=>{const k=hash(strip(spoken(w)));
     return `<div class="row"><span class="w">${w}</span><span class="t" id="t${i}"></span>
       <button class="pill piper" data-i="${i}" ${session?'':'disabled'}>Piper</button>
@@ -124,30 +134,35 @@ async function showStorage(){
 
 $('load').onclick=async()=>{
   $('load').disabled=true;$('status').textContent='Cargando el motor…';
+  step(`cargar el motor (${voice})`);
   const t0=performance.now();
   try{
     tts=tts||await import('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.5/dist/piper-tts-web.js');
     log(`crossOriginIsolated: ${self.crossOriginIsolated}, núcleos: ${navigator.hardwareConcurrency}`);
+    step(`descargar y cargar la voz ${voice}`);
     tts.TtsSession._instance=null;   // the library keeps one session; clear it so a new voice really loads
     session=await tts.TtsSession.create({voiceId:voice,logger:m=>log(m),
       progress:p=>{if(p.total){const pc=Math.round(100*p.loaded/p.total);$('prog').style.width=pc+'%';$('status').textContent=`Descargando la voz: ${Math.round(p.loaded/1e6)} de ${Math.round(p.total/1e6)} MB`;}}});
+    stepDone();
     $('prog').style.width='100%';
     $('status').textContent=`Lista en ${((performance.now()-t0)/1000).toFixed(1)} s. Toca «Piper» en cualquier palabra.`;
     renderWords();showStorage();
-  }catch(e){session=null;$('status').textContent='No se pudo preparar la voz. Mira los detalles abajo.';log('Error: '+(e&&e.message||e),'err');}
+  }catch(e){stepDone();session=null;$('status').textContent='No se pudo preparar la voz. Mira los detalles abajo.';log('Error: '+(e&&e.message||e),'err');}
   $('load').disabled=false;
 };
 
 async function sayPiper(text,cell){
   if(!session)return;
   const t0=performance.now();
+  step(`generar «${text}» con ${voice}`);
   try{
     const wav=await session.predict(spoken(text));
+    stepDone();
     const ms=Math.round(performance.now()-t0);
     if(cell)cell.textContent=ms+' ms';
     log(`"${text}": ${ms} ms, ${Math.round(wav.size/1024)} KB`);
     await play(URL.createObjectURL(wav));
-  }catch(e){log('Error: '+(e&&e.message||e),'err');}
+  }catch(e){stepDone();log('Error: '+(e&&e.message||e),'err');}
 }
 $('words').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.i!=null){const i=+b.dataset.i;sayPiper(WORDS[i],$('t'+i));}
@@ -155,6 +170,11 @@ $('words').onclick=e=>{const b=e.target.closest('button');if(!b)return;
 $('own').onsubmit=e=>{e.preventDefault();const t=$('text').value.trim();if(t)sayPiper(t,null);};
 
 renderVoices();renderWords();showStorage();
+log(`iOS/navegador: ${navigator.userAgent}`);
+if(crashed){
+  $('status').innerHTML=`<span class="err">La página se reinició mientras intentaba: ${crashed}. Casi seguro que iOS se quedó sin memoria.</span>`;
+  log('La página se reinició durante: '+crashed,'err');stepDone();
+}
 </script>
 </body>
 </html>
