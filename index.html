@@ -12,6 +12,8 @@
 <meta name="theme-color" content="#FFE9C9">
 <link rel="preload" href="fonts/lilita-one.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/nunito.woff2" as="font" type="font/woff2" crossorigin>
+<!-- Piper (on-device voice) imports "onnxruntime-web/wasm" and expects the 1.18.0 engine files, so pin exactly that. -->
+<script type="importmap">{"imports":{"onnxruntime-web/wasm":"https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/esm/ort.wasm.min.js"}}</script>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icons/icon-180.png">
 <link rel="icon" href="./icons/icon-192.png">
@@ -215,7 +217,7 @@ code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--pa
 <script>
 /* ---------- constants ---------- */
 const KEY='cinco.v1';
-const VERSION=24;               // keep in step with CACHE in sw.js, shown in Ajustes
+const VERSION=25;               // keep in step with CACHE in sw.js, shown in Ajustes
 const DAY=86400000, MIN=60000;
 const RELEARN_GAP=5;           // cards between a miss and its retry
 const MAX_IVL=120;             // days, mastered cards never sleep longer than this
@@ -313,28 +315,103 @@ function unlockSpeech(){
 }
 document.addEventListener('touchend',unlockSpeech,{passive:true});
 document.addEventListener('click',unlockSpeech);
+const spokenText=text=>text.replace(/\s*[\/;].*$/,'').replace(/[…]/g,'').trim();
+// Each word tries its sources in order until one plays: Piper (generated on the phone, cached per word),
+// then the Mac recording, then iOS speech. A newer speak() call cancels an older one still loading.
 function speak(text){
   if(document.hidden)return;
-  const t=text.replace(/\s*[\/;].*$/,'').replace(/[…]/g,'').trim();
+  const t=spokenText(text);
   if(!t)return;
   clearTimeout(speakTimer);
   if('speechSynthesis' in window&&(speechSynthesis.speaking||speechSynthesis.pending))speechSynthesis.cancel();
-  const key=hash(strip(t));
-  if((S.settings.voiceLang||'es-MX')===REC_LANG&&recorded.has(key)){
-    // Fetched whole and played from a blob: Safari plays media with range requests, which the
-    // service worker's cached copy can't answer, so pointing the player at the file breaks offline.
-    const mine=++speakSeq;
-    let fell=false;const fallback=()=>{if(!fell&&mine===speakSeq){fell=true;speakSynth(t);}};
-    player.pause();
-    (clips.has(key)?Promise.resolve(clips.get(key)):fetch(`audio/${REC_LANG}/${key}.m4a`)
-      .then(r=>{if(!r.ok)throw 0;return r.blob();}).then(b=>{const u=URL.createObjectURL(b);clips.set(key,u);return u;}))
-      .then(u=>{if(mine!==speakSeq)return;player.onerror=fallback;player.src=u;return player.play();})
-      .catch(e=>{if(!(e&&e.name==='AbortError'))fallback();});   // AbortError: a newer word replaced this one
-    return;
-  }
-  speakSeq++;player.pause();   // a word without a recording also cancels one still loading
-  speakSynth(t);
+  const key=hash(strip(t)),mine=++speakSeq,sources=[];
+  if(piperReady())sources.push(()=>piperClip(t));
+  if((S.settings.voiceLang||'es-MX')===REC_LANG&&recorded.has(key))sources.push(()=>recordingClip(key));
+  player.pause();
+  const next=i=>{
+    if(mine!==speakSeq)return;
+    if(i>=sources.length){speakSynth(t);return;}
+    sources[i]().then(u=>{
+      if(mine!==speakSeq)return;
+      player.onerror=()=>next(i+1);player.src=u;return player.play();
+    }).catch(e=>{if(!(e&&e.name==='AbortError'))next(i+1);});   // AbortError: a newer word replaced this one
+  };
+  next(0);
 }
+// Recordings are fetched whole and played from a blob: Safari plays media with range requests,
+// which the service worker's cached copy can't answer.
+function recordingClip(key){
+  if(clips.has(key))return Promise.resolve(clips.get(key));
+  return fetch(`audio/${REC_LANG}/${key}.m4a`).then(r=>{if(!r.ok)throw 0;return r.blob();})
+    .then(b=>{const u=URL.createObjectURL(b);clips.set(key,u);return u;});
+}
+
+/* ---------- Piper: a neural voice that runs on the phone ---------- */
+// The voice model (about 63 MB) downloads once into the phone's private storage, the engine loads in the
+// background when the app opens, and each generated word is kept in the "cinco-words" cache so replays
+// and offline use don't need the engine at all.
+const PIPER_VOICE={'es-MX':{id:'es_MX-claude-high',name:'Claude, México'},'es-ES':{id:'es_ES-davefx-medium',name:'Davefx, España'}};
+const piper={state:'idle',pct:0,voice:null,session:null,stored:[]};
+let piperLib=null,piperChain=Promise.resolve();
+const piperWanted=()=>PIPER_VOICE[S.settings.voiceLang||'es-MX'];
+const piperReady=()=>piper.state==='ready'&&piper.voice===piperWanted().id;
+function piperLoadLib(){
+  return piperLib||(piperLib=import('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.5/dist/piper-tts-web.js')
+    .catch(e=>{piperLib=null;throw e;}));
+}
+// Which voices are saved on the phone. Only used for labels, so a storage hiccup must not break loading.
+async function piperRefreshStored(){try{piper.stored=await (await piperLoadLib()).stored();}catch(e){}}
+// download=false only loads a voice that is already on the phone; true downloads it if needed.
+async function piperStart(download){
+  const v=piperWanted().id;
+  if(piper.voice===v&&(piper.state==='ready'||piper.state==='loading'))return;
+  try{await piperLoadLib();await piperRefreshStored();}catch(e){if(!download)return;}
+  if(!download&&!piper.stored.includes(v))return;
+  Object.assign(piper,{voice:v,state:'loading',pct:0,session:null});piperPaint();
+  try{
+    const lib=await piperLoadLib();
+    lib.TtsSession._instance=null;   // the library keeps one session; clear it so a different voice really loads
+    const session=await lib.TtsSession.create({voiceId:v,progress:p=>{
+      if(p.total&&String(p.url).startsWith('https://huggingface.co')){piper.pct=Math.round(100*p.loaded/p.total);piperPaint();}}});
+    if(piper.voice!==v)return;       // the accent changed while this voice was loading
+    piper.session=session;piper.state='ready';
+    await piperRefreshStored();
+  }catch(e){if(piper.voice===v)piper.state='error';piper.err=String(e&&e.message||e);console.warn('Piper',e);}
+  piperPaint();
+}
+// Generated words are cached under made-up same-origin URLs; nothing ever fetches them from the network.
+async function piperClip(t){
+  const key=`${piper.voice}/${hash(strip(t))}`;
+  if(clips.has(key))return clips.get(key);
+  const req=new Request(new URL(`piper/${key}.wav`,location.href));
+  let blob=null;
+  try{const hit=await (await caches.open('cinco-words')).match(req);if(hit)blob=await hit.blob();}catch(e){}
+  if(!blob){
+    const session=piper.session;
+    const job=piperChain.then(()=>session.predict(t));   // one word at a time through the engine
+    piperChain=job.catch(()=>{});
+    blob=await job;
+    try{(await caches.open('cinco-words')).put(req,new Response(blob,{headers:{'content-type':'audio/wav'}}));}catch(e){}
+  }
+  const u=URL.createObjectURL(blob);clips.set(key,u);return u;
+}
+// Generate the next card's word while this one is on screen, so it plays instantly.
+function piperPrefetch(){
+  const s=ui.session;if(!piperReady()||!s||s.queue.length<2)return;
+  const c=S.cards[s.queue[1]];if(c)setTimeout(()=>piperClip(spokenText(c.es)).catch(()=>{}),900);
+}
+function piperRow(){
+  const w=piperWanted(),mine=piper.voice===w.id,have=piper.stored.includes(w.id);
+  let sub,btn='';
+  if(mine&&piper.state==='ready')sub=`Lista: ${w.name}. Las palabras suenan con esta voz y se guardan al usarlas.`;
+  else if(mine&&piper.state==='loading')sub=have?'Cargando la voz…':`Descargando… ${piper.pct}%`;
+  else if(mine&&piper.state==='error'){sub=`No se pudo cargar. Revisa la conexión y vuelve a intentarlo.${piper.err?` (${esc(piper.err)})`:''}`;btn='Reintentar';}
+  else if(have){sub=`${w.name}, descargada. Se carga sola al abrir la app.`;btn='Cargar';}
+  else{sub=`${w.name}. Suena mucho mejor que la voz del iPhone. Unos 63 MB, una sola vez: mejor con wifi.`;btn='Descargar';}
+  return `<div class="setrow" id="piperRow"><div>Voz natural<small>${sub}</small></div>${btn?`<button class="tb" data-act="piperGet">${btn}</button>`:mine&&piper.state==='ready'?'<span class="tb">✓</span>':''}</div>`;
+}
+// Update just this row, so download progress doesn't re-render (and scroll) the whole page.
+function piperPaint(){const r=document.getElementById('piperRow');if(r)r.outerHTML=piperRow();}
 function speakSynth(t){
   if(!('speechSynthesis' in window))return;
   const go=()=>{
@@ -396,6 +473,7 @@ function nextCard(){
   s.mode=mode;s.phase=mode==='intro'?'intro':'prompt';s.verdict=null;s.typed='';
   render();
   if(S.settings.autoSpeak&&(mode==='intro'||mode==='es-en'))speak(c.es);
+  piperPrefetch();
 }
 function requeue(id){const q=ui.session.queue;q.splice(Math.min(q.length,RELEARN_GAP),0,id);}
 function snapshot(){const s=ui.session;s.undo={card:JSON.parse(JSON.stringify(S.cards[s.current])),queue:[...s.queue],day:{...dayRec()},done:s.done,right:s.right};}
@@ -674,7 +752,7 @@ function settingsView(){
     <div class="setrow stack"><div>Dirección<small>${{stage:'Sigue la etapa: primero español, luego inglés',['es-en']:'Siempre ves el español y recuerdas el inglés',['en-es']:'Siempre ves el inglés y produces el español',mixed:'Al azar en cada tarjeta'}[S.settings.direction||'stage']}</small></div><div class="seg">${[['stage','Etapa'],['es-en','Es→In'],['en-es','In→Es'],['mixed','Mezcla']].map(([k,l])=>`<button class="${(S.settings.direction||'stage')===k?'on':''}" data-act="direction" data-d="${k}">${l}</button>`).join('')}</div></div>
     <div class="setrow"><div>Apariencia</div><div class="seg">${['auto','light','dark'].map(t=>`<button class="${(S.settings.theme||'auto')===t?'on':''}" data-act="theme" data-t="${t}">${t==='auto'?'Sistema':t==='light'?'Claro':'Oscuro'}</button>`).join('')}</div></div>
     <div class="setrow"><div>Acento<small>La voz en español que usa iOS</small></div><button class="tb" data-act="accent">${S.settings.voiceLang==='es-ES'?'España':'Latinoamérica'} ›</button></div>
-    <button data-act="piper"><span>Probar la voz Piper<small>Experimento: la voz se genera en el teléfono</small></span></button>
+    ${piperRow()}
     <button data-act="soundTest"><span>Probar sonido<small>Suena una melodía y luego la voz. Compara el volumen de las dos.</small></span></button>
   </div>
   <div class="menu">
@@ -714,7 +792,8 @@ function howView(){
   <h3>El ritmo diario</h3>
   <p>Abre la app una vez al día. Primero van los repasos y después las nuevas, hasta tu límite diario. Una sesión de 30 tarjetas dura unos cinco minutos.</p>
   <h3>La voz</h3>
-  <p>Las palabras suenan con grabaciones hechas en el Mac con la voz de Paulina (México), porque la voz integrada del iPhone suena muy baja. Una palabra que añades aquí a mano usa la voz del iPhone hasta que se graba: haz una copia de seguridad y la próxima grabación en el Mac la incluye. Con el acento de España se usa siempre la voz del iPhone.</p>
+  <p>La voz del iPhone suena muy baja, así que Cinco usa una voz natural que se genera en el propio teléfono. Descárgala una vez en <b>Ajustes › Voz natural</b> (unos 63 MB, mejor con wifi). Cada palabra se genera la primera vez que suena y se guarda, así que después suena al instante y sin conexión, también las que añades a mano.</p>
+  <p>Hasta que la descargues, las palabras suenan con grabaciones hechas en el Mac y, si no hay grabación, con la voz del iPhone. Si cambias el acento a España, esa voz se descarga aparte.</p>
   <h3>Tus datos</h3>
   <p>Las tarjetas y el progreso se guardan en este teléfono. Importa mazos en CSV desde iCloud Drive. Toca <b>Guardar copia de seguridad</b> para guardar un archivo que puedas restaurar más tarde.</p>
   <p>Columnas del CSV: <code>spanish,english,example,notes,tags</code>. Solo las dos primeras son obligatorias. Reimportar un archivo actualiza las tarjetas que ya existen sin perder su progreso; se emparejan por el texto en español.</p>
@@ -777,8 +856,8 @@ app.addEventListener('click',e=>{
     case 'npd':S.settings.newPerDay=Math.max(5,Math.min(60,S.settings.newPerDay+ +b.dataset.d));save();render();break;
     case 'toggleSpeak':S.settings.autoSpeak=!S.settings.autoSpeak;save();render();break;
     case 'soundTest':soundTest();break;
-    case 'piper':location.href='piper.html';break;
-    case 'accent':S.settings.voiceLang=S.settings.voiceLang==='es-ES'?'es-MX':'es-ES';save();render();speak('Hola, ¿cómo estás?');break;
+    case 'piperGet':piperStart(true);break;
+    case 'accent':S.settings.voiceLang=S.settings.voiceLang==='es-ES'?'es-MX':'es-ES';save();render();speak('Hola, ¿cómo estás?');piperStart(false);break;
     case 'theme':S.settings.theme=b.dataset.t;save();applyTheme();render();break;
     case 'direction':S.settings.direction=b.dataset.d;save();render();break;
     case 'toggleBackup':S.settings.backupMode=S.settings.backupMode==='shortcut'?'share':'shortcut';save();render();break;
@@ -834,6 +913,7 @@ app.addEventListener('pointercancel',endDrag);
 app.addEventListener('click',e=>{if(Date.now()-swipedAt<400)e.stopImmediatePropagation();},true);
 
 render();
+setTimeout(()=>piperStart(false),1200);
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){player.pause();return;}
   if('speechSynthesis' in window)speechSynthesis.resume();
