@@ -215,6 +215,7 @@ code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--pa
 <script>
 /* ---------- constants ---------- */
 const KEY='cinco.v1';
+const VERSION=20;               // keep in step with CACHE in sw.js, shown in Ajustes
 const DAY=86400000, MIN=60000;
 const RELEARN_GAP=5;           // cards between a miss and its retry
 const MAX_IVL=120;             // days, mastered cards never sleep longer than this
@@ -277,6 +278,23 @@ try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}
 // A looping, silent <audio> puts the page in playback mode, so speech comes out of the loudspeaker.
 // It has to start from a tap, and pauses while the app is in the background.
 let silent=null;
+// A short, loud three-note chime as a real audio file. Ajustes › Probar sonido plays it before the voice,
+// so a quiet voice after a loud chime points at the speech engine rather than the phone's audio routing.
+function chime(){
+  const rate=22050,notes=[523.25,659.25,783.99],len=Math.round(rate*.18),n=len*notes.length;
+  const b=new Uint8Array(44+n*2),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i);};
+  w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
+  v.setUint32(24,rate,true);v.setUint32(28,rate*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++){const k=i%len,f=notes[Math.floor(i/len)],env=Math.min(1,k/200)*Math.min(1,(len-k)/800);
+    v.setInt16(44+i*2,Math.round(Math.sin(2*Math.PI*f*i/rate)*env*0.9*32767),true);}
+  return new Audio(URL.createObjectURL(new Blob([b],{type:'audio/wav'})));
+}
+function soundTest(){
+  keepSpeaker();
+  const a=chime();
+  a.onended=()=>speak('Hola. ¿Me oyes bien?');
+  a.play().catch(()=>speak('Hola. ¿Me oyes bien?'));
+}
 function keepSpeaker(){
   if(!silent){
     const n=800,b=new Uint8Array(44+n),v=new DataView(b.buffer);   // 0.1s of 8 kHz, 8-bit silence
@@ -642,6 +660,7 @@ function settingsView(){
     <div class="setrow stack"><div>Dirección<small>${{stage:'Sigue la etapa: primero español, luego inglés',['es-en']:'Siempre ves el español y recuerdas el inglés',['en-es']:'Siempre ves el inglés y produces el español',mixed:'Al azar en cada tarjeta'}[S.settings.direction||'stage']}</small></div><div class="seg">${[['stage','Etapa'],['es-en','Es→In'],['en-es','In→Es'],['mixed','Mezcla']].map(([k,l])=>`<button class="${(S.settings.direction||'stage')===k?'on':''}" data-act="direction" data-d="${k}">${l}</button>`).join('')}</div></div>
     <div class="setrow"><div>Apariencia</div><div class="seg">${['auto','light','dark'].map(t=>`<button class="${(S.settings.theme||'auto')===t?'on':''}" data-act="theme" data-t="${t}">${t==='auto'?'Sistema':t==='light'?'Claro':'Oscuro'}</button>`).join('')}</div></div>
     <div class="setrow"><div>Acento<small>La voz en español que usa iOS</small></div><button class="tb" data-act="accent">${S.settings.voiceLang==='es-ES'?'España':'Latinoamérica'} ›</button></div>
+    <button data-act="soundTest"><span>Probar sonido<small>Suena una melodía y luego la voz. Compara el volumen de las dos.</small></span></button>
   </div>
   <div class="menu">
     <div class="setrow"><div>Copia con un Atajo<small>Un toque la guarda siempre en el mismo sitio de iCloud Drive. Se configura una sola vez.</small></div><button class="switch ${S.settings.backupMode==='shortcut'?'on':''}" data-act="toggleBackup" role="switch" aria-checked="${S.settings.backupMode==='shortcut'}" aria-label="Copia con un Atajo"></button></div>
@@ -652,7 +671,7 @@ function settingsView(){
     <button data-act="exportCsv"><span>Exportar tarjetas como CSV<small>Incluye la etapa y el próximo repaso, para editarlas en tu Mac</small></span></button>
     <button class="danger" data-act="erase"><span>${ui.confirm==='erase'?'Toca otra vez para borrarlo todo':'Borrar todas las tarjetas y el progreso'}</span></button>
   </div>
-  <p class="foot">Cinco lo guarda todo solo en este dispositivo. Haz copias a menudo.</p>`;
+  <p class="foot">Cinco lo guarda todo solo en este dispositivo. Haz copias a menudo.<br>Versión ${VERSION} · audio: ${navigator.audioSession?navigator.audioSession.type:'sin control'}</p>`;
 }
 
 function restoreView(){
@@ -740,6 +759,7 @@ app.addEventListener('click',e=>{
     case 'edit':ui.editId=b.dataset.id||null;ui.view='edit';render();break;
     case 'npd':S.settings.newPerDay=Math.max(5,Math.min(60,S.settings.newPerDay+ +b.dataset.d));save();render();break;
     case 'toggleSpeak':S.settings.autoSpeak=!S.settings.autoSpeak;save();render();break;
+    case 'soundTest':soundTest();break;
     case 'accent':S.settings.voiceLang=S.settings.voiceLang==='es-ES'?'es-MX':'es-ES';save();render();speak('Hola, ¿cómo estás?');break;
     case 'theme':S.settings.theme=b.dataset.t;save();applyTheme();render();break;
     case 'direction':S.settings.direction=b.dataset.d;save();render();break;
