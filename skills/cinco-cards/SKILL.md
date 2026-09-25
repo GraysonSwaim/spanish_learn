@@ -9,13 +9,19 @@ Cinco is a personal Spanish flashcard app. Cards climb five stages: first the le
 
 ## Output format
 
-A UTF-8 CSV with this exact header, one card per row:
+A UTF-8 CSV, one card per row. A deck without verbs uses the first five columns:
 
 ```csv
-spanish,english,example,notes,tags,presente,preterito,imperfecto,futuro,condicional,subjuntivo
+spanish,english,example,notes,tags
 ```
 
-- `spanish` and `english` are required. The others may be empty. The six tense columns are only for verbs; a deck without verbs can leave them out. Verbs may also take a `frases` column, after the tenses (see below).
+A deck with verbs adds a column per tense and then `frases`:
+
+```csv
+spanish,english,example,notes,tags,presente,preterito,imperfecto,futuro,condicional,subjuntivo,frases
+```
+
+- `spanish` and `english` are required. The others may be empty; non-verb rows in a verb deck leave the tense columns and `frases` empty. The optional tenses (below) go after `subjuntivo` and before `frases`.
 - Quote any field containing a comma, a quote, or a line break (`"Hola, ¿cómo estás?"`). Double a quote inside a quoted field (`""`).
 - Keep the columns in this order. The app also reads Anki tab-separated exports, but produce CSV.
 
@@ -48,6 +54,15 @@ One idea per card. If a word has two unrelated senses that would be tested diffe
 Default to neutral Latin American Spanish, and when Spain differs in a way the learner will meet, put the Spain form as a ` / ` alternative or in notes. Follow the user if they say which variety they want.
 
 Match the level. For a beginner, examples use present tense and vocabulary from the deck itself. For an intermediate learner, examples can use past and subjunctive and the words can be less frequent.
+
+## Verb decks
+
+Spanish verbs are mostly patterns, and a deck should teach the pattern before the exceptions, so a verb is learned as one of a family instead of as a one-off.
+
+- **Order by family.** Regular verbs first, a few each of -ar, -er and -ir, so the endings become automatic; 10 to 15 is enough, since they all share the same endings. Then the stem-changers, one family at a time (e→ie, o→ue, e→i), then yo-go and yo-zco, then the truly irregular (ser, estar, ir, haber). Within a family, most frequent first. The first verb of a family carries the pattern in its note (`-ar: o, as, a, amos, áis, an`; `e→ie, except nosotros and vosotros`), and its tag names the family (see **tags**).
+- **Back every table with sentences.** Each verb gets an example and at least one preterite frase, so it can be practised in context (Conjugación › Frase) and not only as a table.
+- **Strong preterites are their own family.** tener → tuv-, estar → estuv-, poder → pud-, poner → pus-, saber → sup-, querer → quis-, hacer → hic- (hizo), venir → vin-, decir → dij-, traer → traj-, conducir → conduj-, all with the same unaccented endings: -e, -iste, -o, -imos, -isteis, -ieron (-eron after j: dijeron). Check these forms twice. When the user wants preterite practice, a deck of short chunks in the preterite works alongside the verbs' tables: `tuve que` (I had to), `no pude`, `¿qué hiciste?`, `me dijo que`, `fui`, tagged `preterito`, no tense columns. That doesn't break the rule against a row per form: a chunk is a phrase with its own meaning, not a slice of a table.
+- **Don't repeat verbs.** A verb already in another deck is updated, not added, on import, so check the user's decks and leave it out, or edit that deck if the user asked for it.
 
 Default deck size is 20 to 40 cards unless the user asks for something else. At 15 new cards a day that is two or three days of new material, which is about right for one topic.
 
@@ -84,7 +99,7 @@ Request: "cards for ordering at a restaurant, I'm a beginner"
 spanish,english,example,notes,tags
 la mesa,table,"Una mesa para dos, por favor.",,restaurant
 el menú / la carta,menu,"¿Me trae el menú, por favor?",Spain usually says la carta,restaurant
-pedir,to order / to ask for,"¿Qué vas a pedir?",Irregular: pido, pides, pide,restaurant
+pedir,to order / to ask for,"¿Qué vas a pedir?","Irregular: pido, pides, pide",restaurant
 la cuenta,the bill / the check,"La cuenta, por favor.",,restaurant
 la propina,tip,"Dejamos una propina del diez por ciento.",,restaurant
 quisiera,I would like,"Quisiera un café con leche.",Politer than quiero,restaurant
@@ -93,3 +108,15 @@ picante,spicy,"¿Es muy picante este plato?",,restaurant
 ```
 
 Note what's there: articles on nouns, one alternative where the two regions really differ, a note only where it helps, examples that are lines you would actually say at a table, ordered so the first cards are the ones needed first.
+
+Request: "verbs for talking about my day, beginner"
+
+```csv
+spanish,english,example,notes,tags,presente,preterito,imperfecto,futuro,condicional,subjuntivo,frases
+hablar,to speak / to talk,Hablo un poco de español.,"-ar: o, as, a, amos, áis, an",verbs regular,hablo|hablas|habla|hablamos|habláis|hablan,hablé|hablaste|habló|hablamos|hablasteis|hablaron,hablaba|hablabas|hablaba|hablábamos|hablabais|hablaban,hablaré|hablarás|hablará|hablaremos|hablaréis|hablarán,hablaría|hablarías|hablaría|hablaríamos|hablaríais|hablarían,hable|hables|hable|hablemos|habléis|hablen,Ayer hablé con mi hermano por teléfono.
+pensar,to think,¿Qué piensas del plan?,"e→ie, except nosotros and vosotros",verbs e-ie,pienso|piensas|piensa|pensamos|pensáis|piensan,pensé|pensaste|pensó|pensamos|pensasteis|pensaron,pensaba|pensabas|pensaba|pensábamos|pensabais|pensaban,pensaré|pensarás|pensará|pensaremos|pensaréis|pensarán,pensaría|pensarías|pensaría|pensaríamos|pensaríais|pensarían,piense|pienses|piense|pensemos|penséis|piensen,Anoche pensé mucho en el viaje.
+tener,to have,Tengo dos hermanos.,"Yo-go, then e→ie: tengo, tienes, tiene",verbs yo-go e-ie,tengo|tienes|tiene|tenemos|tenéis|tienen,tuve|tuviste|tuvo|tuvimos|tuvisteis|tuvieron,tenía|tenías|tenía|teníamos|teníais|tenían,tendré|tendrás|tendrá|tendremos|tendréis|tendrán,tendría|tendrías|tendría|tendríamos|tendríais|tendrían,tenga|tengas|tenga|tengamos|tengáis|tengan,Ayer tuve que trabajar hasta tarde.|El año pasado tuvimos mucha suerte.
+tener que,to have to,Tengo que salir temprano.,Tener que + infinitive,verbs,,,,,,,
+```
+
+Note what's there: the regular verb first, then one family at a time, each verb tagged with its family and its first note naming the pattern; every table backed by a preterite frase (`tuvimos`, not `hablamos`, whose nosotros is the same in the present); and the chunk `tener que` as a plain card with no tables of its own.
