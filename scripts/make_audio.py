@@ -5,7 +5,7 @@
     python3 scripts/make_audio.py --no-gc    # record only, never delete
 
 Words come from:
-  - every deck CSV in this repo's decks/ and in iCloud Drive/Spanish/
+  - every deck CSV in this repo's decks/ and in iCloud Drive/Spanish/ and its subfolders
   - the newest Cinco backup (iCloud Drive/Spanish/backups/ or Shortcuts/Spanish/backups/),
     which covers cards typed in by hand on the phone and tells us which ones are dropped
 
@@ -135,10 +135,11 @@ def main():
 
     words, sources = {}, []
     for d in (REPO / 'decks', ICLOUD):
-        for p in sorted(d.glob('*.csv')) if d.is_dir() else []:
+        # iCloud keeps decks in subfolders (vocabulario/, verbos/, archivo/); backups/ holds no decks.
+        for p in sorted(x for x in d.rglob('*.csv') if 'backups' not in x.parts) if d.is_dir() else []:
             for w in csv_words(p):
                 words.setdefault(w, p.name)
-            sources.append(str(p.relative_to(REPO) if p.is_relative_to(REPO) else p.name))
+            sources.append(str(p.relative_to(REPO) if p.is_relative_to(REPO) else p.relative_to(d)))
     backup, data = newest_backup()
     dropped = set()
     if data:

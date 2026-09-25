@@ -23,12 +23,12 @@ ChatGPT doesn't read skill files, but the body of `SKILL.md` is written to stand
 1. In ChatGPT, create a **Project** (or a Custom GPT) called *Cinco cards*.
 2. Open `cinco-cards/SKILL.md`, copy everything **below the second `---` line** (skip the frontmatter block at the top), and paste it into the project's **Instructions**.
 3. Optionally attach `decks/starter.csv` to the project as an example of the format and as a duplicate check.
-4. Ask for cards. ChatGPT will either give you a downloadable `.csv` or a code block; save it as `something.csv` (UTF-8) into iCloud Drive → Spanish.
+4. Ask for cards. ChatGPT will either give you a downloadable `.csv` or a code block; save it as `something.csv` (UTF-8) into iCloud Drive → Spanish → vocabulario (or verbos, for a verb deck).
 
 Before importing anything ChatGPT produced, run the validator on your Mac:
 
 ```sh
-python3 skills/cinco-cards/scripts/validate_cards.py ~/Library/Mobile\ Documents/com~apple~CloudDocs/Spanish/something.csv --existing decks/starter.csv
+python3 skills/cinco-cards/scripts/validate_cards.py ~/Library/Mobile\ Documents/com~apple~CloudDocs/Spanish/vocabulario/something.csv --existing ~/Library/Mobile\ Documents/com~apple~CloudDocs/Spanish/{vocabulario,verbos}/*.csv
 ```
 
 It reports unquoted commas, missing fields, duplicates against decks you already have, and examples that don't use their word. Errors will break the import; warnings are judgment calls.

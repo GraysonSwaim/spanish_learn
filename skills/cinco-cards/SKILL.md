@@ -77,9 +77,16 @@ Default deck size is 20 to 40 cards unless the user asks for something else. At 
    ~/Library/Mobile Documents/com~apple~CloudDocs/Spanish/
    ```
 
-   Save there by default, without asking, whenever that folder exists; the whole point is that the deck shows up in Cinco's import picker on the phone a few seconds later. Use a descriptive filename (`restaurant-a1.csv`, `verbs-irregular-present.csv`) and never overwrite a deck that is already there unless the user asked for an edit to that file. If the folder isn't reachable (a different machine, or no file access), save where you're working and tell the user to move the file into iCloud Drive › Spanish. If you can't save files at all, put the CSV in a single code block so it can be copied whole.
+   The folder is sorted into subfolders; put the deck in the one that fits and never loose at the top:
 
-5. Before writing, glance at the existing `.csv` files in that folder and pass them to the validator with `--existing`, so new decks don't repeat words the user already has.
+   - `vocabulario/` — topic decks: words and phrases, no tense columns (`vocabulario/restaurant-a1.csv`).
+   - `verbos/` — decks with tense columns, or verb chunks like the strong preterites (`verbos/o-ue.csv`, `verbos/preterito-fuerte.csv`). Name a verb deck after its family or tense, since that is how verbs are organized (see **Verb decks**).
+   - `archivo/` — superseded decks the user keeps but no longer imports. Never save here; move a deck here only when the user replaces it with a newer version.
+   - `backups/` — the app's progress backups. Never save decks here.
+
+   Filenames are lowercase words joined by hyphens, a topic plus the level when it helps (`restaurant-a1.csv`), without the folder's name repeated (`verbos/regulares.csv`, not `verbos/verbos-regulares.csv`). Save there by default, without asking, whenever the folder exists; the whole point is that the deck shows up in Cinco's import picker on the phone a few seconds later. Never overwrite a deck that is already there unless the user asked for an edit to that file. If the folder isn't reachable (a different machine, or no file access), save where you're working and tell the user to move the file into iCloud Drive › Spanish › vocabulario or verbos. If you can't save files at all, put the CSV in a single code block so it can be copied whole.
+
+5. Before writing, glance at the existing decks in `vocabulario/` and `verbos/` and pass them to the validator with `--existing`, so new decks don't repeat words the user already has: `--existing "$DIR"/vocabulario/*.csv "$DIR"/verbos/*.csv`.
 
 6. Record the audio. The app plays a recording of each word instead of iOS speech, which is too quiet on the phone. If you are on the user's Mac and the Cinco repo exists at `~/Documents/github/spanish_learn`, run:
 

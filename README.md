@@ -49,11 +49,11 @@ Every `git push` to `main` republishes it within about a minute.
 
 ### 3. Set up iCloud Drive as your card store
 
-On your Mac, in Finder → iCloud Drive, make a folder called `Spanish`. Copy `decks/starter.csv` into it. Anything you put here shows up in the Files app on your phone within seconds.
+On your Mac, in Finder → iCloud Drive, make a folder called `Spanish` with four folders inside: `vocabulario` (topic decks), `verbos` (decks with tense columns), `archivo` (old decks you keep but no longer import) and `backups`. Copy `decks/starter.csv` into `vocabulario`. Anything you put here shows up in the Files app on your phone within seconds. `scripts/make_audio.py` reads decks from every folder but `backups`.
 
 ## Daily use
 
-**Import cards:** in Cinco, tap *Import cards* → Browse → iCloud Drive → Spanish → tap the CSV. You will see "Added 62, updated 0".
+**Import cards:** in Cinco, tap *Import cards* → Browse → iCloud Drive → Spanish → vocabulario (or verbos) → tap the CSV. You will see "Added 62, updated 0".
 
 **Study:** tap *Start studying*. Reviews first, then new cards. Tap the speaker to hear the Spanish; it plays automatically when a Spanish word appears (turn off in Settings).
 
@@ -71,7 +71,7 @@ el coche / el carro,car,"Mi coche es rojo.",Spain says coche; Mexico says carro,
 saber,to know,"No sé la respuesta.",Facts and skills; conocer is for people,verbs,sé|sabes|sabe|sabemos|sabéis|saben,supe|supiste|supo|supimos|supisteis|supieron
 ```
 
-- Write it in Numbers, Excel, Google Sheets, or a text editor and export as CSV (UTF-8). Put it in iCloud Drive/Spanish.
+- Write it in Numbers, Excel, Google Sheets, or a text editor and export as CSV (UTF-8). Put it in iCloud Drive/Spanish/vocabulario, or verbos if it has tense columns.
 - Alternatives separated by `/` are all accepted when typing. Text in parentheses is ignored when checking.
 - Cards are matched on the Spanish text. Re-importing the same file updates the English, example and notes of existing cards **without losing their progress**, and adds any new rows. So you can keep one big `words.csv` and re-import it after editing.
 - Anki exports work too: in Anki, File → Export → Notes in Plain Text (.txt), then import that file. Tab-separated files and files without a header row are read as Spanish, English, example, notes, tags, then the six tenses, in that order.
