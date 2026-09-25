@@ -111,9 +111,12 @@ def main(argv):
         if notes and len(notes) > 100:
             warnings.append(f"line {n}: note is {len(notes)} chars; keep notes to one line")
         if tag:
-            if tag != tag.lower() or " " in tag:
-                warnings.append(f"line {n}: tag '{tag}' should be one lowercase word")
-            tags[tag] = tags.get(tag, 0) + 1
+            words = tag.split()
+            if tag != tag.lower() or len(words) > 3:
+                warnings.append(f"line {n}: tag '{tag}' should be one lowercase word, plus the family for a verb (verbs o-ue)")
+            elif len(words) > 1 and not conj:
+                warnings.append(f"line {n}: '{es}' has several tags; only verbs add family tags")
+            for t in words: tags[t] = tags.get(t, 0) + 1
     for e in errors: print("ERROR:", e)
     for w in warnings: print("warning:", w)
     print(f"{len(seen)} cards" + (f", tags: {', '.join(f'{t} ({c})' for t, c in sorted(tags.items()))}" if tags else "") + (", no errors" if not errors else f", {len(errors)} error(s)"))
