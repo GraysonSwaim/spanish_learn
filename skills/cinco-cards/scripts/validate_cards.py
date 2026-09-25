@@ -6,7 +6,8 @@ Usage: validate_cards.py deck.csv [--existing other.csv ...]
 Checks the header, required fields, quoting/column counts, duplicate Spanish
 (within the file and against any --existing decks), that each example
 contains its word, and that each tense column (see TENSES) has six |-separated
-forms (imperatives leave yo empty). Exit code 1 if there are errors; warnings don't fail.
+forms (imperatives leave yo empty), and that every sentence in frases uses one of
+the verb's forms. Exit code 1 if there are errors; warnings don't fail.
 """
 import csv, io, re, sys, unicodedata
 
@@ -15,7 +16,7 @@ TENSES = ["presente", "preterito", "imperfecto", "futuro", "condicional", "subju
           "imperativo", "imperativo_negativo", "perfecto", "pluscuamperfecto", "futuro_perfecto",
           "condicional_perfecto", "subj_perfecto", "subj_pluscuamperfecto"]
 IMPERATIVES = {"imperativo", "imperativo_negativo"}   # no yo form: the first slot stays empty
-COLUMNS = ["spanish", "english", "example", "notes", "tags"] + TENSES
+COLUMNS = ["spanish", "english", "example", "notes", "tags"] + TENSES + ["frases"]
 
 def strip(s):
     s = s.lower().strip().replace("ñ", "\x01")
@@ -108,6 +109,13 @@ def main(argv):
                 warnings.append(f"line {n}: '{es}' has conjugation tables but doesn't look like an infinitive")
         if ex and stem(es) not in strip(ex) and not (conj and any(strip(f.split("/")[0]).split()[-1] in strip(ex) for f in conj.split("|") if f.strip())):
             warnings.append(f"line {n}: example may not contain '{es}' (fine if the verb is irregular): {ex}")
+        for fr in (x.strip() for x in g("frases").split("|") if x.strip()):
+            if not tables:
+                warnings.append(f"line {n}: '{es}' has frases but no tense columns; frases are only used for verbs"); break
+            low = fr.lower()
+            forms = {a.strip().lower() for t in tables.values() for f in t.split("|") for a in re.split(r"\s*/\s*", f) if a.strip()}
+            if not any(re.search(r"(?<!\w)" + re.escape(a) + r"(?!\w)", low) for a in forms):
+                warnings.append(f"line {n}: frase uses none of the forms in '{es}''s tense columns, so it can't be asked: {fr}")
         if notes and len(notes) > 100:
             warnings.append(f"line {n}: note is {len(notes)} chars; keep notes to one line")
         if tag:
