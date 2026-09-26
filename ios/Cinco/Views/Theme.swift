@@ -122,3 +122,43 @@ struct StageTiles: View {
         .accessibilityElement(children: .combine)
     }
 }
+
+/// The web app's segmented switch: a sunk, bordered track whose chosen option is a sea-blue pill,
+/// with the hard shadow the panels and buttons use.
+struct ChunkySegmented<Value: Hashable>: View {
+    let options: [(value: Value, label: String)]
+    @Binding var selection: Value
+    var size: CGFloat = 16
+    @Namespace private var pill
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(options, id: \.value) { o in
+                let on = o.value == selection
+                Button {
+                    withAnimation(.snappy(duration: 0.22)) { selection = o.value }
+                } label: {
+                    Text(o.label)
+                        .font(Typo.text(size, on ? .heavy : .bold))
+                        .foregroundStyle(on ? .white : Palette.muted)
+                        .lineLimit(1).minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background {
+                            if on {
+                                RoundedRectangle(cornerRadius: 10).fill(Palette.sea)
+                                    .matchedGeometryEffect(id: "pill", in: pill)
+                            }
+                        }
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+        .padding(3)
+        .background(Palette.sunk, in: .rect(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Palette.edge, lineWidth: 2))
+        .background(Palette.edge.clipShape(.rect(cornerRadius: 14)).offset(y: 3))
+    }
+}

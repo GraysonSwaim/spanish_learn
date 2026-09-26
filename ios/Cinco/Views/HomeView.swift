@@ -99,11 +99,8 @@ struct HomeView: View {
     }
 
     private var tabPicker: some View {
-        Picker("Pestaña", selection: $tabRaw) {
-            ForEach(Tab.allCases, id: \.rawValue) { Text($0.name).tag($0.rawValue) }
-        }
-        .pickerStyle(.segmented)
-        .padding(.top, 2).padding(.bottom, 14)
+        ChunkySegmented(options: Tab.allCases.map { ($0.rawValue, $0.name) }, selection: $tabRaw)
+            .padding(.top, 2).padding(.bottom, 16)
     }
 
     @ViewBuilder
