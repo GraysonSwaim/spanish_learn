@@ -38,6 +38,7 @@ Debug builds take launch arguments for the simulator:
 - `-demo vocab|conj <steps> [stage]` opens a verb card at a stage and advances it that many reveal steps.
 - `-lookup <query>` opens the dictionary with that search; `-entry <word>` opens one word's page.
 - `-openTenses` opens the Conjugación tense picker.
+- `-studyNewest <n>` starts a session with the n most recently added word cards.
 
 ## Dictionary
 

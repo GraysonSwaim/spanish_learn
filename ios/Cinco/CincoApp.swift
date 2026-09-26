@@ -38,11 +38,13 @@ struct RootView: View {
             HomeView(session: $session, studying: $studying)
         }
         .tint(Palette.accentInk)
-        .fullScreenCover(isPresented: $studying) {
+        // Capturing the session makes this view depend on it. Without that, a session created in the same
+        // tap that opens the cover (¡Vamos!) wasn't seen yet and the cover came up empty until a redraw.
+        .fullScreenCover(isPresented: $studying) { [current = session] in
             Group {
-                if let s = session, !s.isFinished {
+                if let s = current, !s.isFinished {
                     StudyView(session: s) { studying = false }
-                } else if let s = session {
+                } else if let s = current {
                     DoneView(done: s.done) { studying = false; session = nil }
                 }
             }
@@ -66,6 +68,13 @@ struct RootView: View {
     /// `taps` steps, so each phase can be screenshotted in the simulator.
     private func startDemo() {
         let args = ProcessInfo.processInfo.arguments
+        // `-studyNewest <n>` studies the n most recently added word cards, e.g. ones from the dictionary.
+        if let i = args.firstIndex(of: "-studyNewest"), i + 1 < args.count, let n = Int(args[i + 1]) {
+            let newest = Deck.allCards(ctx).filter { !$0.isConj }.sorted { $0.added > $1.added }.prefix(n)
+            session = StudySession(queue: Array(newest), tab: .vocab, ctx: ctx)
+            studying = true
+            return
+        }
         guard let i = args.firstIndex(of: "-demo"), i + 2 < args.count, let taps = Int(args[i + 2]) else { return }
         let tab = Tab(rawValue: args[i + 1]) ?? .vocab
         let stage = i + 3 < args.count ? Int(args[i + 3]) ?? 2 : 2
