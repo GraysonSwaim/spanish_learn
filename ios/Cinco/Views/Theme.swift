@@ -140,7 +140,7 @@ struct ChunkySegmented<Value: Hashable>: View {
                 } label: {
                     Text(o.label)
                         .font(Typo.text(size, on ? .heavy : .bold))
-                        .foregroundStyle(on ? .white : Palette.muted)
+                        .foregroundStyle(on ? Palette.onGood : Palette.muted)
                         .lineLimit(1).minimumScaleFactor(0.8)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)

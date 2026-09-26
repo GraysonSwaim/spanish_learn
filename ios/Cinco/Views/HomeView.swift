@@ -248,39 +248,124 @@ struct MenuRow: View {
     }
 }
 
-/// The tense picker in the Conjugación tab, grouped by mood, with Aleatorio for all of them.
+/// The tense picker in the Conjugación tab: a chunky button that opens a sheet of tense chips,
+/// grouped by mood, with Aleatorio for all of them.
 struct TenseSwitch: View {
     let cards: [Card]
     @Binding var selection: String
+    @State private var open = false
 
     var body: some View {
-        let have = Set(cards.filter(\.isConj).map(\.tense))
         let current = Tense.named(selection)
-        Menu {
-            ForEach(Mood.allCases, id: \.self) { m in
-                Section(m.name) {
-                    ForEach(Tense.all.filter { $0.mood == m }) { t in
-                        Button { selection = t.key } label: {
-                            if t.key == selection { Label(t.name, systemImage: "checkmark") } else { Text(t.name) }
-                        }
-                        .disabled(!have.contains(t.key))
-                    }
-                }
-            }
-            Divider()
-            Button { selection = Tense.random } label: {
-                if selection == Tense.random { Label("Aleatorio · todos los tiempos", systemImage: "checkmark") } else { Text("Aleatorio · todos los tiempos") }
-            }
-        } label: {
+        Button { open = true } label: {
             HStack {
                 Circle().fill(current.map { Palette.mood($0.mood) } ?? Palette.stage(3)).frame(width: 10, height: 10)
                 Text(current?.name ?? "Aleatorio · todos los tiempos").font(Typo.text(16, .heavy)).foregroundStyle(Palette.ink)
                 Spacer()
-                Image(systemName: "chevron.up.chevron.down").foregroundStyle(Palette.muted)
+                Image(systemName: "chevron.down").font(.system(size: 14, weight: .heavy)).foregroundStyle(Palette.muted)
             }
             .padding(.horizontal, 14).padding(.vertical, 11)
             .background(current.map { Palette.moodSoft($0.mood) } ?? Palette.sunk, in: .rect(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Palette.edge, lineWidth: 2))
+            .background(Palette.edge.clipShape(.rect(cornerRadius: 14)).offset(y: 3))
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Tiempo verbal: \(current?.name ?? "Aleatorio")")
+        .sheet(isPresented: $open) {
+            TensePicker(cards: cards, selection: $selection)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(Palette.bg)
+                .presentationCornerRadius(28)
+        }
+        #if DEBUG
+        // Development: `-openTenses` opens the sheet at launch so it can be screenshotted.
+        .onAppear { if ProcessInfo.processInfo.arguments.contains("-openTenses") { open = true } }
+        #endif
+    }
+}
+
+/// The sheet behind `TenseSwitch`. Each tense is a chip in its mood's colour showing how many
+/// verbs have it; tenses no verb has yet are faded and can't be picked.
+private struct TensePicker: View {
+    let cards: [Card]
+    @Binding var selection: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        let conj = cards.filter { $0.isConj && !$0.isDropped }
+        var have: [String: Int] = [:]
+        for c in conj { have[c.tense, default: 0] += 1 }
+        let total = Set(conj.map(\.verbID)).count
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("¿Qué tiempo practicas?").font(Typo.display(26)).foregroundStyle(Palette.ink)
+                    .padding(.top, 26).padding(.bottom, 16)
+
+                chip(Tense.random, label: "Aleatorio · todos los tiempos", count: total,
+                     fill: Palette.stage(3))
+                    .padding(.bottom, 8)
+
+                ForEach(Mood.allCases, id: \.self) { m in
+                    Text(m.name.uppercased()).font(Typo.text(13, .heavy)).tracking(1)
+                        .foregroundStyle(Palette.mood(m))
+                        .padding(.top, 18).padding(.bottom, 8)
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 12) {
+                        ForEach(Tense.all.filter { $0.mood == m }) { t in
+                            chip(t.key, label: chipName(t), count: have[t.key] ?? 0,
+                                 fill: Palette.mood(m))
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16).padding(.bottom, 24)
+        }
+    }
+
+    /// The mood heading already says "subjuntivo" or "imperativo", so the chip drops it.
+    private func chipName(_ t: Tense) -> String {
+        let n = t.name.replacingOccurrences(of: " de subjuntivo", with: "")
+            .replacingOccurrences(of: "Imperativo ", with: "")
+        return n.prefix(1).uppercased() + n.dropFirst()
+    }
+
+    private func chip(_ key: String, label: String, count: Int, fill: Color) -> some View {
+        let on = key == selection
+        return Button {
+            selection = key
+            dismiss()
+        } label: {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label).font(Typo.text(15, .heavy)).lineLimit(1).minimumScaleFactor(0.8)
+                Text(count == 0 ? "sin verbos" : "\(count) \(count == 1 ? "verbo" : "verbos")")
+                    .font(Typo.text(12, .bold)).opacity(on ? 0.85 : 1)
+                    .foregroundStyle(on ? AnyShapeStyle(Palette.onGood) : AnyShapeStyle(Palette.muted))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .foregroundStyle(on ? Palette.onGood : Palette.ink)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+        }
+        .buttonStyle(ChipStyle(fill: on ? fill : Palette.paper))
+        .disabled(count == 0)
+        .opacity(count == 0 ? 0.45 : 1)
+        .accessibilityLabel("\(label), \(count) \(count == 1 ? "verbo" : "verbos")")
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+/// A small chunky button: bordered, with a hard shadow it sinks into when pressed.
+private struct ChipStyle: ButtonStyle {
+    let fill: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        let down = configuration.isPressed
+        let shape = RoundedRectangle(cornerRadius: 14)
+        configuration.label
+            .background(fill, in: shape)
+            .overlay(shape.strokeBorder(Palette.edge, lineWidth: 2))
+            .offset(y: down ? 3 : 0)
+            .background(shape.fill(Palette.edge).offset(y: 3))
+            .animation(.easeOut(duration: 0.08), value: down)
     }
 }
