@@ -1,0 +1,360 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		C1A0F0000000000000000001 /* es-MX in Resources */ = {isa = PBXBuildFile; fileRef = C1A0F000000000000000000D /* es-MX */; };
+		C1A0F0000000000000000002 /* starter.csv in Resources */ = {isa = PBXBuildFile; fileRef = C1A0F000000000000000000E /* starter.csv */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C1A0F0000000000000000003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C1A0F0000000000000000019 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C1A0F0000000000000000020;
+			remoteInfo = Cinco;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		C1A0F000000000000000000B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C1A0F000000000000000000C /* Cinco.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Cinco.entitlements; sourceTree = "<group>"; };
+		C1A0F000000000000000000D /* es-MX */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "es-MX"; path = "../audio/es-MX"; sourceTree = "<group>"; };
+		C1A0F000000000000000000E /* starter.csv */ = {isa = PBXFileReference; lastKnownFileType = text; name = starter.csv; path = ../decks/starter.csv; sourceTree = "<group>"; };
+		C1A0F000000000000000000F /* Cinco.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Cinco.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C1A0F0000000000000000010 /* CincoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CincoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		C1A0F000000000000000001E /* Cinco */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Cinco; sourceTree = "<group>"; };
+		C1A0F000000000000000001F /* CincoTests */ = {isa = PBXFileSystemSynchronizedRootGroup; path = CincoTests; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C1A0F0000000000000000014 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		C1A0F0000000000000000015 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		C1A0F0000000000000000011 = {
+			isa = PBXGroup;
+			children = (
+				C1A0F000000000000000001E /* Cinco */,
+				C1A0F000000000000000001F /* CincoTests */,
+				C1A0F0000000000000000013 /* Shared */,
+				C1A0F000000000000000000B /* Info.plist */,
+				C1A0F000000000000000000C /* Cinco.entitlements */,
+				C1A0F0000000000000000012 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		C1A0F0000000000000000012 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C1A0F000000000000000000F /* Cinco.app */,
+				C1A0F0000000000000000010 /* CincoTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C1A0F0000000000000000013 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				C1A0F000000000000000000D /* es-MX */,
+				C1A0F000000000000000000E /* starter.csv */,
+			);
+			name = "Shared with the web app";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		C1A0F0000000000000000020 /* Cinco */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C1A0F0000000000000000017 /* Build configuration list for PBXNativeTarget "Cinco" */;
+			buildPhases = (
+				C1A0F000000000000000001A /* Sources */,
+				C1A0F0000000000000000014 /* Frameworks */,
+				C1A0F000000000000000001B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C1A0F000000000000000001E /* Cinco */,
+			);
+			name = Cinco;
+			productName = Cinco;
+			productReference = C1A0F000000000000000000F /* Cinco.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C1A0F0000000000000000021 /* CincoTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C1A0F0000000000000000018 /* Build configuration list for PBXNativeTarget "CincoTests" */;
+			buildPhases = (
+				C1A0F000000000000000001C /* Sources */,
+				C1A0F0000000000000000015 /* Frameworks */,
+				C1A0F000000000000000001D /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C1A0F000000000000000000A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				C1A0F000000000000000001F /* CincoTests */,
+			);
+			name = CincoTests;
+			productName = CincoTests;
+			productReference = C1A0F0000000000000000010 /* CincoTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C1A0F0000000000000000019 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					C1A0F0000000000000000020 = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					C1A0F0000000000000000021 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = C1A0F0000000000000000020;
+					};
+				};
+			};
+			buildConfigurationList = C1A0F0000000000000000016 /* Build configuration list for PBXProject "Cinco" */;
+			developmentRegion = es;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				es,
+				Base,
+			);
+			mainGroup = C1A0F0000000000000000011;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = C1A0F0000000000000000012 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C1A0F0000000000000000020 /* Cinco */,
+				C1A0F0000000000000000021 /* CincoTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C1A0F000000000000000001B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C1A0F0000000000000000001 /* es-MX in Resources */,
+				C1A0F0000000000000000002 /* starter.csv in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C1A0F000000000000000001D /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C1A0F000000000000000001A /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		C1A0F000000000000000001C /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C1A0F000000000000000000A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C1A0F0000000000000000020 /* Cinco */;
+			targetProxy = C1A0F0000000000000000003 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C1A0F0000000000000000004 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		C1A0F0000000000000000005 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		C1A0F0000000000000000006 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Cinco.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Cinco;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.graysonswaim.cinco;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C1A0F0000000000000000007 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Cinco.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Cinco;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.graysonswaim.cinco;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		C1A0F0000000000000000008 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.graysonswaim.cinco.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Cinco.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Cinco";
+			};
+			name = Debug;
+		};
+		C1A0F0000000000000000009 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.graysonswaim.cinco.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Cinco.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Cinco";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C1A0F0000000000000000016 /* Build configuration list for PBXProject "Cinco" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C1A0F0000000000000000004 /* Debug */,
+				C1A0F0000000000000000005 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C1A0F0000000000000000017 /* Build configuration list for PBXNativeTarget "Cinco" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C1A0F0000000000000000006 /* Debug */,
+				C1A0F0000000000000000007 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C1A0F0000000000000000018 /* Build configuration list for PBXNativeTarget "CincoTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C1A0F0000000000000000008 /* Debug */,
+				C1A0F0000000000000000009 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = C1A0F0000000000000000019 /* Project object */;
+}
