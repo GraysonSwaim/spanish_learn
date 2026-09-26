@@ -1,9 +1,10 @@
 import Foundation
 
 /// One row of a deck file.
-nonisolated struct CardRecord: Equatable {
+nonisolated struct CardRecord: Equatable, Hashable, Identifiable {
     var es = "", en = "", ex = "", notes = "", tags = "", frases = ""
     var tenses: [String: String] = [:]
+    var id: String { es }
 }
 
 /// Reads the CSV decks the web app reads: comma, semicolon or tab separated, quoted fields, "#" comments,

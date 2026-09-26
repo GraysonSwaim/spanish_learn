@@ -10,6 +10,11 @@ struct LookupView: View {
     @State private var query = ""
     @State private var filter = "all"
     @State private var added: String?
+    @State private var draft: CardRecord?
+    /// When the hand-written card's form opened, to confirm a card saved from it.
+    @State private var draftOpened: Date?
+    /// Added from this screen: they stay in the suggestions, ticked, so the rows don't shift under a finger.
+    @State private var justAdded: Set<Int> = []
     @FocusState private var focused: Bool
 
     private let lex = Lexicon.shared
@@ -45,6 +50,7 @@ struct LookupView: View {
         .toolbar(.visible, for: .navigationBar)
         .overlay(alignment: .bottom) { toast }
         .onAppear { if query.isEmpty { query = initial } }
+        .sheet(item: $draft, onDismiss: confirmDraft) { d in NavigationStack { EditCardView(card: nil, draft: d) } }
     }
 
     private var searchField: some View {
@@ -69,7 +75,8 @@ struct LookupView: View {
     private func suggestions(_ have: Set<String>) -> some View {
         let pos = filter == "all" ? nil : filter
         let list = lex.top(pos == nil ? 400 : 250, pos: pos)
-            .filter { e in !have.contains(TextMatch.noArticle(e.word)) && (pos != nil || Self.content.contains(e.senses.first?.pos ?? "")) }
+            .filter { e in (justAdded.contains(e.id) || !have.contains(TextMatch.noArticle(e.word)))
+                && (pos != nil || Self.content.contains(e.senses.first?.pos ?? "")) }
             .prefix(40)
         Text("Las más comunes que aún no tienes").font(Typo.display(22)).foregroundStyle(Palette.ink).padding(.bottom, 10)
         ChunkySegmented(options: [("all", "Todas"), ("verb", "Verbos"), ("noun", "Sustantivos"), ("adj", "Adjetivos")],
@@ -81,11 +88,23 @@ struct LookupView: View {
     @ViewBuilder
     private func results(_ have: Set<String>) -> some View {
         let list = lex.search(query)
-        if list.isEmpty {
-            Text("No encontré «\(query)». Prueba con otra forma de la palabra o con su significado en inglés.")
-                .font(Typo.text(16)).foregroundStyle(Palette.muted)
+        let typed = query.trimmingCharacters(in: .whitespaces)
+        if list.isEmpty && have.contains(TextMatch.noArticle(typed)) {
+            Label("«\(typed)» no está en el diccionario, pero ya está en tu mazo.", systemImage: "checkmark.circle.fill")
+                .font(Typo.text(16, .bold)).foregroundStyle(Palette.good)
+        } else if list.isEmpty {
+            Text("No encontré «\(typed)». Prueba con otra forma de la palabra o con su significado en inglés, o escribe tú la tarjeta.")
+                .font(Typo.text(16)).foregroundStyle(Palette.muted).padding(.bottom, 16)
+            Button("Escribir «\(typed)» a mano") { draftOpened = .now; draft = CardRecord(es: typed) }
+                .buttonStyle(ChunkyButtonStyle(fill: Palette.sea, text: .white, size: 19))
         } else {
             rows(list, have: have)
+            Button { draftOpened = .now; draft = CardRecord(es: typed) } label: {
+                Text("¿No es lo que buscas? ").foregroundStyle(Palette.muted)
+                    + Text("Escríbela a mano").foregroundStyle(Palette.accentInk)
+            }
+            .font(Typo.text(15, .heavy)).buttonStyle(.plain)
+            .frame(maxWidth: .infinity).padding(.top, 16)
         }
     }
 
@@ -134,7 +153,14 @@ struct LookupView: View {
     private func quickAdd(_ e: LexEntry) {
         let rec = e.record(senses: Array(e.senses.prefix(1)), tenses: LexEntry.coreTenses)
         let error = Deck.save(rec, editing: nil, ctx: ctx)
+        if error == nil { justAdded.insert(e.id) }
         show(error ?? "«\(rec.es)» añadida")
+    }
+
+    private func confirmDraft() {
+        guard let opened = draftOpened else { return }
+        draftOpened = nil
+        if let c = cards.first(where: { !$0.isConj && $0.added >= opened }) { show("«\(c.es)» añadida") }
     }
 
     private func show(_ message: String) {
@@ -241,7 +267,8 @@ struct EntryView: View {
                     Text(entry.ipa).font(Typo.text(14)).foregroundStyle(Palette.muted)
                 }
             }
-            Text("Nº \(entry.id) entre las palabras más usadas").font(Typo.text(13, .bold)).foregroundStyle(Palette.muted)
+            Text(entry.id <= Lexicon.shared.common ? "Nº \(entry.id) entre las palabras más usadas" : "Palabra extra del diccionario de Cinco")
+                .font(Typo.text(13, .bold)).foregroundStyle(Palette.muted)
         }
     }
 

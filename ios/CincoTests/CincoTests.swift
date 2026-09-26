@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SwiftData
 @testable import Cinco
 
 /// Expected values come from running the web app's own functions in node, so the two apps stay in step.
@@ -177,5 +178,42 @@ struct LexiconTests {
                 #expect(dict == deck, "\(rec.es) \(k)")
             }
         }
+    }
+}
+
+/// Adding dictionary words to a deck, the way the Diccionario screen does.
+@MainActor
+struct DictionaryAddTests {
+    let lex = Lexicon.shared
+
+    private func store() throws -> ModelContext {
+        let schema = Schema([Card.self, DayLog.self])
+        let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+        return ModelContext(c)
+    }
+
+    @Test func quickAddingSeveralWords() throws {
+        let ctx = try store()
+        for w in ["pedir", "mano", "chido"] {
+            let e = try #require(lex.entry(w))
+            #expect(Deck.save(e.record(senses: Array(e.senses.prefix(1)), tenses: LexEntry.coreTenses), editing: nil, ctx: ctx) == nil)
+        }
+        let cards = Deck.allCards(ctx)
+        #expect(Set(cards.filter { !$0.isConj }.map(\.es)) == ["pedir", "la mano", "chido"])
+        // pedir brings one Conjugación card per core tense.
+        #expect(Set(cards.filter(\.isConj).map(\.tense)) == LexEntry.coreTenses)
+        #expect(cards.first { $0.es == "la mano" }?.notes == "Plural: manos")
+        // Adding a word twice is refused, not duplicated.
+        let again = try #require(lex.entry("pedir"))
+        #expect(Deck.save(again.record(senses: [again.senses[0]], tenses: []), editing: nil, ctx: ctx) != nil)
+    }
+
+    @Test func extraWordsAreSearchable() throws {
+        #expect(lex.search("que onda").first?.word == "¿qué onda?")
+        #expect(lex.search("güey").first?.word == "güey")
+        let e = try #require(lex.entry("popote"))
+        #expect(e.id > lex.common)
+        #expect(e.spanish(for: e.senses.first) == "el popote")
+        #expect(e.senses.first?.t == ["Mexico"])
     }
 }

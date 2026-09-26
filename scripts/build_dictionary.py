@@ -28,6 +28,8 @@ from datetime import date
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "ios", "Cinco", "Resources", "dictionary.sqlite")
+# Words to include beyond the most common ones: slang, regional words, phrases. See the file's header.
+EXTRA = os.path.join(ROOT, "scripts", "dictionary_extra.csv")
 REPORT = os.path.join(ROOT, "scripts", "dictionary_report.md")
 
 SOURCES = {
@@ -59,8 +61,9 @@ SHOW_TAGS = {"Mexico", "Spain", "Latin-America", "Caribbean", "Central-America",
 
 
 def fold(s):
-    """Lowercase without accents (ñ kept), the way the app searches."""
-    s = s.lower().replace("ñ", "\0")
+    """Lowercase, no punctuation, no accents (ñ kept): the app's TextMatch.strip, so searches line up."""
+    s = " ".join("".join(c for c in s.lower() if c not in "¿?¡!.,;:\"“”…").split())
+    s = s.replace("ñ", "\0")
     s = "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
     return s.replace("\0", "ñ")
 
@@ -192,6 +195,38 @@ def read_wiktionary(path, wanted):
                 e["tables"], e["part"] = wikt_tables(forms)
             lemmas[word].append(e)
     return lemmas, form_of
+
+
+# ---------- extra words ----------
+
+def read_extra():
+    """spanish -> row from dictionary_extra.csv, in file order."""
+    if not os.path.exists(EXTRA):
+        return {}
+    with open(EXTRA, encoding="utf-8") as f:
+        rows = csv.DictReader(line for line in f if not line.startswith("#"))
+        return {r["spanish"].strip(): r for r in rows if r.get("spanish", "").strip()}
+
+
+def add_extra(extra, lemmas):
+    """An extra word's own meaning goes first; Wiktionary's, if it has the word, follow."""
+    for w, r in extra.items():
+        en = (r.get("english") or "").strip()
+        if not en:
+            if w not in lemmas:
+                print(f"extra word «{w}» has no English and isn't in Wiktionary: skipped")
+            continue
+        pos = (r.get("pos") or "phrase").strip()
+        ex = [(r["example"].strip(), r["example_en"].strip())] if (r.get("example") or "").strip() and (r.get("example_en") or "").strip() else []
+        sense = {"g": en, "t": [t for t in (r.get("labels") or "").split() if t in SHOW_TAGS], "ex": ex,
+                 "gender": (r.get("gender") or "").strip()}
+        entries = lemmas.setdefault(w, [])
+        same = next((e for e in entries if e["pos"] == pos), None)
+        if same:
+            same["senses"] = [sense] + [x for x in same["senses"] if x["g"].casefold() != en.casefold()]
+        else:
+            entries.insert(0, {"pos": pos, "senses": [sense], "ipa": "", "plural": (r.get("plural") or "").strip(), "fem": "",
+                               **({"tables": {}, "part": set()} if pos == "verb" else {})})
 
 
 # ---------- Jehle and verbecc ----------
@@ -369,7 +404,9 @@ def main():
             freq.setdefault(w, int(n))
     print(f"frequency list: {len(freq)} words")
 
-    lemmas, form_of = read_wiktionary(src["kaikki-es.jsonl"], set(freq) | {"haber"})
+    extra = read_extra()
+    lemmas, form_of = read_wiktionary(src["kaikki-es.jsonl"], set(freq) | {"haber"} | set(extra))
+    add_extra(extra, lemmas)
     print(f"wiktionary: {len(lemmas)} lemmas, {len(form_of)} inflected forms in the frequency list")
 
     # A word's score is its own count plus its share of its inflected forms' counts.
@@ -382,8 +419,11 @@ def main():
             for t in targets:
                 score[t] += n / len(targets)
     ranked = sorted((w for w in score if w in lemmas), key=lambda w: -score[w])[: a.words]
+    common = len(ranked)
+    # Extra words not already among the common ones go after them.
+    ranked += [w for w in extra if w not in set(ranked)]
     rank = {w: i + 1 for i, w in enumerate(ranked)}
-    print(f"kept the top {len(ranked)} words")
+    print(f"kept the top {common} words and {len(ranked) - common} extra")
 
     jehle = read_jehle(src["jehle.csv"])
     vbc = Verbecc()
@@ -463,6 +503,7 @@ def main():
     """)
     db.executemany("INSERT INTO meta VALUES (?,?)", [
         ("built", date.today().isoformat()),
+        ("common", str(common)),
         ("credits", "Definiciones: Wiktionary (CC BY-SA), vía kaikki.org. Conjugaciones: Fred Jehle (CC BY-NC-SA), "
                     "Wiktionary y verbecc, contrastadas entre sí. Frecuencia: FrequencyWords / OpenSubtitles (CC BY-SA)."),
     ])

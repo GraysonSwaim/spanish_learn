@@ -6,6 +6,8 @@ struct EditCardView: View {
     @Environment(\.modelContext) private var ctx
     @Environment(\.dismiss) private var dismiss
     let card: Card?
+    /// A new card's starting text, e.g. a word the dictionary didn't have.
+    var draft: CardRecord?
 
     @State private var rec = CardRecord()
     /// Tense key -> six forms, while editing.
@@ -72,7 +74,10 @@ struct EditCardView: View {
     }
 
     private func load() {
-        guard let c = card else { return }
+        guard let c = card else {
+            if let draft, rec.es.isEmpty { rec = draft }
+            return
+        }
         rec = CardRecord(es: c.es, en: c.en, ex: c.ex, notes: c.notes, tags: c.tags,
                          frases: c.frases.split(separator: "|").joined(separator: "\n"), tenses: c.tenses)
         forms = c.tenses.mapValues { TextMatch.splitForms($0) }

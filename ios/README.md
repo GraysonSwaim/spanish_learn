@@ -50,6 +50,10 @@ where two of the three sources agree; `scripts/dictionary_report.md` lists the r
     python3 -m venv /tmp/dict-venv && /tmp/dict-venv/bin/pip install verbecc
     /tmp/dict-venv/bin/python scripts/build_dictionary.py        # downloads ~1 GB to ~/Library/Caches the first time
 
+To add words beyond the common 10,000 (slang, regional words, phrases), list them in
+`scripts/dictionary_extra.csv` and rebuild; its header explains the columns. Words it doesn't have can still be
+written by hand from the Diccionario screen.
+
 Jehle's data is licensed for non-commercial use only; replace it before selling the app.
 
 ## Not yet in the native app

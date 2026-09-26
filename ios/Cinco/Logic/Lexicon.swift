@@ -93,11 +93,17 @@ final class Lexicon {
         query("SELECT \(Self.columns) FROM entry e WHERE e.fold = ?1 ORDER BY e.id LIMIT 1", [TextMatch.strip(word)]).first
     }
 
-    var credits: String {
+    var credits: String { meta("credits") }
+
+    /// Ranks up to this are the most common words; above it are the extra words (dictionary_extra.csv).
+    lazy var common: Int = Int(meta("common")) ?? .max
+
+    private func meta(_ key: String) -> String {
         var s: OpaquePointer?
         defer { sqlite3_finalize(s) }
-        guard let db, sqlite3_prepare_v2(db, "SELECT value FROM meta WHERE key = 'credits'", -1, &s, nil) == SQLITE_OK,
-              sqlite3_step(s) == SQLITE_ROW else { return "" }
+        guard let db, sqlite3_prepare_v2(db, "SELECT value FROM meta WHERE key = ?1", -1, &s, nil) == SQLITE_OK else { return "" }
+        sqlite3_bind_text(s, 1, key, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        guard sqlite3_step(s) == SQLITE_ROW else { return "" }
         return String(cString: sqlite3_column_text(s, 0))
     }
 
