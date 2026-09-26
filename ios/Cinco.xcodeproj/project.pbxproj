@@ -31,13 +31,33 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		C1A0F000000000000000001E /* Cinco */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Cinco; sourceTree = "<group>"; };
-		C1A0F000000000000000001F /* CincoTests */ = {isa = PBXFileSystemSynchronizedRootGroup; path = CincoTests; sourceTree = "<group>"; };
+		C1A0F000000000000000001E /* Cinco */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Cinco;
+			sourceTree = "<group>";
+		};
+		C1A0F000000000000000001F /* CincoTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = CincoTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		C1A0F0000000000000000014 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		C1A0F0000000000000000015 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		C1A0F0000000000000000014 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C1A0F0000000000000000015 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -46,7 +66,7 @@
 			children = (
 				C1A0F000000000000000001E /* Cinco */,
 				C1A0F000000000000000001F /* CincoTests */,
-				C1A0F0000000000000000013 /* Shared */,
+				C1A0F0000000000000000013 /* Shared with the web app */,
 				C1A0F000000000000000000B /* Info.plist */,
 				C1A0F000000000000000000C /* Cinco.entitlements */,
 				C1A0F0000000000000000012 /* Products */,
@@ -62,7 +82,7 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		C1A0F0000000000000000013 /* Shared */ = {
+		C1A0F0000000000000000013 /* Shared with the web app */ = {
 			isa = PBXGroup;
 			children = (
 				C1A0F000000000000000000D /* es-MX */,
@@ -164,12 +184,30 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C1A0F000000000000000001D /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		C1A0F000000000000000001D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		C1A0F000000000000000001A /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		C1A0F000000000000000001C /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		C1A0F000000000000000001A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C1A0F000000000000000001C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -232,7 +270,7 @@
 				CODE_SIGN_ENTITLEMENTS = Cinco.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 4W6FCZ6H2T;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
@@ -250,9 +288,9 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.graysonswaim.cinco;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -266,7 +304,7 @@
 				CODE_SIGN_ENTITLEMENTS = Cinco.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 4W6FCZ6H2T;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
@@ -284,9 +322,9 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.graysonswaim.cinco;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
