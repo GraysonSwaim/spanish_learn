@@ -128,3 +128,54 @@ struct SchedulerTests {
         #expect(q.count == 3)
     }
 }
+
+/// The bundled dictionary: lookups, articles, and the cards it makes.
+@MainActor
+struct LexiconTests {
+    let lex = Lexicon.shared
+
+    @Test func findsWordsByConjugatedFormAndByEnglish() {
+        #expect(lex.isAvailable)
+        #expect(lex.search("pidió").first?.word == "pedir")
+        #expect(lex.search("manos").first?.word == "mano")
+        #expect(lex.search("fue").map(\.word).contains("ser"))
+        #expect(lex.search("fue").map(\.word).contains("ir"))
+        #expect(lex.search("to ask").map(\.word).contains("pedir"))
+    }
+
+    @Test func nounsGetTheirArticle() throws {
+        let mano = try #require(lex.entry("mano"))
+        #expect(mano.spanish(for: mano.senses.first) == "la mano")
+        let agua = try #require(lex.entry("agua"))
+        #expect(agua.spanish(for: agua.senses.first) == "el agua")
+        let libro = try #require(lex.entry("libro"))
+        #expect(libro.spanish(for: libro.senses.first) == "el libro")
+    }
+
+    @Test func verbCardsCarryTheCheckedTables() throws {
+        let pedir = try #require(lex.entry("pedir"))
+        let r = pedir.record(senses: [pedir.senses[0]], tenses: LexEntry.coreTenses)
+        #expect(r.es == "pedir")
+        #expect(r.tenses.keys.sorted() == LexEntry.coreTenses.sorted())
+        #expect(r.tenses["preterito"] == "pedí|pediste|pidió|pedimos|pedisteis|pidieron")
+        #expect(r.tenses["subjuntivo"] == "pida|pidas|pida|pidamos|pidáis|pidan")
+        #expect(pedir.tenses["perfecto"] == "he pedido|has pedido|ha pedido|hemos pedido|habéis pedido|han pedido")
+        #expect(pedir.tenses["imperativo"] == "|pide|pida|pidamos|pedid|pidan")
+        #expect(!r.frases.isEmpty)
+    }
+
+    /// The same forms as the hand-checked starter deck.
+    @Test func matchesTheStarterDeck() throws {
+        let url = try #require(Bundle.main.url(forResource: "starter", withExtension: "csv"))
+        let recs = CSVImport.parse(try String(contentsOf: url, encoding: .utf8)).filter { !$0.tenses.isEmpty }
+        #expect(recs.count >= 10)
+        for rec in recs {
+            let e = try #require(lex.entry(rec.es), "\(rec.es) missing")
+            for (k, v) in rec.tenses where !v.isEmpty {
+                let dict = e.tenses[k].map { $0.split(separator: "|", omittingEmptySubsequences: false).map { $0.split(separator: " / ").first.map(String.init) ?? "" } }
+                let deck = v.split(separator: "|", omittingEmptySubsequences: false).map { $0.split(separator: " / ").first.map(String.init) ?? "" }
+                #expect(dict == deck, "\(rec.es) \(k)")
+            }
+        }
+    }
+}

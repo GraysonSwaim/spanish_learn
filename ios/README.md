@@ -36,6 +36,21 @@ Debug builds take launch arguments for the simulator:
 
 - `-importCSV <path>` loads a deck file from the Mac at launch.
 - `-demo vocab|conj <steps> [stage]` opens a verb card at a stage and advances it that many reveal steps.
+- `-lookup <query>` opens the dictionary with that search; `-entry <word>` opens one word's page.
+- `-openTenses` opens the Conjugación tense picker.
+
+## Dictionary
+
+Diccionario (on the home screen) looks up the 10,000 most common Spanish words, including by conjugated form
+(pidió finds pedir) or English meaning, and adds one to the deck with its conjugation tables.
+Its data is `Cinco/Resources/dictionary.sqlite`, built by `scripts/build_dictionary.py` from Wiktionary,
+Fred Jehle's verb database and verbecc, with word frequency from OpenSubtitles. Conjugated forms are kept only
+where two of the three sources agree; `scripts/dictionary_report.md` lists the rest. To rebuild:
+
+    python3 -m venv /tmp/dict-venv && /tmp/dict-venv/bin/pip install verbecc
+    /tmp/dict-venv/bin/python scripts/build_dictionary.py        # downloads ~1 GB to ~/Library/Caches the first time
+
+Jehle's data is licensed for non-commercial use only; replace it before selling the app.
 
 ## Not yet in the native app
 

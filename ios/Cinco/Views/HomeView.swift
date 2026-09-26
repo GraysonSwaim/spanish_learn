@@ -96,7 +96,24 @@ struct HomeView: View {
         .sheet(item: $editing) { t in
             NavigationStack { EditCardView(card: t.card) }
         }
+        #if DEBUG
+        // Development: `-lookup <query>` or `-entry <word>` opens the dictionary at launch for screenshots.
+        .navigationDestination(item: $debugPage) { page in
+            if page.hasPrefix("entry:"), let e = Lexicon.shared.entry(String(page.dropFirst(6))) { EntryView(entry: e) }
+            else { LookupView(initial: String(page.dropFirst(7))) }
+        }
+        .onAppear {
+            let args = ProcessInfo.processInfo.arguments
+            for (flag, prefix) in [("-lookup", "lookup:"), ("-entry", "entry:")] {
+                if let i = args.firstIndex(of: flag), i + 1 < args.count { debugPage = prefix + args[i + 1] }
+            }
+        }
+        #endif
     }
+
+    #if DEBUG
+    @State private var debugPage: String?
+    #endif
 
     private var tabPicker: some View {
         ChunkySegmented(options: Tab.allCases.map { ($0.rawValue, $0.name) }, selection: $tabRaw)
@@ -165,6 +182,10 @@ struct HomeView: View {
 
     private var menu: some View {
         VStack(spacing: 0) {
+            NavigationLink { LookupView() } label: {
+                MenuRowLabel(title: "Diccionario", sub: "Busca una palabra y añádela a tus tarjetas")
+            }
+            Divider().overlay(Palette.line)
             MenuRow(title: "Importar tarjetas", sub: "CSV de iCloud Drive o exportado de Anki") { importing = true }
             Divider().overlay(Palette.line)
             MenuRow(title: "Añadir una tarjeta", sub: "Escríbela a mano") { editing = EditTarget(card: nil) }
