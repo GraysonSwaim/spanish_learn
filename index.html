@@ -30,6 +30,7 @@
   --m-ind:#007F8C; --m-ind-soft:#D6F2F4; --m-sub:#6A33D1; --m-sub-soft:#ECE3FF; --m-imp:#C2410C; --m-imp-soft:#FFE6D5; --on-m:#FFFFFF;
   --disp:"Lilita One","Arial Rounded MT Bold",system-ui,sans-serif;
   --sans:"Nunito",ui-rounded,-apple-system,system-ui,sans-serif;
+  --en:#1F5BC9;
   --r:22px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
@@ -38,6 +39,7 @@
   --good:#2BC79A; --on-good:#062019; --good-soft:#123F33; --again:#FF6275; --again-soft:#4A1C24;
   --s1:#FF6F9C; --s2:#FFAE3D; --s3:#22C8D8; --s4:#22BD8E; --s5:#9A6BFF;
   --m-ind:#2FD0E0; --m-ind-soft:#134A4E; --m-sub:#B39BFF; --m-sub-soft:#2E2A55; --m-imp:#FFA25E; --m-imp-soft:#4A2E1C; --on-m:#062019;
+  --en:#FFA24C;
   color-scheme:dark;
 }}
 :root[data-theme="dark"]{
@@ -46,6 +48,7 @@
   --good:#2BC79A; --on-good:#062019; --good-soft:#123F33; --again:#FF6275; --again-soft:#4A1C24;
   --s1:#FF6F9C; --s2:#FFAE3D; --s3:#22C8D8; --s4:#22BD8E; --s5:#9A6BFF;
   --m-ind:#2FD0E0; --m-ind-soft:#134A4E; --m-sub:#B39BFF; --m-sub-soft:#2E2A55; --m-imp:#FFA25E; --m-imp-soft:#4A2E1C; --on-m:#062019;
+  --en:#FFA24C;
   color-scheme:dark;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -168,7 +171,8 @@ input{font:inherit;color:inherit}
 .rowdrop.back{color:var(--good);background:var(--good-soft)}
 .row:first-child{border-top:0}
 .row .es{font-size:18px;font-weight:800}
-.row .en{color:var(--muted);font-size:14px}
+.en{color:var(--en)}
+.row .en{font-size:14px}
 .row .grow{flex:1;min-width:0}
 .row .mini{display:flex;gap:3px}
 .row .mini i{width:9px;height:9px;border-radius:3px;background:var(--line);display:block}
@@ -272,7 +276,7 @@ details.more summary{cursor:pointer;color:var(--muted);font-weight:800;font-size
 <script>
 /* ---------- constants ---------- */
 const KEY='cinco.v1';
-const VERSION=33;               // keep in step with CACHE in sw.js, shown in Ajustes
+const VERSION=34;               // keep in step with CACHE in sw.js, shown in Ajustes
 const DAY=86400000, MIN=60000;
 const RELEARN_GAP=5;           // cards between a miss and its retry
 const MAX_IVL=120;             // days, mastered cards never sleep longer than this
@@ -883,18 +887,18 @@ function studyView(){
   let body='',actions='';
   if(c.kind==='conj')({body,actions}=conjBody(s,c));
   else if(s.mode==='intro'){
-    body=`<p class="k">${K.intro}</p><div class="word">${esc(c.es)}</div><div class="answer" style="border:0;margin-top:10px;padding-top:0"><div class="word sm">${en}</div>${ex}${notes}${spk}</div>`;
+    body=`<p class="k">${K.intro}</p><div class="word">${esc(c.es)}</div><div class="answer" style="border:0;margin-top:10px;padding-top:0"><div class="word sm en">${en}</div>${ex}${notes}${spk}</div>`;
     actions=`<button class="big primary one" data-act="intro">Entendido, pregúntame luego<small>Vuelve dentro de unas tarjetas</small></button>`;
   }else if(s.mode==='es-en'){
     body=`<p class="k">${K['es-en']}</p><div class="word">${esc(c.es)}</div>${s.phase==='prompt'?ex:''}${spk}
-      ${s.phase==='answer'?`<div class="answer"><div class="word sm">${en}</div>${ex}${notes}</div>`:''}`;
+      ${s.phase==='answer'?`<div class="answer"><div class="word sm en">${en}</div>${ex}${notes}</div>`:''}`;
     actions=s.phase==='prompt'?`<button class="big primary one" data-act="reveal">Mostrar respuesta</button>`:gradeBtns();
   }else if(s.mode==='en-es'){
-    body=`<p class="k">${K['en-es']}</p><div class="word sm">${en}</div>
+    body=`<p class="k">${K['en-es']}</p><div class="word sm en">${en}</div>
       ${s.phase==='answer'?`<div class="answer"><div class="word">${esc(c.es)}</div>${ex}${notes}${spk}</div>`:''}`;
     actions=s.phase==='prompt'?`<button class="big primary one" data-act="reveal">Mostrar respuesta</button>`:gradeBtns();
   }else{ // type
-    body=`<p class="k">${K.type}</p><div class="word sm">${en}</div>
+    body=`<p class="k">${K.type}</p><div class="word sm en">${en}</div>
       ${s.phase==='prompt'?`<form class="typein" data-act="check"><input id="ans" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" lang="es" placeholder="…" value="${esc(s.typed)}"><button type="submit">Comprobar</button></form>`:''}
       ${s.phase==='answer'?`<div class="answer"><div class="word ${s.verdict==='exact'?'':''}">${esc(c.es)}</div>${verdictTag(s)}${ex}${notes}${spk}</div>`:''}`;
     actions=s.phase==='prompt'?'':gradeBtns();
@@ -983,7 +987,7 @@ function detailView(c){
   const due=c.stage===0?'sin empezar':c.due<=Date.now()?'ahora':fecha(c.due);
   const drill=c.kind==='conj',vb=drill?S.cards[c.verb]:null;
   return `${bar('',`<button class="tb" data-act="detail" data-id="">‹ Tarjetas</button>`)}
-  <div class="detail">${tiles(c.stage)}<div class="word">${esc(c.es)}</div><div class="word sm" style="color:var(--muted);margin-top:6px">${esc(c.en)}</div>
+  <div class="detail">${tiles(c.stage)}<div class="word">${esc(c.es)}</div><div class="word sm en" style="margin-top:6px">${esc(c.en)}</div>
   ${c.ex?`<p class="ex">${esc(c.ex)}</p>`:''}${c.frases?`<div class="frases">${c.frases.split('|').map(x=>`<p class="ex">${esc(x)}</p>`).join('')}</div>`:''}${c.notes?`<p class="notes">${esc(c.notes)}</p>`:''}
   ${drill?`${vb?`<p class="notes">${esc(vb.en)}</p>`:''}${conjTable(cardForms(c),c.tense)}${moreTables(vb,c.tense,'Otros tiempos')}`:moreTables(c,null,'Conjugación')}
   <button class="speak" data-act="${drill?'speakTable':'speakId'}" data-id="${c.id}" aria-label="Escúchala">🔊</button>
