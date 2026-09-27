@@ -267,3 +267,20 @@ struct IntentTests {
         #expect(recs[0].ex == "Mi maleta es azul.")
     }
 }
+
+@MainActor
+struct FindWordTests {
+    @Test(arguments: [
+        ("suitcase", "la maleta"), ("dog", "el perro"), ("run", "correr"), ("to run", "correr"),
+        ("house", "la casa"), ("bank", "el banco"), ("red", "rojo"), ("sin", "sin"), ("maleta", "la maleta"), ("hablé", "hablar"),
+    ])
+    func finds(_ word: String, _ es: String) throws {
+        let (e, s) = try #require(Lexicon.shared.find(word))
+        #expect(e.record(senses: s.map { [$0] } ?? [], tenses: []).es == es)
+    }
+
+    @Test func spanishOnly() throws {
+        let (e, _) = try #require(Lexicon.shared.find("red", in: .spanish))
+        #expect(e.word == "red")
+    }
+}

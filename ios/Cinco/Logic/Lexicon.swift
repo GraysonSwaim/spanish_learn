@@ -198,3 +198,56 @@ extension LexEntry {
          "num": "número", "article": "artículo", "contraction": "contracción", "phrase": "expresión"][p] ?? p
     }
 }
+
+/// Which language a word handed to `Lexicon.find` is in.
+enum WordLanguage { case auto, spanish, english }
+
+extension Lexicon {
+    /// The entry a Spanish or English word most likely means, with the meaning that matched.
+    /// Auto tries a Spanish headword and an English meaning, taking the more common word when both match
+    /// (house is the English, not the Spanish loanword; sin is the Spanish), then an inflected Spanish form
+    /// (hablé → hablar).
+    func find(_ text: String, in language: WordLanguage = .auto) -> (entry: LexEntry, sense: LexEntry.Sense?)? {
+        let q = TextMatch.strip(text)
+        guard !q.isEmpty else { return nil }
+        let es = language == .english ? nil : entry(q) ?? entry(TextMatch.noArticle(q))
+        let en = language == .spanish ? nil : english(q)
+        switch (es, en) {
+        case let (e?, hit?): return hit.entry.id < e.id ? (hit.entry, hit.sense) : (e, e.senses.first)
+        case let (e?, nil): return (e, e.senses.first)
+        case let (nil, hit?): return (hit.entry, hit.sense)
+        case (nil, nil): break
+        }
+        if language != .english,
+           let e = query("SELECT \(Self.columns) FROM form f JOIN entry e ON e.id = f.entry WHERE f.fold = ?1 ORDER BY e.id LIMIT 1", [q]).first {
+            return (e, e.senses.first)
+        }
+        return nil
+    }
+
+    /// The Spanish for an English word: an entry with it as a whole meaning ("bank", or "to run" for "run"),
+    /// preferring its first meaning, then earlier meanings, then words that aren't the feminine or plural of
+    /// another entry (mala, as against maleta), then common words.
+    private func english(_ q: String) -> (entry: LexEntry, sense: LexEntry.Sense)? {
+        let bare = q.replacing(/^to\s+/, with: "")
+        guard bare.count >= 2 else { return nil }
+        let like = bare.replacingOccurrences(of: "%", with: "").replacingOccurrences(of: "_", with: "")
+        let candidates = query("SELECT \(Self.columns) FROM entry e WHERE (' ' || e.en_fold) LIKE ?1 ORDER BY e.id LIMIT 300", ["% \(like)%"])
+        let inflections = Set(query("""
+            SELECT \(Self.columns) FROM entry e WHERE e.fold IN (SELECT o.fem FROM entry o UNION SELECT o.plural FROM entry o)
+              AND (' ' || e.en_fold) LIKE ?1
+            """, ["% \(like)%"]).map(\.id))
+        var best: (score: (Int, Int, Int), entry: LexEntry, sense: LexEntry.Sense)?
+        for e in candidates {
+            for (i, s) in e.senses.enumerated() {
+                let items = s.g.replacing(/\s*\([^)]*\)/, with: "").split(whereSeparator: { $0 == "," || $0 == ";" })
+                    .map { TextMatch.strip(String($0)).replacing(/^to\s+/, with: "") }
+                guard let j = items.firstIndex(of: bare) else { continue }
+                let score = (i == 0 && j == 0 ? 0 : i == 0 ? 1 : 2, inflections.contains(e.id) ? 1 : 0, e.id)
+                if best == nil || score < best!.score { best = (score, e, s) }
+                break
+            }
+        }
+        return best.map { ($0.entry, $0.sense) }
+    }
+}

@@ -40,6 +40,53 @@ struct AddCardsIntent: AppIntent {
     }
 }
 
+/// A word in Spanish or English, filled in from the dictionary the way Diccionario's quick add does it:
+/// article, meaning, example, notes, and for a verb the six core conjugation tables.
+struct AddWordIntent: AppIntent {
+    static let title: LocalizedStringResource = "Añadir palabra"
+    static let description = IntentDescription(
+        "Looks up a word in Spanish or English in Cinco's dictionary and adds it as a card, with its meaning, an example and, for verbs, conjugation tables.")
+
+    @Parameter(title: "Palabra", requestValueDialog: "¿Qué palabra? (What word?)")
+    var word: String
+
+    @Parameter(title: "Idioma", default: .auto)
+    var language: IntentLanguage
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Añadir \(\.$word)") { \.$language }
+    }
+
+    @MainActor func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+        guard let (entry, sense) = Lexicon.shared.find(word, in: language.value) else {
+            return .result(value: "", dialog: "«\(word)» no está en el diccionario. Usa «Añadir una tarjeta» para escribirla a mano.")
+        }
+        let rec = entry.record(senses: sense.map { [$0] } ?? [], tenses: LexEntry.coreTenses)
+        if let clash = Deck.save(rec, editing: nil, ctx: Store.container.mainContext) {
+            return .result(value: rec.es, dialog: "\(clash)")
+        }
+        let tab = rec.phrase ? "Frases" : entry.isVerb ? "Vocabulario, con sus tablas en Conjugación" : "Vocabulario"
+        return .result(value: rec.es, dialog: "Añadida: \(rec.es), \(rec.en). La verás en \(tab).")
+    }
+}
+
+enum IntentLanguage: String, AppEnum {
+    case auto, spanish, english
+
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "Idioma"
+    static let caseDisplayRepresentations: [IntentLanguage: DisplayRepresentation] = [
+        .auto: "Detectar", .spanish: "Español", .english: "Inglés",
+    ]
+
+    var value: WordLanguage {
+        switch self {
+        case .auto: .auto
+        case .spanish: .spanish
+        case .english: .english
+        }
+    }
+}
+
 /// One word, for a quick "add *la maleta*, suitcase" from Siri.
 struct AddCardIntent: AppIntent {
     static let title: LocalizedStringResource = "Añadir una tarjeta"
@@ -94,10 +141,12 @@ struct CincoShortcuts: AppShortcutsProvider {
             "How many cards are due in \(.applicationName)",
             "¿Cuántas tarjetas tengo en \(.applicationName)?",
         ], shortTitle: "Pendientes", systemImageName: "clock")
-        AppShortcut(intent: AddCardIntent(), phrases: [
+        AppShortcut(intent: AddWordIntent(), phrases: [
+            "Add a word to \(.applicationName)",
             "Add a card to \(.applicationName)",
+            "Añadir una palabra a \(.applicationName)",
             "Añadir una tarjeta a \(.applicationName)",
-        ], shortTitle: "Añadir tarjeta", systemImageName: "plus.rectangle.on.rectangle")
+        ], shortTitle: "Añadir palabra", systemImageName: "plus.rectangle.on.rectangle")
         AppShortcut(intent: AddCardsIntent(), phrases: [
             "Add cards to \(.applicationName)",
             "Añadir tarjetas a \(.applicationName)",
