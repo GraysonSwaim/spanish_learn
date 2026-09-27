@@ -257,3 +257,13 @@ struct PhraseTests {
         #expect(e.origin.contains("Latin"))
     }
 }
+
+struct IntentTests {
+    /// What a model typically hands back to "Añadir tarjetas".
+    @Test func fencedModelOutput() {
+        let reply = "```csv\nspanish,english,example\nla maleta,suitcase,Mi maleta es azul.\nel vuelo,flight,\n```"
+        let recs = CSVImport.parse(AddCardsIntent.unfence(reply))
+        #expect(recs.map(\.es) == ["la maleta", "el vuelo"])
+        #expect(recs[0].ex == "Mi maleta es azul.")
+    }
+}

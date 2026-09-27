@@ -28,6 +28,13 @@ works, storing everything on the device only.
 
 Before shipping to the App Store, deploy the CloudKit schema to Production in the CloudKit Console.
 
+## Shortcuts and Siri
+
+`Cinco/Logic/Intents.swift` gives the Shortcuts app four actions: **Añadir tarjetas** (CSV text, the same
+format as Importar; ``` fences from a model are ignored), **Añadir una tarjeta**, **Palabras del mazo** (the
+deck's Spanish, to tell a model what to skip) and **Tarjetas pendientes**. To have AI make cards on your own
+plan, with no API key: Shortcuts' *Use Model* action (ChatGPT or Apple's model) → *Añadir tarjetas*.
+
 ## Development
 
 Tests: `xcodebuild test -project Cinco.xcodeproj -scheme Cinco -destination 'platform=iOS Simulator,name=iPhone Air' CODE_SIGNING_ALLOWED=NO`

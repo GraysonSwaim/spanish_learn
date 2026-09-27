@@ -3,26 +3,28 @@ import SwiftData
 
 @main
 struct CincoApp: App {
-    let container: ModelContainer
-
-    init() {
-        let schema = Schema([Card.self, DayLog.self])
-        // .automatic syncs through the iCloud container in the entitlements, and stays local when there is
-        // none (an unsigned simulator build) or no one is signed into iCloud.
-        do {
-            container = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, cloudKitDatabase: .automatic))
-        } catch {
-            print("CloudKit store failed, using a local one:", error)
-            container = try! ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, cloudKitDatabase: .none))
-        }
-    }
-
     var body: some Scene {
         WindowGroup {
             RootView()
         }
-        .modelContainer(container)
+        .modelContainer(Store.container)
     }
+}
+
+/// The one card store, shared by the app and its Shortcuts actions (Intents.swift).
+@MainActor
+enum Store {
+    static let container: ModelContainer = {
+        let schema = Schema([Card.self, DayLog.self])
+        // .automatic syncs through the iCloud container in the entitlements, and stays local when there is
+        // none (an unsigned simulator build) or no one is signed into iCloud.
+        do {
+            return try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, cloudKitDatabase: .automatic))
+        } catch {
+            print("CloudKit store failed, using a local one:", error)
+            return try! ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, cloudKitDatabase: .none))
+        }
+    }()
 }
 
 struct RootView: View {
