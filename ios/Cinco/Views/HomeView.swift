@@ -40,12 +40,16 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Wordmark()
-                    .padding(.top, 12).padding(.bottom, 16)
+                    .padding(.top, 12).padding(.bottom, 28)
 
                 tabPicker
                 if tab == .conj { TenseSwitch(cards: cards, selection: $tense).padding(.bottom, 12) }
 
-                lede(n, newToday: newToday).padding(.bottom, 18)
+                if n.total == 0 {
+                    Text(Self.emptyLede[tab] ?? "").font(Typo.text(17)).foregroundStyle(Palette.muted).padding(.bottom, 18)
+                } else {
+                    Spacer().frame(height: 18)
+                }
                 if cards.isEmpty {
                     Button("Cargar el mazo de inicio") { message = Deck.loadStarter(ctx)?.summary }
                         .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, size: 19))
@@ -62,12 +66,16 @@ struct HomeView: View {
                     .font(Typo.text(15, .heavy)).tint(Palette.accentInk).disabled(n.unseen == 0)
                     .padding(.bottom, 20)
 
-                Button(resumable ? "Seguir la sesión" : "¡Vamos!") { startDaily(newToday: newToday) }
-                    .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
-                    .disabled(n.due + newToday == 0 && !resumable)
-                    .opacity(n.due + newToday == 0 && !resumable ? 0.5 : 1)
-                    .padding(.bottom, 8)
+                Button { startDaily(newToday: newToday) } label: {
+                    if n.total == 0 { Text(resumable ? "Seguir la sesión" : "¡Vamos!") }
+                    else { BigLabel(resumable ? "Seguir la sesión" : "¡Vamos!", todayLine(n, newToday: newToday)) }
+                }
+                .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
+                .disabled(n.due + newToday == 0 && !resumable)
+                .opacity(n.due + newToday == 0 && !resumable ? 0.5 : 1)
+                .padding(.bottom, 22)
 
+                menu
                 HStack {
                     if streak > 0 {
                         Text("Racha: \(streak) \(streak == 1 ? "día" : "días")")
@@ -80,12 +88,10 @@ struct HomeView: View {
                         .font(Typo.text(16, .heavy)).tint(Palette.accentInk)
                 }
                 .frame(minHeight: 44)
-                .padding(.bottom, 14)
-
-                menu
+                .padding(.top, 14)
                 Text("Tus tarjetas y tu progreso se guardan en iCloud y se sincronizan entre tus dispositivos.")
                     .font(Typo.text(13)).foregroundStyle(Palette.muted)
-                    .frame(maxWidth: .infinity).multilineTextAlignment(.center).padding(.top, 20)
+                    .frame(maxWidth: .infinity).multilineTextAlignment(.center).padding(.top, 6)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
@@ -129,17 +135,13 @@ struct HomeView: View {
     }
 
     @ViewBuilder
-    private func lede(_ n: DeckCounts, newToday: Int) -> some View {
-        let text: Text = if n.total == 0 {
-            Text(Self.emptyLede[tab] ?? "")
-        } else if n.due + newToday == 0 {
-            Text("Nada pendiente. " + ((todayLog?.reviewed ?? 0) > 0 ? "Hoy repasaste \(todayLog!.reviewed)." : "Vuelve mañana."))
-        } else {
-            Text("Hoy te tocan ") + Text("\(n.due)").foregroundColor(Palette.ink).bold() + Text(" por repasar")
-                + (newToday > 0 ? Text(" y ") + Text("\(newToday)").foregroundColor(Palette.ink).bold() + Text(" nuevas") : Text(""))
-                + Text(".")
+    /// Today's work, under ¡Vamos!.
+    private func todayLine(_ n: DeckCounts, newToday: Int) -> String {
+        if n.due + newToday == 0 {
+            return "Nada pendiente · " + ((todayLog?.reviewed ?? 0) > 0 ? "hoy repasaste \(todayLog!.reviewed)" : "vuelve mañana")
         }
-        text.font(Typo.text(17)).foregroundStyle(Palette.muted)
+        return [n.due > 0 ? "\(n.due) por repasar" : nil, newToday > 0 ? "\(newToday) \(newToday == 1 ? "nueva" : "nuevas")" : nil]
+            .compactMap { $0 }.joined(separator: " · ")
     }
 
     private static let emptyLede: [Tab: String] = [
