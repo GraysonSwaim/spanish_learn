@@ -73,6 +73,13 @@ struct StudyView: View {
             }
             .scrollBounceBehavior(.basedOnSize)
         }
+        // A faint daisy in the corner, in the card's stage colour, like the cutouts in the icon.
+        .background(alignment: .topTrailing) {
+            Daisy().fill(Palette.stage(c.stage).opacity(0.1))
+                .frame(width: 96, height: 96)
+                .offset(x: 26, y: -26)
+        }
+        .clipShape(.rect(cornerRadius: 28))
         .panel(radius: 28, shadow: 6)
         .overlay(alignment: .topLeading) { stamp("¡La sé!", Palette.good, -12).opacity(Double(max(0, dragX) / 110)) }
         .overlay(alignment: .topTrailing) { stamp("Otra vez", Palette.again, 12).opacity(Double(max(0, -dragX) / 110)) }

@@ -52,8 +52,12 @@ struct HomeView: View {
                 }
                 .frame(minHeight: 44)
 
-                Wordmark(size: 54)
-                    .padding(.top, 6).padding(.bottom, 10)
+                HStack(alignment: .top) {
+                    Wordmark(size: 54)
+                    Spacer()
+                    Bunting().padding(.top, 10)
+                }
+                .padding(.top, 6).padding(.bottom, 10)
 
                 tabPicker
                 if tab == .conj { TenseSwitch(cards: cards, selection: $tense).padding(.bottom, 12) }
@@ -169,12 +173,12 @@ struct HomeView: View {
                             }
                             VStack(spacing: 8) {
                                 Text("\(n.byStage[i])").font(Typo.display(22)).foregroundStyle(Palette.ink).padding(.top, 10)
-                                Circle().fill(Palette.stage(i)).frame(width: 12, height: 12)
+                                Daisy().fill(Palette.stage(i)).frame(width: 16, height: 16)
                                 Spacer()
                             }
                         }
-                        .clipShape(.rect(cornerRadius: 16))
-                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(.white.opacity(0.5), lineWidth: 1))
+                        .clipShape(Scalloped())
+                        .overlay(Scalloped().stroke(.white.opacity(0.5), lineWidth: 1))
                         .softShadow(radius: 8, y: 4)
                     }
                     .buttonStyle(.plain)

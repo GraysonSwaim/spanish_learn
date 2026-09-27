@@ -119,6 +119,7 @@ struct DoneView: View {
 
     var body: some View {
         VStack(spacing: 18) {
+            Bunting(count: 7, flag: 38, spacing: 8).padding(.top, 8)
             Spacer()
             Text("¡Listo!").font(Typo.display(52)).foregroundStyle(Palette.accent)
             Text(done == 0 ? "Sesión terminada." : "Repasaste \(done) \(done == 1 ? "tarjeta" : "tarjetas").")
