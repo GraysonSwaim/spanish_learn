@@ -15,8 +15,8 @@ nonisolated enum Palette {
     static let edge = dyn(0xEADBC8, 0x3D342E)
     /// Soft shadow under anything that floats.
     static let shadow = dyn(0x8A5A2B, 0x000000, alpha: (0.13, 0.5))
-    /// The wordmark's coral, teal and blue.
-    static let accent = dyn(0xEE6A4B, 0xDD5A3C)
+    /// Terracotta, a deepened take on the red flag at the top of the icon's 5; then teal and blue.
+    static let accent = dyn(0xCF5B3E, 0xC4563B)
     static let accentInk = dyn(0xC24E2F, 0xFFA084)
     static let sea = dyn(0x2A9D99, 0x4CC3BE)
     static let seaSoft = dyn(0xD8F0EE, 0x1D3B3A)
@@ -92,7 +92,7 @@ struct Backdrop: View {
     }
 }
 
-/// A soft pill button: a gentle sheen on top, a shadow tinted by its own colour, and a small press.
+/// A soft pill button: a faint sheen on top, a light shadow tinted by its own colour, and a small press.
 struct SoftButtonStyle: ButtonStyle {
     var fill: Color = Palette.paper
     var text: Color = Palette.ink
@@ -112,9 +112,9 @@ struct SoftButtonStyle: ButtonStyle {
             .padding(.horizontal, 12)
             .background {
                 shape.fill(fill)
-                    .overlay(shape.fill(LinearGradient(colors: [.white.opacity(plain ? 0 : 0.22), .clear], startPoint: .top, endPoint: .center)))
-                    .overlay(shape.strokeBorder(plain ? Palette.edge : .white.opacity(0.25), lineWidth: 1))
-                    .shadow(color: plain ? Palette.shadow : fill.opacity(0.38), radius: down ? 6 : 14, y: down ? 3 : 8)
+                    .overlay(shape.fill(LinearGradient(colors: [.white.opacity(plain ? 0 : 0.1), .clear], startPoint: .top, endPoint: .center)))
+                    .overlay(shape.strokeBorder(plain ? Palette.edge : .white.opacity(0.15), lineWidth: 1))
+                    .shadow(color: plain ? Palette.shadow : fill.opacity(0.2), radius: down ? 4 : 10, y: down ? 2 : 5)
             }
             .scaleEffect(down ? 0.975 : 1)
             .animation(.spring(duration: 0.18), value: down)

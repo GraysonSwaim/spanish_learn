@@ -64,10 +64,7 @@ struct HomeView: View {
                     .font(Typo.text(15, .heavy)).tint(Palette.accentInk).disabled(n.unseen == 0)
                     .padding(.top, 12).padding(.bottom, 20)
 
-                Button { startDaily(newToday: newToday) } label: {
-                    if n.total == 0 { Text(resumable ? "Seguir la sesión" : "¡Vamos!") }
-                    else { BigLabel(resumable ? "Seguir la sesión" : "¡Vamos!", todayLine(n, newToday: newToday)) }
-                }
+                Button(resumable ? "Seguir la sesión" : "¡Vamos!") { startDaily(newToday: newToday) }
                 .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
                 .disabled(n.due + newToday == 0 && !resumable)
                 .opacity(n.due + newToday == 0 && !resumable ? 0.5 : 1)
@@ -130,16 +127,6 @@ struct HomeView: View {
     private var tabPicker: some View {
         SoftSegmented(options: Tab.allCases.map { ($0.rawValue, $0.name) }, selection: $tabRaw)
             .padding(.top, 2).padding(.bottom, 16)
-    }
-
-    @ViewBuilder
-    /// Today's work, under ¡Vamos!.
-    private func todayLine(_ n: DeckCounts, newToday: Int) -> String {
-        if n.due + newToday == 0 {
-            return "Nada pendiente · " + ((todayLog?.reviewed ?? 0) > 0 ? "hoy repasaste \(todayLog!.reviewed)" : "vuelve mañana")
-        }
-        return [n.due > 0 ? "\(n.due) por repasar" : nil, newToday > 0 ? "\(newToday) \(newToday == 1 ? "nueva" : "nuevas")" : nil]
-            .compactMap { $0 }.joined(separator: " · ")
     }
 
     private static let emptyLede: [Tab: String] = [
