@@ -227,6 +227,17 @@ struct EntryView: View {
                 header.padding(.bottom, 20)
                 section("Significados")
                 meanings.padding(.bottom, 22)
+                if !entry.sentences.isEmpty {
+                    section("En una frase")
+                    sentenceList.padding(.bottom, 22)
+                }
+                if !entry.origin.isEmpty {
+                    section("Origen")
+                    Text(entry.origin).font(Typo.text(15)).foregroundStyle(Palette.ink)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14).panel(radius: 16, shadow: 3)
+                        .padding(.bottom, 22)
+                }
                 if entry.isVerb {
                     section("Conjugación")
                     conjugation.padding(.bottom, 22)
@@ -313,6 +324,29 @@ struct EntryView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(chosen.contains(i) ? .isSelected : [])
+            }
+        }
+        .panel()
+    }
+
+    private var sentenceList: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(entry.sentences.enumerated()), id: \.offset) { i, ex in
+                if i > 0 { Divider().overlay(Palette.line) }
+                Button { Speaker.shared.speak(ex.es, lang: Prefs.current.voiceLang) } label: {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "speaker.wave.2.fill").font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Palette.sea).padding(.top, 4)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(ex.es).font(Typo.italic(16)).foregroundStyle(Palette.ink)
+                            Text(ex.en).font(Typo.text(14)).foregroundStyle(Palette.en)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 14).padding(.vertical, 11)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
             }
         }
         .panel()

@@ -68,6 +68,13 @@ struct RootView: View {
     /// `taps` steps, so each phase can be screenshotted in the simulator.
     private func startDemo() {
         let args = ProcessInfo.processInfo.arguments
+        // `-studyCard <spanish>` studies that one card.
+        if let i = args.firstIndex(of: "-studyCard"), i + 1 < args.count,
+           let c = Deck.allCards(ctx).first(where: { !$0.isConj && TextMatch.noArticle($0.es) == TextMatch.noArticle(args[i + 1]) }) {
+            session = StudySession(queue: [c], tab: c.isPhrase ? .phrases : .vocab, ctx: ctx)
+            studying = true
+            return
+        }
         // `-studyNewest <n>` studies the n most recently added word cards, e.g. ones from the dictionary.
         if let i = args.firstIndex(of: "-studyNewest"), i + 1 < args.count, let n = Int(args[i + 1]) {
             let newest = Deck.allCards(ctx).filter { !$0.isConj }.sorted { $0.added > $1.added }.prefix(n)
@@ -87,7 +94,6 @@ struct RootView: View {
             switch s.phase {
             case .word: s.showMeaning()
             case .prompt: s.mode == .grid ? s.checkGrid([0: "tuve", 1: "tuviste", 2: "tuvo", 3: "tubimos", 5: "tuvieron"]) : s.reveal()
-            case .answer: s.showForms()
             default: break
             }
         }

@@ -38,14 +38,21 @@ Debug builds take launch arguments for the simulator:
 - `-demo vocab|conj <steps> [stage]` opens a verb card at a stage and advances it that many reveal steps.
 - `-lookup <query>` opens the dictionary with that search; `-entry <word>` opens one word's page.
 - `-openTenses` opens the Conjugación tense picker.
-- `-studyNewest <n>` starts a session with the n most recently added word cards.
+- `-studyNewest <n>` starts a session with the n most recently added word cards; `-studyCard <spanish>` with one card.
+
+## Tabs
+
+Vocabulario (words, verbs included, as word ↔ meaning), Conjugación (one card per verb tense) and Frases
+(whole expressions). After an answer, «En una frase» shows the word in example sentences and «Origen» where it
+comes from, both from the dictionary. Frases can be loaded from `decks/frases-inicio.csv`, added by hand, or
+imported: a `type` column set to `phrase`, or any file imported while the Frases tab is open.
 
 ## Dictionary
 
 Diccionario (on the home screen) looks up the 10,000 most common Spanish words, including by conjugated form
 (pidió finds pedir) or English meaning, and adds one to the deck with its conjugation tables.
 Its data is `Cinco/Resources/dictionary.sqlite`, built by `scripts/build_dictionary.py` from Wiktionary,
-Fred Jehle's verb database and verbecc, with word frequency from OpenSubtitles. Conjugated forms are kept only
+Fred Jehle's verb database and verbecc, with word frequency from OpenSubtitles and example sentences from Tatoeba. Conjugated forms are kept only
 where two of the three sources agree; `scripts/dictionary_report.md` lists the rest. To rebuild:
 
     python3 -m venv /tmp/dict-venv && /tmp/dict-venv/bin/pip install verbecc

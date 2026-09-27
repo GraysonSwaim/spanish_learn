@@ -4,6 +4,8 @@ import Foundation
 nonisolated struct CardRecord: Equatable, Hashable, Identifiable {
     var es = "", en = "", ex = "", notes = "", tags = "", frases = ""
     var tenses: [String: String] = [:]
+    /// A phrase card (Frases tab) rather than a word: a "type" column saying "phrase" or "frase".
+    var phrase = false
     var id: String { es }
 }
 
@@ -51,6 +53,7 @@ nonisolated enum CSVImport {
             "notes": ["notes", "note", "hint", "notas"],
             "tags": ["tags", "tag", "category", "topic"],
             "frases": ["frases", "oraciones", "sentences"],
+            "type": ["type", "kind", "tipo"],
             "presente": ["presente", "present", "conjugation", "conjugación", "conjugacion", "conj", "forms", "formas"],
             "preterito": ["preterito", "pretérito", "preterite"],
             "imperfecto": ["imperfecto", "imperfect"],
@@ -72,8 +75,8 @@ nonisolated enum CSVImport {
         let body = hasHeader ? Array(rows.dropFirst()) : rows
         // Headerless files: spanish, english, example, notes, tags, then the tenses in order.
         var idx: [String: Int?] = hasHeader
-            ? ["es": map["es"] ?? 0, "en": map["en"] ?? 1, "ex": map["ex"], "notes": map["notes"], "tags": map["tags"], "frases": map["frases"]]
-            : ["es": 0, "en": 1, "ex": 2, "notes": 3, "tags": 4, "frases": nil]
+            ? ["es": map["es"] ?? 0, "en": map["en"] ?? 1, "ex": map["ex"], "notes": map["notes"], "tags": map["tags"], "frases": map["frases"], "type": map["type"]]
+            : ["es": 0, "en": 1, "ex": 2, "notes": 3, "tags": 4, "frases": nil, "type": nil]
         for (i, t) in Tense.all.enumerated() { idx[t.key] = hasHeader ? map[t.key] : 5 + i }
 
         return body.map { r in
@@ -83,6 +86,7 @@ nonisolated enum CSVImport {
             }
             var rec = CardRecord(es: g("es"), en: g("en"), ex: g("ex"), notes: g("notes"), tags: g("tags"), frases: g("frases"))
             for t in Tense.all { let f = g(t.key); if !f.isEmpty { rec.tenses[t.key] = f } }
+            rec.phrase = ["phrase", "frase", "expresion", "expression"].contains(TextMatch.strip(g("type")))
             return rec
         }
     }

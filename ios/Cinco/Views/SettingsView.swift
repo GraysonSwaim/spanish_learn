@@ -88,7 +88,8 @@ struct HowView: View {
                         }
                     }
                 }
-                Text("Un verbo sale en Vocabulario en tres pasos: la palabra, su significado y luego sus tablas. En Conjugación cada tiempo de cada verbo es una tarjeta: primero ves el verbo, luego su significado y después conjugas la tabla. Primero la estudias, luego la dices en voz alta y te calificas, y desde la etapa 4 escribes las formas. El pronombre es opcional.")
+                Text("En Vocabulario solo ves la palabra y su significado, también en los verbos. Tras la respuesta puedes tocar «En una frase» para verla en uso u «Origen» para saber de dónde viene. Frases funciona igual, con expresiones enteras (¿Dónde está el baño?, Me da igual) y su propio límite de nuevas al día.")
+                Text("En Conjugación cada tiempo de cada verbo es una tarjeta: primero ves el verbo, luego su significado y después conjugas la tabla. Primero la estudias, luego la dices en voz alta y te calificas, y desde la etapa 4 escribes las formas. El pronombre es opcional.")
                 Text("Columnas del CSV: spanish, english, example, notes, tags. Solo las dos primeras son obligatorias. Los verbos pueden llevar una columna por tiempo (presente, preterito, imperfecto…), cada una con las seis formas separadas por |. Reimportar un archivo actualiza las tarjetas sin perder su progreso.")
             }
             .font(Typo.text(16))

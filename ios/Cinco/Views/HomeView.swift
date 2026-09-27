@@ -22,7 +22,12 @@ struct HomeView: View {
     private var verbs: [Card] { cards.filter { !$0.isConj && $0.isVerb } }
     private var todayLog: DayLog? { logs.first { $0.key == DayLog.key() } }
     private var newRoom: Int {
-        max(0, newPerDay - (tab == .conj ? todayLog?.newConj ?? 0 : todayLog?.newVocab ?? 0))
+        let used = switch tab {
+        case .vocab: todayLog?.newVocab ?? 0
+        case .conj: todayLog?.newConj ?? 0
+        case .phrases: todayLog?.newPhrase ?? 0
+        }
+        return max(0, newPerDay - used)
     }
     /// A session left midway in this tab picks up where it stopped.
     private var resumable: Bool { session.map { !$0.isFinished && $0.tab == tab } ?? false }
@@ -60,6 +65,10 @@ struct HomeView: View {
                     Button("Cargar el mazo de inicio") { message = Deck.loadStarter(ctx)?.summary }
                         .buttonStyle(ChunkyButtonStyle(fill: Palette.sea, text: .white, size: 19))
                         .padding(.bottom, 22)
+                } else if tab == .phrases && tabCards.isEmpty {
+                    Button("Cargar las frases de inicio") { message = Deck.loadStarter(ctx, deck: "frases-inicio")?.summary }
+                        .buttonStyle(ChunkyButtonStyle(fill: Palette.sea, text: .white, size: 19))
+                        .padding(.bottom, 22)
                 }
                 ladder(n)
                 Text(newLine(n))
@@ -94,7 +103,7 @@ struct HomeView: View {
             Button("OK") { message = nil }
         } message: { Text(message ?? "") }
         .sheet(item: $editing) { t in
-            NavigationStack { EditCardView(card: t.card) }
+            NavigationStack { EditCardView(card: t.card, draft: t.phrase ? CardRecord(phrase: true) : nil) }
         }
         #if DEBUG
         // Development: `-lookup <query>` or `-entry <word>` opens the dictionary at launch for screenshots.
@@ -123,9 +132,7 @@ struct HomeView: View {
     @ViewBuilder
     private func lede(_ n: DeckCounts, newToday: Int) -> some View {
         let text: Text = if n.total == 0 {
-            Text(tab == .conj
-                 ? "Aún no hay verbos con conjugación. Importa un CSV con columnas de tiempos (presente, preterito…) o añádelas al editar un verbo."
-                 : "Importa un CSV de palabras para empezar.")
+            Text(Self.emptyLede[tab] ?? "")
         } else if n.due + newToday == 0 {
             Text("Nada pendiente. " + ((todayLog?.reviewed ?? 0) > 0 ? "Hoy repasaste \(todayLog!.reviewed)." : "Vuelve mañana."))
         } else {
@@ -136,8 +143,18 @@ struct HomeView: View {
         text.font(Typo.text(17)).foregroundStyle(Palette.muted)
     }
 
+    private static let emptyLede: [Tab: String] = [
+        .conj: "Aún no hay verbos con conjugación. Importa un CSV con columnas de tiempos (presente, preterito…) o añádelas al editar un verbo.",
+        .phrases: "Frases hechas para armar conversaciones: saludos, pedir en un restaurante, preguntar direcciones… Carga las de inicio, añade las tuyas o impórtalas.",
+        .vocab: "Importa un CSV de palabras para empezar.",
+    ]
+
     private func newLine(_ n: DeckCounts) -> String {
-        let what = tab == .conj ? (n.total == 1 ? "tabla" : "tablas") : "en el mazo"
+        let what = switch tab {
+        case .conj: n.total == 1 ? "tabla" : "tablas"
+        case .phrases: n.total == 1 ? "frase" : "frases"
+        case .vocab: "en el mazo"
+        }
         return "\(n.total) \(what)" + (n.dropped > 0 ? ", \(n.dropped) descartadas" : "") + ". Toca una etapa para practicar solo esas tarjetas."
     }
 
@@ -188,7 +205,9 @@ struct HomeView: View {
             Divider().overlay(Palette.line)
             MenuRow(title: "Importar tarjetas", sub: "CSV de iCloud Drive o exportado de Anki") { importing = true }
             Divider().overlay(Palette.line)
-            MenuRow(title: "Añadir una tarjeta", sub: "Escríbela a mano") { editing = EditTarget(card: nil) }
+            MenuRow(title: tab == .phrases ? "Añadir una frase" : "Añadir una tarjeta", sub: "Escríbela a mano") {
+                editing = EditTarget(card: nil, phrase: tab == .phrases)
+            }
             Divider().overlay(Palette.line)
             NavigationLink { BrowseView() } label: { MenuRowLabel(title: "Explorar tarjetas", sub: nil) }
             Divider().overlay(Palette.line)
@@ -229,7 +248,10 @@ struct HomeView: View {
             let ok = url.startAccessingSecurityScopedResource()
             defer { if ok { url.stopAccessingSecurityScopedResource() } }
             guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
-            let r = Deck.importRecords(CSVImport.parse(text), into: ctx)
+            // Importing while Frases is open files every row there.
+            var recs = CSVImport.parse(text)
+            if tab == .phrases { for i in recs.indices { recs[i].phrase = true } }
+            let r = Deck.importRecords(recs, into: ctx)
             total.added += r.added; total.updated += r.updated; total.skipped += r.skipped; total.verbs += r.verbs
         }
         message = total.summary
@@ -238,6 +260,8 @@ struct HomeView: View {
 
 struct EditTarget: Identifiable {
     let card: Card?
+    /// A new card starts as a phrase (added from the Frases tab).
+    var phrase = false
     var id: String { card?.id ?? "new" }
 }
 

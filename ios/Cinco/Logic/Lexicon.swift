@@ -28,6 +28,16 @@ nonisolated struct LexEntry: Identifiable, Hashable {
     let senses: [Sense]
     /// Tense key -> "yo|tú|él|nosotros|vosotros|ellos", confirmed by at least two sources.
     let tenses: [String: String]
+    /// Where the word comes from (Wiktionary's etymology, in English), or "".
+    let origin: String
+    /// Everyday sentences using the word, with translations (Tatoeba).
+    let sentences: [Example]
+
+    /// Wiktionary's examples first (they illustrate a meaning), then Tatoeba's.
+    var examples: [Example] {
+        var seen = Set<String>()
+        return (senses.flatMap(\.ex) + sentences).filter { seen.insert(TextMatch.strip($0.es)).inserted }
+    }
 
     var isVerb: Bool { !tenses.isEmpty }
 
@@ -56,7 +66,7 @@ final class Lexicon {
 
     private var db: OpaquePointer?
     private let decoder = JSONDecoder()
-    private static let columns = "e.id, e.word, e.pos, e.gender, e.plural, e.fem, e.ipa, e.senses, e.tenses"
+    private static let columns = "e.id, e.word, e.pos, e.gender, e.plural, e.fem, e.ipa, e.senses, e.tenses, e.origin, e.sentences"
 
     private init() {
         guard let url = Bundle.main.url(forResource: "dictionary", withExtension: "sqlite") else { return }
@@ -93,6 +103,12 @@ final class Lexicon {
         query("SELECT \(Self.columns) FROM entry e WHERE e.fold = ?1 ORDER BY e.id LIMIT 1", [TextMatch.strip(word)]).first
     }
 
+    /// The dictionary word a card is about: its Spanish without the article, first alternative only.
+    func entry(for card: Card) -> LexEntry? {
+        let es = TextMatch.alternatives(card.es).first ?? card.es
+        return entry(es) ?? entry(TextMatch.noArticle(es))
+    }
+
     var credits: String { meta("credits") }
 
     /// Ranks up to this are the most common words; above it are the extra words (dictionary_extra.csv).
@@ -119,8 +135,10 @@ final class Lexicon {
             func text(_ i: Int32) -> String { sqlite3_column_text(s, i).map { String(cString: $0) } ?? "" }
             let senses = (try? decoder.decode([LexEntry.Sense].self, from: Data(text(7).utf8))) ?? []
             let tenses = (try? decoder.decode([String: String].self, from: Data(text(8).utf8))) ?? [:]
+            let sentences = (try? decoder.decode([LexEntry.Example].self, from: Data(text(10).utf8))) ?? []
             out.append(LexEntry(id: Int(sqlite3_column_int(s, 0)), word: text(1), pos: text(2).split(separator: ",").map(String.init),
-                                gender: text(3), plural: text(4), fem: text(5), ipa: text(6), senses: senses, tenses: tenses))
+                                gender: text(3), plural: text(4), fem: text(5), ipa: text(6), senses: senses, tenses: tenses,
+                                origin: text(9), sentences: sentences))
         }
         return out
     }
@@ -147,6 +165,8 @@ extension LexEntry {
         if !labels.isEmpty { notes.append(labels.sorted().map(Self.labelName).joined(separator: ", ")) }
         if !isVerb { r.notes = notes.joined(separator: ". ") }
         r.tags = isVerb && !keys.isEmpty ? "diccionario verbs" : "diccionario"
+        // Several words, or Wiktionary calls it a phrase: it goes to Frases.
+        r.phrase = pos.first == "phrase" || word.contains(" ")
         if isVerb {
             r.tenses = tenses.filter { keys.contains($0.key) }
             // Sentences that contain one of the verb's forms, so the fill-in-the-blank mode can use them.

@@ -2,7 +2,9 @@ import SwiftUI
 import UIKit
 
 /// The web app's palette, as light/dark pairs.
-enum Palette {
+/// Nonisolated: SwiftUI resolves colours on its render thread during animations, and a main-actor
+/// colour provider there trips Swift's isolation check and crashes the app.
+nonisolated enum Palette {
     static let bg = dyn(0xFFE9C9, 0x0E2A28)
     static let paper = dyn(0xFFFFFF, 0x163B37)
     static let sunk = dyn(0xFFF6E8, 0x12332F)

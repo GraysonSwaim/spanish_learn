@@ -17,40 +17,24 @@ struct EditCardView: View {
     var body: some View {
         Form {
             Section {
-                TextField("el coche", text: $rec.es, prompt: Text("el coche")).labeled("Español")
-                TextField("car", text: $rec.en).labeled("Inglés")
+                TextField(rec.phrase ? "¿Dónde está el baño?" : "el coche", text: $rec.es,
+                          prompt: Text(rec.phrase ? "¿Dónde está el baño?" : "el coche")).labeled("Español")
+                TextField(rec.phrase ? "Where is the bathroom?" : "car", text: $rec.en).labeled("Inglés")
                 TextField("Mi coche es rojo.", text: $rec.ex, axis: .vertical).labeled("Ejemplo")
                 TextField("En España, coche; en México, carro", text: $rec.notes, axis: .vertical).labeled("Notas")
                 TextField("transporte", text: $rec.tags).labeled("Etiquetas")
                     .textInputAutocapitalization(.never)
-            }
-            Section {
-                TextField("Ayer tuve que trabajar.", text: $rec.frases, axis: .vertical)
-            } header: {
-                Text("Más frases")
-            } footer: {
-                Text("Solo para verbos, una por línea y en cualquier tiempo.")
-            }
-            Section {
-                ForEach(Tense.all) { t in
-                    DisclosureGroup {
-                        ForEach(0..<6, id: \.self) { p in
-                            TextField(Person.label(p, t.key).isEmpty ? "yo (no tiene)" : Person.label(p, t.key), text: formBinding(t.key, p))
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                        }
-                    } label: {
-                        Text(t.name + ((forms[t.key] ?? []).contains { !$0.isEmpty } ? " ✓" : ""))
+                Toggle(isOn: $rec.phrase) {
+                    VStack(alignment: .leading) {
+                        Text("Es una frase")
+                        Text("Va a la pestaña Frases, no a Vocabulario").font(Typo.text(13)).foregroundStyle(Palette.muted)
                     }
                 }
-            } header: {
-                Text("Conjugación")
-            } footer: {
-                Text("Solo para verbos. Cada tiempo que rellenes es una tarjeta en la pestaña Conjugación.")
             }
+            if !rec.phrase { verbSections }
         }
         .font(Typo.text(16))
-        .navigationTitle(card == nil ? "Nueva tarjeta" : "Editar tarjeta")
+        .navigationTitle(card == nil ? (rec.phrase ? "Nueva frase" : "Nueva tarjeta") : (rec.phrase ? "Editar frase" : "Editar tarjeta"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
@@ -60,6 +44,35 @@ struct EditCardView: View {
             Button("OK") { error = nil }
         } message: { Text(error ?? "") }
         .onAppear(perform: load)
+    }
+
+    /// A verb's extra sentences and its conjugation tables; phrases have neither.
+    @ViewBuilder
+    private var verbSections: some View {
+        Section {
+            TextField("Ayer tuve que trabajar.", text: $rec.frases, axis: .vertical)
+        } header: {
+            Text("Más frases")
+        } footer: {
+            Text("Solo para verbos, una por línea y en cualquier tiempo.")
+        }
+        Section {
+            ForEach(Tense.all) { t in
+                DisclosureGroup {
+                    ForEach(0..<6, id: \.self) { p in
+                        TextField(Person.label(p, t.key).isEmpty ? "yo (no tiene)" : Person.label(p, t.key), text: formBinding(t.key, p))
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    }
+                } label: {
+                    Text(t.name + ((forms[t.key] ?? []).contains { !$0.isEmpty } ? " ✓" : ""))
+                }
+            }
+        } header: {
+            Text("Conjugación")
+        } footer: {
+            Text("Solo para verbos. Cada tiempo que rellenes es una tarjeta en la pestaña Conjugación.")
+        }
     }
 
     private func formBinding(_ tense: String, _ p: Int) -> Binding<String> {
@@ -79,7 +92,7 @@ struct EditCardView: View {
             return
         }
         rec = CardRecord(es: c.es, en: c.en, ex: c.ex, notes: c.notes, tags: c.tags,
-                         frases: c.frases.split(separator: "|").joined(separator: "\n"), tenses: c.tenses)
+                         frases: c.frases.split(separator: "|").joined(separator: "\n"), tenses: c.tenses, phrase: c.isPhrase)
         forms = c.tenses.mapValues { TextMatch.splitForms($0) }
     }
 
@@ -90,7 +103,7 @@ struct EditCardView: View {
         r.tags = r.tags.lowercased().trimmingCharacters(in: .whitespaces)
         r.frases = r.frases.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.joined(separator: "|")
         guard !r.es.isEmpty, !r.en.isEmpty else { error = "Hacen falta el español y el inglés."; return }
-        r.tenses = forms.compactMapValues { f in
+        r.tenses = r.phrase ? [:] : forms.compactMapValues { f in
             let t = f.map { $0.trimmingCharacters(in: .whitespaces) }
             return t.contains { !$0.isEmpty } ? t.joined(separator: "|") : nil
         }

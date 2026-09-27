@@ -48,6 +48,7 @@ enum Deck {
             let card: Card
             if let c = byID[id] {
                 card = c
+                if rec.phrase && c.kind == .word { c.kind = .phrase }
                 c.en = rec.en
                 if !rec.ex.isEmpty { c.ex = rec.ex }
                 if !rec.notes.isEmpty { c.notes = rec.notes }
@@ -55,14 +56,14 @@ enum Deck {
                 if !rec.frases.isEmpty { c.frases = rec.frases }
                 r.updated += 1
             } else {
-                card = Card(id: id, es: rec.es, en: rec.en, order: nextOrder)
+                card = Card(id: id, kind: rec.phrase ? .phrase : .word, es: rec.es, en: rec.en, order: nextOrder)
                 card.ex = rec.ex; card.notes = rec.notes; card.tags = rec.tags; card.frases = rec.frases
                 nextOrder += 1
                 ctx.insert(card)
                 byID[id] = card
                 r.added += 1
             }
-            if !rec.tenses.isEmpty {
+            if !rec.tenses.isEmpty && !card.isPhrase {
                 card.tenses.merge(rec.tenses) { _, new in new }
                 syncConj(card, byID: &byID, ctx: ctx)
                 r.verbs += 1
@@ -117,8 +118,9 @@ enum Deck {
             card = Card(id: id, es: rec.es, en: rec.en, order: (byID.values.map(\.order).max() ?? 0) + 1)
             ctx.insert(card)
         }
+        card.kind = rec.phrase ? .phrase : .word
         card.es = rec.es; card.en = rec.en; card.ex = rec.ex; card.notes = rec.notes
-        card.tags = rec.tags; card.frases = rec.frases; card.tenses = rec.tenses
+        card.tags = rec.tags; card.frases = rec.frases; card.tenses = rec.phrase ? [:] : rec.tenses
         byID[id] = card
         syncConj(card, byID: &byID, ctx: ctx)
         try? ctx.save()
@@ -143,6 +145,7 @@ enum Deck {
             for l in group.dropFirst() {
                 keep.reviewed = max(keep.reviewed, l.reviewed); keep.correct = max(keep.correct, l.correct)
                 keep.newVocab = max(keep.newVocab, l.newVocab); keep.newConj = max(keep.newConj, l.newConj)
+                keep.newPhrase = max(keep.newPhrase, l.newPhrase)
                 ctx.delete(l)
             }
             changed = true
@@ -151,8 +154,9 @@ enum Deck {
     }
 
     /// The 62 high-frequency words the web app ships with.
-    static func loadStarter(_ ctx: ModelContext) -> ImportResult? {
-        guard let url = Bundle.main.url(forResource: "starter", withExtension: "csv"),
+    /// A deck bundled with the app: "starter" (words and verbs) or "frases-inicio" (phrases).
+    static func loadStarter(_ ctx: ModelContext, deck: String = "starter") -> ImportResult? {
+        guard let url = Bundle.main.url(forResource: deck, withExtension: "csv"),
               let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
         return importRecords(CSVImport.parse(text), into: ctx)
     }

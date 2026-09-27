@@ -16,7 +16,7 @@ TENSES = ["presente", "preterito", "imperfecto", "futuro", "condicional", "subju
           "imperativo", "imperativo_negativo", "perfecto", "pluscuamperfecto", "futuro_perfecto",
           "condicional_perfecto", "subj_perfecto", "subj_pluscuamperfecto"]
 IMPERATIVES = {"imperativo", "imperativo_negativo"}   # no yo form: the first slot stays empty
-COLUMNS = ["spanish", "english", "example", "notes", "tags"] + TENSES + ["frases"]
+COLUMNS = ["spanish", "english", "example", "notes", "tags"] + TENSES + ["frases", "type"]   # type: "phrase" for the Frases tab
 
 def strip(s):
     s = s.lower().strip().replace("ñ", "\x01")

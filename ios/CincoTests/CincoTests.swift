@@ -217,3 +217,43 @@ struct DictionaryAddTests {
         #expect(e.senses.first?.t == ["Mexico"])
     }
 }
+
+/// Frases: phrase cards live in their own tab, and come from a type column, the starter deck or the dictionary.
+@MainActor
+struct PhraseTests {
+    private func store() throws -> ModelContext {
+        let schema = Schema([Card.self, DayLog.self])
+        let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+        return ModelContext(c)
+    }
+
+    @Test func typeColumnMakesPhrases() throws {
+        let recs = CSVImport.parse("spanish,english,type\n¿Qué tal?,How's it going?,phrase\nel gato,cat,\n")
+        #expect(recs.map(\.phrase) == [true, false])
+        let ctx = try store()
+        Deck.importRecords(recs, into: ctx)
+        let cards = Deck.allCards(ctx)
+        #expect(cards.filter { Scheduler.inTab($0, tab: .phrases, tense: "presente") }.map(\.es) == ["¿Qué tal?"])
+        #expect(cards.filter { Scheduler.inTab($0, tab: .vocab, tense: "presente") }.map(\.es) == ["el gato"])
+    }
+
+    @Test func starterPhrasesLoad() throws {
+        let ctx = try store()
+        let r = try #require(Deck.loadStarter(ctx, deck: "frases-inicio"))
+        #expect(r.added >= 60)
+        #expect(Deck.allCards(ctx).allSatisfy { $0.isPhrase })
+    }
+
+    @Test func dictionaryPhrasesGoToFrases() throws {
+        let e = try #require(Lexicon.shared.entry("¿qué onda?"))
+        #expect(e.record(senses: Array(e.senses.prefix(1)), tenses: []).phrase)
+        let w = try #require(Lexicon.shared.entry("perro"))
+        #expect(!w.record(senses: Array(w.senses.prefix(1)), tenses: []).phrase)
+    }
+
+    @Test func dictionaryHasSentencesAndOrigins() throws {
+        let e = try #require(Lexicon.shared.entry("hacer"))
+        #expect(!e.sentences.isEmpty)
+        #expect(e.origin.contains("Latin"))
+    }
+}

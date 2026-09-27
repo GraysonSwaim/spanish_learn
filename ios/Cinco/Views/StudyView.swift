@@ -7,7 +7,12 @@ struct StudyView: View {
     @State private var typed = ""
     @State private var grid: [Int: String] = [:]
     @State private var dragX: CGFloat = 0
+    /// The dictionary's entry for the card on screen (sentences, origin), looked up once per card.
+    @State private var lex: LexEntry?
+    @State private var more: More?
     @FocusState private var focus: Field?
+
+    private enum More { case sentences, origin }
 
     private enum Field: Hashable { case answer, cell(Int) }
 
@@ -33,7 +38,10 @@ struct StudyView: View {
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .background(Palette.bg.ignoresSafeArea())
-        .onChange(of: session.current?.id) { typed = ""; grid = [:]; dragX = 0 }
+        .onChange(of: session.current?.id, initial: true) {
+            typed = ""; grid = [:]; dragX = 0; more = nil
+            lex = session.current.flatMap { $0.isConj ? nil : Lexicon.shared.entry(for: $0) }
+        }
         .onChange(of: session.phase) { _, p in
             if p == .prompt, let c = session.current {
                 if session.mode == .type { focus = .answer }
@@ -92,7 +100,6 @@ struct StudyView: View {
         switch session.phase {
         case .word: "Toca la tarjeta para ver el significado"
         case .prompt where [.esEn, .enEs, .recite].contains(session.mode): "Toca la tarjeta para ver la respuesta"
-        case .answer where session.showsForms: "Toca la tarjeta para ver la conjugación"
         default: nil
         }
     }
@@ -101,7 +108,6 @@ struct StudyView: View {
         switch session.phase {
         case .word: session.showMeaning()
         case .prompt where [.esEn, .enEs, .recite].contains(session.mode): session.reveal()
-        case .answer where session.showsForms: session.showForms()
         default: break
         }
     }
@@ -139,27 +145,27 @@ struct StudyView: View {
 
     // MARK: vocabulary
 
+    /// Vocabulario and Frases: the Spanish and its meaning, nothing else unless asked for.
     @ViewBuilder
     private func vocabContent(_ c: Card) -> some View {
         let revealed = session.phase != .prompt
         switch session.mode {
         case .intro:
-            kicker("Palabra nueva")
-            word(c.es)
+            kicker(c.isPhrase ? "Frase nueva" : "Palabra nueva")
+            word(c.es, phrase: c.isPhrase)
             english(c.en).padding(.top, 10)
-            extras(c)
+            notesIfAny(c)
             speakButton()
-            if c.isVerb { VerbTables(verb: c).padding(.top, 16) }
+            moreAbout(c)
         case .esEn:
-            kicker("¿Qué significa?")
-            word(c.es)
-            if !revealed { example(c) }
+            kicker(c.isPhrase ? "¿Qué quiere decir?" : "¿Qué significa?")
+            word(c.es, phrase: c.isPhrase)
             speakButton()
             if revealed {
                 answerBlock {
                     english(c.en)
-                    extras(c)
-                    forms(c)
+                    notesIfAny(c)
+                    moreAbout(c)
                 }
             }
         case .enEs:
@@ -167,10 +173,10 @@ struct StudyView: View {
             english(c.en)
             if revealed {
                 answerBlock {
-                    word(c.es)
-                    extras(c)
+                    word(c.es, phrase: c.isPhrase)
+                    notesIfAny(c)
                     speakButton()
-                    forms(c)
+                    moreAbout(c)
                 }
             }
         default: // type
@@ -178,11 +184,11 @@ struct StudyView: View {
             english(c.en)
             if revealed {
                 answerBlock {
-                    word(c.es)
+                    word(c.es, phrase: c.isPhrase)
                     VerdictTag(verdict: session.verdict ?? .skip, typed: session.typed)
-                    extras(c)
+                    notesIfAny(c)
                     speakButton()
-                    forms(c)
+                    moreAbout(c)
                 }
             } else {
                 HStack(spacing: 8) {
@@ -205,10 +211,80 @@ struct StudyView: View {
         }
     }
 
-    /// A verb's third step.
+    // MARK: in a sentence, and where it comes from
+
+    /// Sentences using the card: its own example and sentences first, then the dictionary's (with translations).
+    private func sentences(_ c: Card) -> [LexEntry.Example] {
+        let known = lex?.examples ?? []
+        let own = ([c.ex] + c.frases.split(separator: "|").map(String.init))
+            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            .map { es in LexEntry.Example(es: es, en: known.first { TextMatch.strip($0.es) == TextMatch.strip(es) }?.en ?? "") }
+        var seen = Set<String>()
+        return (own + known).filter { seen.insert(TextMatch.strip($0.es)).inserted }.prefix(3).map { $0 }
+    }
+
+    /// Two optional extras under the answer: the word in a sentence, and its origin.
     @ViewBuilder
-    private func forms(_ c: Card) -> some View {
-        if session.phase == .forms { VerbTables(verb: c).padding(.top, 16) }
+    private func moreAbout(_ c: Card) -> some View {
+        let list = sentences(c)
+        let origin = lex?.origin ?? ""
+        if !list.isEmpty || !origin.isEmpty {
+            HStack(spacing: 10) {
+                if !list.isEmpty { moreChip("En una frase", icon: "text.bubble.fill", .sentences) }
+                if !origin.isEmpty { moreChip("Origen", icon: "leaf.fill", .origin) }
+            }
+            .padding(.top, 18)
+            switch more {
+            case .sentences:
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(list, id: \.es) { ex in
+                        Button { session.speak(ex.es) } label: {
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: "speaker.wave.2.fill").font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(Palette.sea).padding(.top, 4)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(ex.es).font(Typo.italic(18)).foregroundStyle(Palette.ink)
+                                    if !ex.en.isEmpty { Text(ex.en).font(Typo.text(15)).foregroundStyle(Palette.en) }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(ex.es). \(ex.en)")
+                        .accessibilityHint("Toca para escucharla")
+                    }
+                }
+                .multilineTextAlignment(.leading)
+                .morePanel()
+            case .origin:
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(origin).font(Typo.text(15)).foregroundStyle(Palette.ink)
+                    Text("Wiktionary").font(Typo.text(12, .bold)).foregroundStyle(Palette.muted)
+                }
+                .multilineTextAlignment(.leading)
+                .morePanel()
+            case nil:
+                EmptyView()
+            }
+        }
+    }
+
+    private func moreChip(_ title: String, icon: String, _ which: More) -> some View {
+        let on = more == which
+        return Button {
+            withAnimation(.snappy(duration: 0.25)) { more = on ? nil : which }
+        } label: {
+            Label(title, systemImage: icon)
+                .font(Typo.text(14, .heavy))
+                .foregroundStyle(on ? Palette.onGood : Palette.ink)
+                .padding(.horizontal, 14).padding(.vertical, 8)
+                .background(on ? Palette.sea : Palette.sunk, in: .capsule)
+                .overlay(Capsule().strokeBorder(Palette.edge, lineWidth: 2))
+                .background(Capsule().fill(Palette.edge).offset(y: 2))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     // MARK: conjugation
@@ -322,9 +398,6 @@ struct StudyView: View {
             default:
                 EmptyView()
             }
-        case .answer where session.showsForms:
-            Button("Ver la conjugación") { session.showForms() }
-                .buttonStyle(ChunkyButtonStyle(fill: Palette.accent, text: .white))
         default:
             HStack(spacing: 10) {
                 Button { session.grade(false) } label: { BigLabel("Otra vez", "baja una etapa") }
@@ -341,19 +414,12 @@ struct StudyView: View {
         Text(s).font(Typo.text(14, .heavy)).foregroundStyle(Palette.muted).padding(.bottom, 14)
     }
 
-    private func word(_ s: String) -> some View {
-        Text(s).font(Typo.display(40)).foregroundStyle(Palette.ink)
+    private func word(_ s: String, phrase: Bool = false) -> some View {
+        Text(s).font(Typo.display(phrase ? 32 : 40)).foregroundStyle(Palette.ink)
     }
 
     private func english(_ s: String) -> some View {
         Text(s).font(Typo.text(26, .heavy)).foregroundStyle(Palette.en)
-    }
-
-    @ViewBuilder
-    private func example(_ c: Card) -> some View {
-        if !c.ex.isEmpty {
-            Text(c.ex).font(Typo.italic(18)).foregroundStyle(Palette.muted).padding(.top, 14)
-        }
     }
 
     private func notes(_ s: String) -> some View {
@@ -361,8 +427,7 @@ struct StudyView: View {
     }
 
     @ViewBuilder
-    private func extras(_ c: Card) -> some View {
-        example(c)
+    private func notesIfAny(_ c: Card) -> some View {
         if !c.notes.isEmpty { notes(c.notes) }
     }
 
@@ -439,6 +504,18 @@ struct VerdictTag: View {
     private var wrote: some View {
         (Text("Escribiste ") + Text(typed).strikethrough().foregroundColor(Palette.again))
             .font(Typo.text(15)).foregroundStyle(Palette.muted).padding(.top, 6)
+    }
+}
+
+private extension View {
+    /// The sunk box an extra (sentences, origin) opens in.
+    func morePanel() -> some View {
+        self.frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(Palette.sunk, in: .rect(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Palette.line, lineWidth: 2))
+            .padding(.top, 12)
+            .transition(.opacity.combined(with: .move(edge: .top)))
     }
 }
 

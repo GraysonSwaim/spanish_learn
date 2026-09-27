@@ -1,9 +1,15 @@
 import Foundation
 
 enum Tab: String, CaseIterable {
-    case vocab, conj
+    case vocab, conj, phrases
 
-    var name: String { self == .vocab ? "Vocabulario" : "Conjugación" }
+    var name: String {
+        switch self {
+        case .vocab: "Vocabulario"
+        case .conj: "Conjugación"
+        case .phrases: "Frases"
+        }
+    }
 }
 
 /// Which way a word card is asked once it's past stage 1 (Ajustes › Dirección).
@@ -62,8 +68,9 @@ enum Scheduler {
 
     static func inTab(_ c: Card, tab: Tab, tense: String) -> Bool {
         switch tab {
-        case .vocab: !c.isConj
+        case .vocab: c.kind == .word
         case .conj: c.isConj && (tense == Tense.random || c.tense == tense)
+        case .phrases: c.isPhrase
         }
     }
 

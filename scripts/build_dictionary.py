@@ -7,6 +7,7 @@ Sources (downloaded into --cache on first run):
   - Fred Jehle's conjugation database (637 verbs), CC BY-NC-SA.
   - verbecc, a rule-based conjugator (pip install verbecc), LGPL. Only its output is used.
   - FrequencyWords (OpenSubtitles 2018, top 50k), CC BY-SA: which words are common.
+  - Tatoeba (Spanish sentences with English translations), CC BY 2.0 FR: example sentences.
 
 Every conjugated form is voted on by the three conjugation sources. A form goes into the
 dictionary only when at least two of them agree; a tense with any unresolved person is left out.
@@ -15,6 +16,7 @@ Disagreements are written to scripts/dictionary_report.md.
   python3 scripts/build_dictionary.py --cache ~/Library/Caches/cinco-dictionary [--words 10000]
 """
 import argparse
+import bz2
 import csv
 import json
 import logging
@@ -36,6 +38,9 @@ SOURCES = {
     "kaikki-es.jsonl": "https://kaikki.org/dictionary/Spanish/kaikki.org-dictionary-Spanish.jsonl",
     "jehle.csv": "https://raw.githubusercontent.com/ghidinelli/fred-jehle-spanish-verbs/master/jehle_verb_database.csv",
     "freq.txt": "https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/es/es_50k.txt",
+    "spa_sentences.tsv.bz2": "https://downloads.tatoeba.org/exports/per_language/spa/spa_sentences.tsv.bz2",
+    "eng_sentences.tsv.bz2": "https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2",
+    "spa-eng_links.tsv.bz2": "https://downloads.tatoeba.org/exports/per_language/spa/spa-eng_links.tsv.bz2",
 }
 
 # Cinco's tense keys (same as the CSV columns). Simple tenses are voted on form by form;
@@ -138,6 +143,34 @@ def wikt_tables(forms):
     return dict(tables), part
 
 
+def origin_of(d):
+    """Wiktionary's etymology, cut to its first two sentences; nothing for "see the lemma" stubs."""
+    t = re.sub(r"\s+", " ", d.get("etymology_text") or "").strip()
+    # Some start with a flattened "Etymology tree" box before the prose.
+    if t.startswith("Etymology tree"):
+        m = re.search(r"\b(Inherited|Borrowed|Learned|Semi-learned|From|Derived|Clipping|Contraction|Compound)\b", t[15:])
+        t = t[15 + m.start():] if m else ""
+    if not t or re.match(r"(see|compare) ", t, re.I):
+        return ""
+    # Lists of cognates and guesses at deep roots are for linguists.
+    t = re.sub(r"\s*\((compare|see|cf\.)[^)]*\)", "", t, flags=re.I)
+    t = re.split(r",? (?:perhaps|possibly|probably|ultimately)? ?(?:derived )?from Proto-Indo-European", t)[0]
+    t = re.split(r", (?:perhaps|possibly|or perhaps) from ", t)[0] if len(t) > 160 else t
+    # Three steps back is plenty: "from Old Spanish mano, from Latin manus, from Proto-Italic *manus".
+    hops = t.split(", from ")
+    if len(hops) > 3:
+        t = ", from ".join(hops[:3])
+    # A cut can leave a dangling word ("…*tenēō, stative"); end on a full stop.
+    t = re.sub(r",\s*[a-z]+$", "", t.rstrip(" ,;"))
+    if t and t[-1] not in ".!?)”":
+        t += "."
+    parts = re.split(r"(?<=[.;])\s+(?=[A-Z])", t)
+    out = parts[0]
+    if len(parts) > 1 and len(out) + len(parts[1]) < 220:
+        out += " " + parts[1]
+    return out if len(out) <= 300 else out[:297].rsplit(" ", 1)[0] + "…"
+
+
 def clean_gloss(g):
     return re.sub(r"\s+", " ", g).strip()
 
@@ -190,7 +223,7 @@ def read_wiktionary(path, wanted):
             ipa = next((s["ipa"] for s in d.get("sounds", []) if s.get("ipa", "").startswith("/")), "")
             plural = next((f["form"] for f in forms if f.get("tags") == ["plural"]), "")
             fem = next((f["form"] for f in forms if set(f.get("tags", [])) == {"feminine"} or set(f.get("tags", [])) == {"feminine", "singular"}), "")
-            e = {"pos": pos, "senses": senses, "ipa": ipa, "plural": plural, "fem": fem}
+            e = {"pos": pos, "senses": senses, "ipa": ipa, "plural": plural, "fem": fem, "origin": origin_of(d)}
             if pos == "verb":
                 e["tables"], e["part"] = wikt_tables(forms)
             lemmas[word].append(e)
@@ -225,8 +258,71 @@ def add_extra(extra, lemmas):
         if same:
             same["senses"] = [sense] + [x for x in same["senses"] if x["g"].casefold() != en.casefold()]
         else:
-            entries.insert(0, {"pos": pos, "senses": [sense], "ipa": "", "plural": (r.get("plural") or "").strip(), "fem": "",
+            entries.insert(0, {"pos": pos, "senses": [sense], "ipa": "", "plural": (r.get("plural") or "").strip(), "fem": "", "origin": "",
                                **({"tables": {}, "part": set()} if pos == "verb" else {})})
+
+
+# ---------- Tatoeba ----------
+
+def read_tatoeba(src):
+    """Spanish sentences (short enough for a card) with their shortest English translation."""
+    def sentences(path):
+        with bz2.open(path, "rt", encoding="utf-8") as f:
+            for line in f:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) >= 3:
+                    yield int(parts[0]), parts[2]
+    spa = {i: t for i, t in sentences(src["spa_sentences.tsv.bz2"]) if len(t) <= 70}
+    links = defaultdict(list)
+    with bz2.open(src["spa-eng_links.tsv.bz2"], "rt") as f:
+        for line in f:
+            a, b = line.split("\t")[:2]
+            if int(a) in spa:
+                links[int(b)].append(int(a))
+    # Of several translations, the one closest in length is usually the most literal.
+    eng = {}
+    for i, t in sentences(src["eng_sentences.tsv.bz2"]):
+        for s_id in links.get(i, ()):
+            if s_id not in eng or abs(len(t) - len(spa[s_id])) < abs(len(eng[s_id]) - len(spa[s_id])):
+                eng[s_id] = t
+    return [(spa[i], eng[i]) for i in spa if i in eng]
+
+
+def tokens(s):
+    return re.findall(r"[a-zñü]+", fold(s))
+
+
+def pick_sentences(pairs, entry_forms, easy, per_word=3):
+    """For each word, up to three sentences that use it: fewest uncommon words first, then closest to
+    six words long (one-word exclamations teach little, long ones are hard to take in)."""
+    index = defaultdict(list)
+    for n, (es, _) in enumerate(pairs):
+        for t in set(tokens(es)):
+            index[t].append(n)
+    out = {}
+    for w, forms in entry_forms.items():
+        words = fold(w).split()
+        if len(words) > 1:  # a phrase: the whole of it, in order
+            cands = [n for n in index.get(words[0], []) if f" {' '.join(words)} " in f" {' '.join(tokens(pairs[n][0]))} "]
+        else:
+            cands = {n for f in forms for n in index.get(f, [])}
+        def score(n):
+            toks = tokens(pairs[n][0])
+            return (sum(t not in easy for t in toks), abs(len(toks) - 6) if len(toks) < 4 else max(0, len(toks) - 10), len(pairs[n][0]), n)
+        scored = sorted(cands, key=score)
+        chosen, kept = [], []
+        for n in scored:
+            toks = set(tokens(pairs[n][0])) - {"yo", "tu", "el", "ella", "usted", "nosotros", "ellos", "ustedes"}
+            # Skip near-copies of one already chosen ("Vi a un perro." / "Yo vi un perro.").
+            if any(len(toks & k) / max(1, len(toks | k)) > 0.6 for k in kept):
+                continue
+            kept.append(toks)
+            chosen.append({"es": pairs[n][0], "en": pairs[n][1]})
+            if len(chosen) == per_word:
+                break
+        if chosen:
+            out[w] = chosen
+    return out
 
 
 # ---------- Jehle and verbecc ----------
@@ -458,10 +554,33 @@ def main():
     db.executescript("""
         CREATE TABLE entry(id INTEGER PRIMARY KEY, word TEXT NOT NULL, fold TEXT NOT NULL, rank INTEGER NOT NULL,
                            pos TEXT NOT NULL, gender TEXT, plural TEXT, fem TEXT, ipa TEXT,
-                           senses TEXT NOT NULL, tenses TEXT, en_fold TEXT NOT NULL);
+                           senses TEXT NOT NULL, tenses TEXT, en_fold TEXT NOT NULL, origin TEXT, sentences TEXT);
         CREATE TABLE form(fold TEXT NOT NULL, entry INTEGER NOT NULL);
         CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
     """)
+    # Inflected forms that lead back to each word: conjugations, plurals, feminines.
+    forms_of = {}
+    for w in ranked:
+        tables = verb_tables.get(w)
+        fs = set()
+        if tables:
+            for key in SIMPLE:
+                for f in tables.get(key, []):
+                    for alt in f.split(" / "):
+                        fs.add(fold(alt.removeprefix("no ").split(" ")[-1]))
+        for e in lemmas[w]:
+            if e["plural"]:
+                fs.add(fold(e["plural"]))
+            if e["fem"]:
+                fs.add(fold(e["fem"]))
+        fs.discard("")
+        forms_of[w] = fs | {fold(w)}
+
+    pairs = read_tatoeba(src)
+    easy = {fold(w) for w in list(freq)[:3000]}
+    sentences = pick_sentences(pairs, forms_of, easy)
+    print(f"tatoeba: {len(pairs)} sentence pairs; {len(sentences)} of {len(ranked)} words have example sentences")
+
     n_forms = 0
     for w in ranked:
         entries = lemmas[w]
@@ -474,27 +593,16 @@ def main():
         gender = next((s["gender"] for s in senses if s["pos"] == "noun" and s["gender"]), "")
         first = entries[0]
         tables = verb_tables.get(w)
-        db.execute("INSERT INTO entry VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        db.execute("INSERT INTO entry VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                    (rank[w], w, fold(w), rank[w], ",".join(dict.fromkeys(e["pos"] for e in entries)), gender,
                     noun["plural"] if noun else "", next((e["fem"] for e in entries if e["pos"] == "adj"), ""),
                     first["ipa"] or next((e["ipa"] for e in entries if e["ipa"]), ""),
                     json.dumps(senses, ensure_ascii=False, separators=(",", ":")),
                     json.dumps({k: "|".join(v) for k, v in tables.items()}, ensure_ascii=False, separators=(",", ":")) if tables else None,
-                    fold(" ; ".join(s["g"] for s in senses))))
-        # Inflected forms that lead back here: conjugations, plurals, feminines.
-        fs = set()
-        if tables:
-            for key in SIMPLE:
-                for f in tables.get(key, []):
-                    for alt in f.split(" / "):
-                        fs.add(fold(alt.removeprefix("no ").split(" ")[-1]))
-        for e in entries:
-            if e["plural"]:
-                fs.add(fold(e["plural"]))
-            if e["fem"]:
-                fs.add(fold(e["fem"]))
-        fs.discard(fold(w))
-        fs.discard("")
+                    fold(" ; ".join(s["g"] for s in senses)),
+                    next((e["origin"] for e in entries if e.get("origin")), ""),
+                    json.dumps(sentences.get(w, []), ensure_ascii=False, separators=(",", ":"))))
+        fs = forms_of[w] - {fold(w)}
         db.executemany("INSERT INTO form VALUES (?,?)", [(f, rank[w]) for f in fs])
         n_forms += len(fs)
     db.executescript("""
@@ -504,8 +612,9 @@ def main():
     db.executemany("INSERT INTO meta VALUES (?,?)", [
         ("built", date.today().isoformat()),
         ("common", str(common)),
-        ("credits", "Definiciones: Wiktionary (CC BY-SA), vía kaikki.org. Conjugaciones: Fred Jehle (CC BY-NC-SA), "
-                    "Wiktionary y verbecc, contrastadas entre sí. Frecuencia: FrequencyWords / OpenSubtitles (CC BY-SA)."),
+        ("credits", "Definiciones y orígenes: Wiktionary (CC BY-SA), vía kaikki.org. Conjugaciones: Fred Jehle (CC BY-NC-SA), "
+                    "Wiktionary y verbecc, contrastadas entre sí. Frases: Tatoeba (CC BY 2.0 FR). "
+                    "Frecuencia: FrequencyWords / OpenSubtitles (CC BY-SA)."),
     ])
     db.commit()
     db.execute("VACUUM")

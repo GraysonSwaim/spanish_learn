@@ -13,9 +13,9 @@ final class StudySession {
         case recite, grid
     }
 
-    /// How much of the card is showing. Vocabulary: prompt → answer, and a verb adds forms (its tables).
+    /// How much of the card is showing. Vocabulary and phrases: prompt → answer.
     /// Conjugación: word (the verb alone) → prompt (its meaning, and the typing boxes) → answer.
-    enum Phase { case intro, word, prompt, answer, forms }
+    enum Phase { case intro, word, prompt, answer }
 
     struct CellResult { var verdict: Verdict; var typed: String }
 
@@ -23,7 +23,7 @@ final class StudySession {
         let card: Card
         let state: CardState
         let queue: [Card]
-        let day: (reviewed: Int, correct: Int, newVocab: Int, newConj: Int)
+        let day: (reviewed: Int, correct: Int, newVocab: Int, newConj: Int, newPhrase: Int)
         let done: Int, right: Int
     }
 
@@ -87,13 +87,7 @@ final class StudySession {
         (0..<6).filter { $0 < f.count && !f[$0].isEmpty && ($0 != Person.vosotros || prefs.vosotros) }
     }
 
-    /// A verb in Vocabulario takes three steps: the word, its meaning, then its tables. It's graded after the tables.
-    var showsForms: Bool { current.map { !$0.isConj && $0.isVerb } ?? false }
-
-    var canGrade: Bool {
-        guard mode != .intro else { return false }
-        return phase == (showsForms ? .forms : .answer)
-    }
+    var canGrade: Bool { mode != .intro && phase == .answer }
 
     // MARK: moving through the queue
 
@@ -156,19 +150,14 @@ final class StudySession {
         if prefs.autoSpeak && mode == .enEs { speak() }
     }
 
-    func showForms() {
-        guard phase == .answer, showsForms else { return }
-        phase = .forms
-    }
-
     func check(_ input: String) {
         guard let c = current, phase == .prompt else { return }
         typed = input
         verdict = TextMatch.check(input, against: c.es)
         phase = .answer
         if prefs.autoSpeak { speak() }
-        // A right answer moves on by itself, unless there are verb tables still to see.
-        if verdict == .exact && !showsForms { autoPass(after: 0.9) }
+        // A right answer moves on by itself.
+        if verdict == .exact { autoPass(after: 0.9) }
     }
 
     func checkGrid(_ inputs: [Int: String]) {
@@ -195,7 +184,7 @@ final class StudySession {
     private func snapshot(_ c: Card) {
         let d = Deck.today(ctx)
         undoState = Undo(card: c, state: CardState(c), queue: queue,
-                         day: (d.reviewed, d.correct, d.newVocab, d.newConj), done: done, right: right)
+                         day: (d.reviewed, d.correct, d.newVocab, d.newConj, d.newPhrase), done: done, right: right)
     }
 
     /// Put a new card at stage 1 and ask it again a few cards later.
@@ -204,7 +193,11 @@ final class StudySession {
         snapshot(c)
         Scheduler.introduce(c)
         let d = Deck.today(ctx)
-        if tab == .conj { d.newConj += 1 } else { d.newVocab += 1 }
+        switch tab {
+        case .conj: d.newConj += 1
+        case .phrases: d.newPhrase += 1
+        case .vocab: d.newVocab += 1
+        }
         queue.removeFirst()
         requeue(c)
         try? ctx.save()
@@ -243,7 +236,7 @@ final class StudySession {
         guard let u = undoState else { return }
         u.state.restore(u.card)
         let d = Deck.today(ctx)
-        (d.reviewed, d.correct, d.newVocab, d.newConj) = u.day
+        (d.reviewed, d.correct, d.newVocab, d.newConj, d.newPhrase) = u.day
         queue = u.queue
         done = u.done
         right = u.right
