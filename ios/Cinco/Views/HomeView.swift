@@ -165,14 +165,14 @@ struct HomeView: View {
         return VStack(spacing: 4) {
             HStack(alignment: .bottom, spacing: 8) {
                 ForEach(1...5, id: \.self) { i in
-                    Button { startStage(i) } label: {
+                    Button { if n.byStage[i] > 0 { startStage(i) } } label: {
                         ZStack(alignment: .bottom) {
-                            LinearGradient(colors: [Palette.stageSoft(i).opacity(0.75), Palette.stageSoft(i)], startPoint: .top, endPoint: .bottom)
+                            LinearGradient(colors: [Palette.stageSoft(i).opacity(0.9), Palette.stageSoft(i)], startPoint: .top, endPoint: .bottom)
                             GeometryReader { g in
                                 VStack { Spacer(minLength: 0); Palette.stage(i).opacity(0.3).frame(height: g.size.height * CGFloat(n.byStage[i]) / CGFloat(total)) }
                             }
                             VStack(spacing: 8) {
-                                Text("\(n.byStage[i])").font(Typo.display(22)).foregroundStyle(Palette.ink).padding(.top, 10)
+                                Text("\(n.byStage[i])").font(Typo.display(22)).foregroundStyle(n.byStage[i] == 0 ? Palette.muted : Palette.ink).padding(.top, 10)
                                 Daisy().fill(Palette.stage(i)).frame(width: 16, height: 16)
                                 Spacer()
                             }
@@ -182,8 +182,6 @@ struct HomeView: View {
                         .softShadow(radius: 8, y: 4)
                     }
                     .buttonStyle(.plain)
-                    .disabled(n.byStage[i] == 0)
-                    .opacity(n.byStage[i] == 0 ? 0.8 : 1)
                     .accessibilityLabel("Estudiar las \(n.byStage[i]) tarjetas de la etapa \(i), \(StageInfo.all[i].name)")
                 }
             }

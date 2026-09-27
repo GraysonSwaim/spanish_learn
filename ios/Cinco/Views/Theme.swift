@@ -33,8 +33,8 @@ nonisolated enum Palette {
     static let stages = [dyn(0xF2803F, 0xFF9A5E), dyn(0xE9A514, 0xFFC94D), dyn(0x34A488, 0x5CCBA9),
                          dyn(0x3576C2, 0x6FA4E8), dyn(0x9063BF, 0xB48BE0)]
     /// The same five as pastel card fills.
-    static let stagesSoft = [dyn(0xFDD9C2, 0x4A2E20), dyn(0xFFEBB3, 0x4A3D1C), dyn(0xD3EEE3, 0x1F3D34),
-                             dyn(0xD6E4F5, 0x1F3047), dyn(0xE8DCF2, 0x362A45)]
+    static let stagesSoft = [dyn(0xFCC9A6, 0x4A2E20), dyn(0xFFDF8A, 0x4A3D1C), dyn(0xBDE5D4, 0x1F3D34),
+                             dyn(0xC1D6F1, 0x1F3047), dyn(0xDAC8EB, 0x362A45)]
     static let near = dyn(0xE9A514, 0xFFC94D)
     /// The soft light falling on the backdrop.
     static let glow = dyn(0xFFFFFF, 0xFFD9B0, alpha: (0.6, 0.06))
