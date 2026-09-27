@@ -121,16 +121,15 @@ struct DoneView: View {
         VStack(spacing: 18) {
             Spacer()
             Text("¡Listo!").font(Typo.display(52)).foregroundStyle(Palette.accent)
-                .shadow(color: Palette.edge, radius: 0, x: 3, y: 3)
             Text(done == 0 ? "Sesión terminada." : "Repasaste \(done) \(done == 1 ? "tarjeta" : "tarjetas").")
                 .font(Typo.text(19, .bold)).foregroundStyle(Palette.ink)
             Text("Vuelve mañana para lo siguiente.").font(Typo.text(16)).foregroundStyle(Palette.muted)
             Spacer()
             Button("Volver al inicio", action: onClose)
-                .buttonStyle(ChunkyButtonStyle(fill: Palette.accent, text: .white))
+                .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
         }
         .padding(16)
         .frame(maxWidth: .infinity)
-        .background(Palette.bg.ignoresSafeArea())
+        .background(Backdrop())
     }
 }

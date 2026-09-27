@@ -56,7 +56,7 @@ struct BrowseView: View {
             .listRowBackground(Palette.paper)
         }
         .scrollContentBackground(.hidden)
-        .background(Palette.bg.ignoresSafeArea())
+        .background(Backdrop())
         .searchable(text: $query, prompt: "Busca en español, inglés o etiqueta")
         .navigationTitle("Tarjetas")
     }
@@ -131,7 +131,7 @@ struct CardDetailView: View {
             .panel()
             .padding(.horizontal, 16)
         }
-        .background(Palette.bg.ignoresSafeArea())
+        .background(Backdrop())
         .sheet(item: $editing) { t in NavigationStack { EditCardView(card: t.card) } }
     }
 

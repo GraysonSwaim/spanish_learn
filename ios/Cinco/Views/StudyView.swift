@@ -37,7 +37,7 @@ struct StudyView: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
-        .background(Palette.bg.ignoresSafeArea())
+        .background(Backdrop())
         .onChange(of: session.current?.id, initial: true) {
             typed = ""; grid = [:]; dragX = 0; more = nil
             lex = session.current.flatMap { $0.isConj ? nil : Lexicon.shared.entry(for: $0) }
@@ -137,7 +137,8 @@ struct StudyView: View {
             .font(Typo.display(20)).foregroundStyle(color)
             .padding(.horizontal, 12).padding(.vertical, 5)
             .background(Palette.paper, in: .rect(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(color, lineWidth: 3))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(color, lineWidth: 2.5))
+            .softShadow(radius: 6, y: 3)
             .rotationEffect(.degrees(angle))
             .padding(18)
             .allowsHitTesting(false)
@@ -201,9 +202,9 @@ struct StudyView: View {
                         .onSubmit { session.check(typed) }
                         .padding(.horizontal, 16).padding(.vertical, 14)
                         .background(Palette.sunk, in: .rect(cornerRadius: 18))
-                        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Palette.edge, lineWidth: 2.5))
+                        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(focus == .answer ? Palette.sea.opacity(0.6) : Palette.edge, lineWidth: 1.5))
                     Button("Comprobar") { session.check(typed) }
-                        .buttonStyle(ChunkyButtonStyle(fill: Palette.sea, text: .white, radius: 18, size: 18))
+                        .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, radius: 18, size: 18))
                         .fixedSize()
                 }
                 .padding(.top, 22)
@@ -279,9 +280,9 @@ struct StudyView: View {
                 .font(Typo.text(14, .heavy))
                 .foregroundStyle(on ? Palette.onGood : Palette.ink)
                 .padding(.horizontal, 14).padding(.vertical, 8)
-                .background(on ? Palette.sea : Palette.sunk, in: .capsule)
-                .overlay(Capsule().strokeBorder(Palette.edge, lineWidth: 2))
-                .background(Capsule().fill(Palette.edge).offset(y: 2))
+                .background(on ? Palette.sea : Palette.paper, in: .capsule)
+                .overlay(Capsule().strokeBorder(on ? .clear : Palette.edge, lineWidth: 1))
+                .softShadow(radius: 5, y: 2)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(on ? .isSelected : [])
@@ -331,7 +332,7 @@ struct StudyView: View {
                             if let i = asked.firstIndex(of: p), i + 1 < asked.count { focus = .cell(asked[i + 1]) } else { session.checkGrid(grid) }
                         }
                         .padding(.vertical, 2)
-                        .overlay(alignment: .bottom) { Rectangle().fill(Palette.edge).frame(height: 2) }
+                        .overlay(alignment: .bottom) { Capsule().fill(Palette.line).frame(height: 2) }
                         .accessibilityLabel(Person.label(p, c.tense))
                 }
                 .padding(.top, 16)
@@ -380,30 +381,30 @@ struct StudyView: View {
             Button { session.introDone() } label: {
                 BigLabel("Entendido, pregúntame luego", "Vuelve dentro de unas tarjetas")
             }
-            .buttonStyle(ChunkyButtonStyle(fill: Palette.accent, text: .white))
+            .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
         case .word:
             Button("Ver el significado") { session.showMeaning() }
-                .buttonStyle(ChunkyButtonStyle(fill: Palette.accent, text: .white))
+                .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
         case .prompt:
             switch session.mode {
             case .esEn, .enEs:
                 Button("Mostrar respuesta") { session.reveal() }
-                    .buttonStyle(ChunkyButtonStyle(fill: Palette.accent, text: .white))
+                    .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
             case .recite:
                 Button("Mostrar la tabla") { session.reveal() }
-                    .buttonStyle(ChunkyButtonStyle(fill: Palette.accent, text: .white))
+                    .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
             case .grid:
                 Button("Comprobar") { session.checkGrid(grid) }
-                    .buttonStyle(ChunkyButtonStyle(fill: Palette.accent, text: .white))
+                    .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
             default:
                 EmptyView()
             }
         default:
             HStack(spacing: 10) {
                 Button { session.grade(false) } label: { BigLabel("Otra vez", "baja una etapa") }
-                    .buttonStyle(ChunkyButtonStyle(fill: Palette.againSoft, text: Palette.again))
+                    .buttonStyle(SoftButtonStyle(fill: Palette.againSoft, text: Palette.again))
                 Button { session.grade(true) } label: { BigLabel("¡La sé!", "sube una etapa") }
-                    .buttonStyle(ChunkyButtonStyle(fill: Palette.good, text: Palette.onGood))
+                    .buttonStyle(SoftButtonStyle(fill: Palette.good, text: Palette.onGood))
             }
         }
     }
@@ -463,7 +464,7 @@ struct SpeakIcon: View {
             .font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
             .frame(width: 48, height: 48)
             .background(Palette.sea, in: .circle)
-            .background(Circle().fill(Palette.edge).offset(y: 3))
+            .shadow(color: Palette.sea.opacity(0.35), radius: 8, y: 4)
             .accessibilityLabel("Escúchala")
     }
 }
@@ -513,7 +514,7 @@ private extension View {
         self.frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
             .background(Palette.sunk, in: .rect(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Palette.line, lineWidth: 2))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Palette.line, lineWidth: 1))
             .padding(.top, 12)
             .transition(.opacity.combined(with: .move(edge: .top)))
     }

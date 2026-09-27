@@ -96,7 +96,7 @@ struct HowView: View {
             .foregroundStyle(Palette.ink)
             .padding(16)
         }
-        .background(Palette.bg.ignoresSafeArea())
+        .background(Backdrop())
         .navigationTitle("Cómo funciona")
     }
 }

@@ -52,10 +52,8 @@ struct HomeView: View {
                 }
                 .frame(minHeight: 44)
 
-                (Text("Cin").foregroundColor(Palette.accent) + Text("co").foregroundColor(Palette.sea))
-                    .font(Typo.display(52))
-                    .shadow(color: Palette.edge, radius: 0, x: 3, y: 3)
-                    .padding(.top, 14).padding(.bottom, 6)
+                Wordmark(size: 54)
+                    .padding(.top, 6).padding(.bottom, 10)
 
                 tabPicker
                 if tab == .conj { TenseSwitch(cards: cards, selection: $tense).padding(.bottom, 12) }
@@ -63,11 +61,11 @@ struct HomeView: View {
                 lede(n, newToday: newToday).padding(.bottom, 18)
                 if cards.isEmpty {
                     Button("Cargar el mazo de inicio") { message = Deck.loadStarter(ctx)?.summary }
-                        .buttonStyle(ChunkyButtonStyle(fill: Palette.sea, text: .white, size: 19))
+                        .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, size: 19))
                         .padding(.bottom, 22)
                 } else if tab == .phrases && tabCards.isEmpty {
                     Button("Cargar las frases de inicio") { message = Deck.loadStarter(ctx, deck: "frases-inicio")?.summary }
-                        .buttonStyle(ChunkyButtonStyle(fill: Palette.sea, text: .white, size: 19))
+                        .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, size: 19))
                         .padding(.bottom, 22)
                 }
                 ladder(n)
@@ -78,7 +76,7 @@ struct HomeView: View {
                     .padding(.bottom, 20)
 
                 Button(resumable ? "Seguir la sesión" : "¡Vamos!") { startDaily(newToday: newToday) }
-                    .buttonStyle(ChunkyButtonStyle(fill: Palette.accent, text: .white))
+                    .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
                     .disabled(n.due + newToday == 0 && !resumable)
                     .opacity(n.due + newToday == 0 && !resumable ? 0.5 : 1)
                     .padding(.bottom, 22)
@@ -93,7 +91,7 @@ struct HomeView: View {
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
         }
-        .background(Palette.bg.ignoresSafeArea())
+        .background(Backdrop())
         .toolbar(.hidden, for: .navigationBar)
         .fileImporter(isPresented: $importing, allowedContentTypes: [.commaSeparatedText, .tabSeparatedText, .plainText, .text],
                       allowsMultipleSelection: true) { result in
@@ -125,7 +123,7 @@ struct HomeView: View {
     #endif
 
     private var tabPicker: some View {
-        ChunkySegmented(options: Tab.allCases.map { ($0.rawValue, $0.name) }, selection: $tabRaw)
+        SoftSegmented(options: Tab.allCases.map { ($0.rawValue, $0.name) }, selection: $tabRaw)
             .padding(.top, 2).padding(.bottom, 16)
     }
 
@@ -165,21 +163,23 @@ struct HomeView: View {
                 ForEach(1...5, id: \.self) { i in
                     Button { startStage(i) } label: {
                         ZStack(alignment: .bottom) {
-                            Palette.sunk
+                            LinearGradient(colors: [Palette.stageSoft(i).opacity(0.75), Palette.stageSoft(i)], startPoint: .top, endPoint: .bottom)
                             GeometryReader { g in
-                                VStack { Spacer(minLength: 0); Palette.stage(i).frame(height: g.size.height * CGFloat(n.byStage[i]) / CGFloat(total)) }
+                                VStack { Spacer(minLength: 0); Palette.stage(i).opacity(0.3).frame(height: g.size.height * CGFloat(n.byStage[i]) / CGFloat(total)) }
                             }
-                            VStack {
-                                Text("\(n.byStage[i])").font(Typo.display(22)).foregroundStyle(Palette.ink).padding(.top, 8)
+                            VStack(spacing: 8) {
+                                Text("\(n.byStage[i])").font(Typo.display(22)).foregroundStyle(Palette.ink).padding(.top, 10)
+                                Circle().fill(Palette.stage(i)).frame(width: 12, height: 12)
                                 Spacer()
                             }
                         }
-                        .clipShape(.rect(cornerRadius: 14))
-                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Palette.edge, lineWidth: 2))
+                        .clipShape(.rect(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(.white.opacity(0.5), lineWidth: 1))
+                        .softShadow(radius: 8, y: 4)
                     }
                     .buttonStyle(.plain)
                     .disabled(n.byStage[i] == 0)
-                    .opacity(n.byStage[i] == 0 ? 0.55 : 1)
+                    .opacity(n.byStage[i] == 0 ? 0.8 : 1)
                     .accessibilityLabel("Estudiar las \(n.byStage[i]) tarjetas de la etapa \(i), \(StageInfo.all[i].name)")
                 }
             }
@@ -293,7 +293,7 @@ struct MenuRow: View {
     }
 }
 
-/// The tense picker in the Conjugación tab: a chunky button that opens a sheet of tense chips,
+/// The tense picker in the Conjugación tab: a soft button that opens a sheet of tense chips,
 /// grouped by mood, with Aleatorio for all of them.
 struct TenseSwitch: View {
     let cards: [Card]
@@ -310,9 +310,8 @@ struct TenseSwitch: View {
                 Image(systemName: "chevron.down").font(.system(size: 14, weight: .heavy)).foregroundStyle(Palette.muted)
             }
             .padding(.horizontal, 14).padding(.vertical, 11)
-            .background(current.map { Palette.moodSoft($0.mood) } ?? Palette.sunk, in: .rect(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Palette.edge, lineWidth: 2))
-            .background(Palette.edge.clipShape(.rect(cornerRadius: 14)).offset(y: 3))
+            .background(current.map { Palette.moodSoft($0.mood) } ?? Palette.sunk, in: .rect(cornerRadius: 16))
+            .softShadow(radius: 8, y: 3)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Tiempo verbal: \(current?.name ?? "Aleatorio")")
@@ -399,7 +398,7 @@ private struct TensePicker: View {
     }
 }
 
-/// A small chunky button: bordered, with a hard shadow it sinks into when pressed.
+/// A small soft chip that presses in a little.
 private struct ChipStyle: ButtonStyle {
     let fill: Color
 
@@ -408,9 +407,9 @@ private struct ChipStyle: ButtonStyle {
         let shape = RoundedRectangle(cornerRadius: 14)
         configuration.label
             .background(fill, in: shape)
-            .overlay(shape.strokeBorder(Palette.edge, lineWidth: 2))
-            .offset(y: down ? 3 : 0)
-            .background(shape.fill(Palette.edge).offset(y: 3))
-            .animation(.easeOut(duration: 0.08), value: down)
+            .overlay(shape.strokeBorder(Palette.edge, lineWidth: 1))
+            .softShadow(radius: down ? 3 : 6, y: down ? 1 : 3)
+            .scaleEffect(down ? 0.96 : 1)
+            .animation(.spring(duration: 0.18), value: down)
     }
 }

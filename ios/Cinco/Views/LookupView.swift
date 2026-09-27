@@ -44,7 +44,7 @@ struct LookupView: View {
             .frame(maxWidth: 560).frame(maxWidth: .infinity)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(Palette.bg.ignoresSafeArea())
+        .background(Backdrop())
         .navigationTitle("Diccionario")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
@@ -79,7 +79,7 @@ struct LookupView: View {
                 && (pos != nil || Self.content.contains(e.senses.first?.pos ?? "")) }
             .prefix(40)
         Text("Las más comunes que aún no tienes").font(Typo.display(22)).foregroundStyle(Palette.ink).padding(.bottom, 10)
-        ChunkySegmented(options: [("all", "Todas"), ("verb", "Verbos"), ("noun", "Sustantivos"), ("adj", "Adjetivos")],
+        SoftSegmented(options: [("all", "Todas"), ("verb", "Verbos"), ("noun", "Sustantivos"), ("adj", "Adjetivos")],
                         selection: $filter, size: 14)
             .padding(.bottom, 16)
         rows(Array(list), have: have)
@@ -96,7 +96,7 @@ struct LookupView: View {
             Text("No encontré «\(typed)». Prueba con otra forma de la palabra o con su significado en inglés, o escribe tú la tarjeta.")
                 .font(Typo.text(16)).foregroundStyle(Palette.muted).padding(.bottom, 16)
             Button("Escribir «\(typed)» a mano") { draftOpened = .now; draft = CardRecord(es: typed) }
-                .buttonStyle(ChunkyButtonStyle(fill: Palette.sea, text: .white, size: 19))
+                .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, size: 19))
         } else {
             rows(list, have: have)
             Button { draftOpened = .now; draft = CardRecord(es: typed) } label: {
@@ -124,7 +124,7 @@ struct LookupView: View {
                             Image(systemName: "plus").font(.system(size: 16, weight: .black)).foregroundStyle(.white)
                                 .frame(width: 34, height: 34)
                                 .background(Palette.accent, in: .circle)
-                                .overlay(Circle().strokeBorder(Palette.edge, lineWidth: 2))
+                                .shadow(color: Palette.accent.opacity(0.35), radius: 6, y: 3)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Añadir \(e.word) a tus tarjetas")
@@ -143,7 +143,7 @@ struct LookupView: View {
                 .font(Typo.text(15, .heavy)).foregroundStyle(Palette.onGood)
                 .padding(.horizontal, 18).padding(.vertical, 11)
                 .background(Palette.good, in: .capsule)
-                .overlay(Capsule().strokeBorder(Palette.edge, lineWidth: 2))
+                .softShadow(radius: 12, y: 6)
                 .padding(.bottom, 20)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
         }
@@ -250,7 +250,7 @@ struct EntryView: View {
             .frame(maxWidth: 560).frame(maxWidth: .infinity)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(Palette.bg.ignoresSafeArea())
+        .background(Backdrop())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .onAppear(perform: refresh)
@@ -262,7 +262,6 @@ struct EntryView: View {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(entry.spanish(for: chosenSenses.first ?? entry.senses.first))
                     .font(Typo.display(40)).foregroundStyle(Palette.ink)
-                    .shadow(color: Palette.edge.opacity(0.15), radius: 0, x: 2, y: 2)
                 Button { Speaker.shared.speak(entry.word, lang: Prefs.current.voiceLang) } label: { SpeakIcon() }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Escúchala")
@@ -272,7 +271,6 @@ struct EntryView: View {
                     Text(LexEntry.posName(p)).font(Typo.text(13, .heavy)).foregroundStyle(Palette.ink)
                         .padding(.horizontal, 10).padding(.vertical, 3)
                         .background(Palette.seaSoft, in: .capsule)
-                        .overlay(Capsule().strokeBorder(Palette.edge, lineWidth: 1.5))
                 }
                 if !entry.ipa.isEmpty {
                     Text(entry.ipa).font(Typo.text(14)).foregroundStyle(Palette.muted)
@@ -411,7 +409,7 @@ struct EntryView: View {
                 .frame(maxWidth: .infinity).padding(.vertical, 14)
         } else {
             Button("Añadir a mis tarjetas") { add() }
-                .buttonStyle(ChunkyButtonStyle(fill: Palette.accent, text: .white))
+                .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
                 .disabled(es.trimmingCharacters(in: .whitespaces).isEmpty || en.trimmingCharacters(in: .whitespaces).isEmpty)
             if let message {
                 Text(message).font(Typo.text(15, .bold)).foregroundStyle(Palette.again)
@@ -457,7 +455,8 @@ struct FlowChips: View {
                         .foregroundStyle(on ? Palette.onGood : Palette.ink)
                         .padding(.horizontal, 12).padding(.vertical, 7)
                         .background(on ? Palette.mood(t.mood) : Palette.paper, in: .capsule)
-                        .overlay(Capsule().strokeBorder(Palette.edge, lineWidth: 2))
+                        .overlay(Capsule().strokeBorder(on ? .clear : Palette.edge, lineWidth: 1))
+                        .softShadow(radius: on ? 5 : 3, y: 2)
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(on ? .isSelected : [])
