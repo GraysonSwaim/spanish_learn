@@ -60,11 +60,9 @@ struct HomeView: View {
                         .padding(.bottom, 22)
                 }
                 ladder(n)
-                Text(newLine(n))
-                    .font(Typo.text(14)).foregroundStyle(Palette.muted).padding(.top, 6).padding(.bottom, 8)
                 Button("\(n.unseen) nuevas esperando") { startFresh() }
                     .font(Typo.text(15, .heavy)).tint(Palette.accentInk).disabled(n.unseen == 0)
-                    .padding(.bottom, 20)
+                    .padding(.top, 12).padding(.bottom, 20)
 
                 Button { startDaily(newToday: newToday) } label: {
                     if n.total == 0 { Text(resumable ? "Seguir la sesión" : "¡Vamos!") }
@@ -149,15 +147,6 @@ struct HomeView: View {
         .phrases: "Frases hechas para armar conversaciones: saludos, pedir en un restaurante, preguntar direcciones… Carga las de inicio, añade las tuyas o impórtalas.",
         .vocab: "Importa un CSV de palabras para empezar.",
     ]
-
-    private func newLine(_ n: DeckCounts) -> String {
-        let what = switch tab {
-        case .conj: n.total == 1 ? "tabla" : "tablas"
-        case .phrases: n.total == 1 ? "frase" : "frases"
-        case .vocab: "en el mazo"
-        }
-        return "\(n.total) \(what)" + (n.dropped > 0 ? ", \(n.dropped) descartadas" : "") + ". Toca una etapa para practicar solo esas tarjetas."
-    }
 
     private func ladder(_ n: DeckCounts) -> some View {
         let total = max(1, n.total)
