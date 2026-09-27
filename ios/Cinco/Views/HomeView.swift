@@ -39,21 +39,8 @@ struct HomeView: View {
         let streak = Scheduler.streak(Dictionary(logs.map { ($0.key, $0) }, uniquingKeysWith: { a, _ in a }))
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    if streak > 0 {
-                        Text("Racha: \(streak) \(streak == 1 ? "día" : "días")")
-                            .font(Typo.text(13, .heavy)).foregroundStyle(.white)
-                            .padding(.horizontal, 12).padding(.vertical, 4)
-                            .background(Palette.stage(5), in: .capsule)
-                    }
-                    Spacer()
-                    NavigationLink("Cómo funciona") { HowView() }
-                        .font(Typo.text(16, .heavy)).tint(Palette.accentInk)
-                }
-                .frame(minHeight: 44)
-
                 Wordmark()
-                    .padding(.top, 8).padding(.bottom, 16)
+                    .padding(.top, 12).padding(.bottom, 16)
 
                 tabPicker
                 if tab == .conj { TenseSwitch(cards: cards, selection: $tense).padding(.bottom, 12) }
@@ -79,7 +66,21 @@ struct HomeView: View {
                     .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
                     .disabled(n.due + newToday == 0 && !resumable)
                     .opacity(n.due + newToday == 0 && !resumable ? 0.5 : 1)
-                    .padding(.bottom, 22)
+                    .padding(.bottom, 8)
+
+                HStack {
+                    if streak > 0 {
+                        Text("Racha: \(streak) \(streak == 1 ? "día" : "días")")
+                            .font(Typo.text(13, .heavy)).foregroundStyle(.white)
+                            .padding(.horizontal, 12).padding(.vertical, 4)
+                            .background(Palette.stage(5), in: .capsule)
+                    }
+                    Spacer()
+                    NavigationLink("Cómo funciona") { HowView() }
+                        .font(Typo.text(16, .heavy)).tint(Palette.accentInk)
+                }
+                .frame(minHeight: 44)
+                .padding(.bottom, 14)
 
                 menu
                 Text("Tus tarjetas y tu progreso se guardan en iCloud y se sincronizan entre tus dispositivos.")
