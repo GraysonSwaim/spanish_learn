@@ -52,12 +52,8 @@ struct HomeView: View {
                 }
                 .frame(minHeight: 44)
 
-                HStack(alignment: .top) {
-                    Wordmark(size: 54)
-                    Spacer()
-                    Bunting().padding(.top, 10)
-                }
-                .padding(.top, 6).padding(.bottom, 10)
+                Wordmark()
+                    .padding(.top, 8).padding(.bottom, 16)
 
                 tabPicker
                 if tab == .conj { TenseSwitch(cards: cards, selection: $tense).padding(.bottom, 12) }

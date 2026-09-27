@@ -92,20 +92,6 @@ struct Backdrop: View {
     }
 }
 
-/// "cinco" in the mockup's colours, one per letter.
-struct Wordmark: View {
-    var size: CGFloat = 48
-    private static let letters: [(String, Color)] = [("c", Palette.accent), ("i", Palette.sun), ("n", Palette.sea),
-                                                    ("c", Palette.blue), ("o", Palette.accent)]
-
-    var body: some View {
-        Self.letters.reduce(Text("")) { $0 + Text($1.0).foregroundColor($1.1) }
-            .font(.custom("Nunito-ExtraBold", size: size, relativeTo: .largeTitle))
-            .kerning(-0.5)
-            .accessibilityLabel("Cinco")
-    }
-}
-
 /// A soft pill button: a gentle sheen on top, a shadow tinted by its own colour, and a small press.
 struct SoftButtonStyle: ButtonStyle {
     var fill: Color = Palette.paper

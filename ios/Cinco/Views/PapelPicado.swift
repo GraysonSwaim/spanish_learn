@@ -50,53 +50,101 @@ nonisolated struct Scalloped: Shape {
     }
 }
 
-/// One flag: scalloped, with a daisy and a row of dots cut out of it.
+/// One flag: scalloped, with a row of dots cut out above the scallops and either a daisy in the middle
+/// or, for a flag that carries a letter, two small diamonds at the top corners.
 nonisolated struct PapelFlag: Shape {
+    var daisy = true
+
     func path(in rect: CGRect) -> Path {
-        var p = Scalloped(radius: rect.width * 0.08, scallop: rect.width / 4).path(in: rect)
-        let d = rect.width * 0.5
-        p.addPath(Daisy().path(in: CGRect(x: rect.midX - d / 2, y: rect.minY + rect.height * 0.14, width: d, height: d)))
-        let dot = rect.width * 0.07, y = rect.maxY - rect.width * 0.3
+        let w = rect.width
+        var p = Scalloped(radius: w * 0.08, scallop: w / 4).path(in: rect)
+        if daisy {
+            let d = w * 0.5
+            p.addPath(Daisy().path(in: CGRect(x: rect.midX - d / 2, y: rect.minY + rect.height * 0.14, width: d, height: d)))
+        } else {
+            let r = w * 0.055
+            for x in [rect.minX + w * 0.16, rect.maxX - w * 0.16] {
+                let c = CGPoint(x: x, y: rect.minY + w * 0.16)
+                p.move(to: CGPoint(x: c.x, y: c.y - r))
+                p.addLines([CGPoint(x: c.x + r, y: c.y), CGPoint(x: c.x, y: c.y + r), CGPoint(x: c.x - r, y: c.y)])
+                p.closeSubpath()
+            }
+        }
+        let dot = w * 0.07, y = rect.maxY - w * 0.3
         for i in 0..<4 {
-            let x = rect.minX + rect.width * (0.2 + 0.2 * CGFloat(i))
+            let x = rect.minX + w * (0.2 + 0.2 * CGFloat(i))
             p.addEllipse(in: CGRect(x: x - dot / 2, y: y - dot / 2, width: dot, height: dot))
         }
         return p
     }
 }
 
-/// A string of flags in the five stage colours, sagging a little in the middle.
+/// A string of flags in the five stage colours, sagging a little in the middle. Given letters, each flag
+/// carries one, cut out of the paper the way papel picado banners spell a word.
 struct Bunting: View {
     var count = 5
     var flag: CGFloat = 22
     var spacing: CGFloat = 5
+    var letters: [String] = []
 
     var body: some View {
-        let width = CGFloat(count) * flag + CGFloat(count - 1) * spacing + flag * 0.6
-        let sag = flag * 0.35
+        let n = letters.isEmpty ? count : letters.count
+        let width = CGFloat(n) * flag + CGFloat(n - 1) * spacing + flag * 0.6
+        let sag = flag * (letters.isEmpty ? 0.35 : 0.18)
+        let tilt = letters.isEmpty ? 3.0 : 2.0
         ZStack(alignment: .topLeading) {
             Path { p in
                 p.move(to: .zero)
                 p.addQuadCurve(to: CGPoint(x: width, y: 0), control: CGPoint(x: width / 2, y: sag * 2))
             }
-            .stroke(Palette.muted.opacity(0.45), lineWidth: 1)
-            ForEach(0..<count, id: \.self) { i in
+            .stroke(Palette.muted.opacity(0.45), lineWidth: letters.isEmpty ? 1 : 1.5)
+            ForEach(0..<n, id: \.self) { i in
                 let x = flag * 0.3 + CGFloat(i) * (flag + spacing)
                 let t = (x + flag / 2) / width
-                PapelFlag()
-                    .fill(Palette.stage(i % 5 + 1), style: FillStyle(eoFill: true))
+                flagView(i)
                     .frame(width: flag, height: flag * 1.2)
-                    .rotationEffect(.degrees(i.isMultiple(of: 2) ? -3 : 3), anchor: .top)
-                    .offset(x: x, y: sag * 4 * t * (1 - t))
+                    .rotationEffect(.degrees(i.isMultiple(of: 2) ? -tilt : tilt), anchor: .top)
+                    // Papel picado folds over its string, so the flags start just above it.
+                    .offset(x: x, y: sag * 4 * t * (1 - t) - 1.5)
             }
         }
         .frame(width: width, height: flag * 1.2 + sag, alignment: .topLeading)
-        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder private func flagView(_ i: Int) -> some View {
+        let color = Palette.stage(i % 5 + 1)
+        if i < letters.count {
+            PapelFlag(daisy: false)
+                .fill(color, style: FillStyle(eoFill: true))
+                .overlay {
+                    Text(letters[i])
+                        .font(.custom("Nunito-ExtraBold", size: flag * 0.95, relativeTo: .largeTitle))
+                        .offset(y: -flag * 0.12)
+                        .blendMode(.destinationOut)
+                }
+                .compositingGroup()
+                .shadow(color: color.opacity(0.3), radius: 3, y: 2)
+        } else {
+            PapelFlag().fill(color, style: FillStyle(eoFill: true))
+        }
+    }
+}
+
+/// "cinco" as a papel picado banner: five letters, five flags, the five stage colours.
+struct Wordmark: View {
+    var flag: CGFloat = 58
+
+    var body: some View {
+        Bunting(flag: flag, spacing: 5, letters: ["c", "i", "n", "c", "o"])
+            .accessibilityElement()
+            .accessibilityLabel("Cinco")
+            .accessibilityAddTraits(.isHeader)
     }
 }
 
 #Preview {
     VStack(spacing: 30) {
+        Wordmark()
         Bunting()
         Bunting(count: 7, flag: 36)
         HStack { ForEach(1...5, id: \.self) { Daisy().fill(Palette.stage($0)).frame(width: 18, height: 18) } }
