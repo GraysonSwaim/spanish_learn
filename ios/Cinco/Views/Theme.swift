@@ -178,6 +178,7 @@ struct SoftSegmented<Value: Hashable>: View {
                         .background {
                             if on {
                                 RoundedRectangle(cornerRadius: 12).fill(Palette.paper)
+                                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Palette.edge, lineWidth: 1))
                                     .softShadow(radius: 6, y: 2)
                                     .matchedGeometryEffect(id: "pill", in: pill)
                             }
@@ -190,5 +191,7 @@ struct SoftSegmented<Value: Hashable>: View {
         }
         .padding(4)
         .background(Palette.sunk, in: .rect(cornerRadius: 16))
+        // In dark mode the track is nearly the backdrop's colour; the edge keeps it from vanishing.
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Palette.edge, lineWidth: 1))
     }
 }
