@@ -481,8 +481,7 @@ struct StudyView: View {
         case .prompt:
             switch session.mode {
             case .esEn, .enEs:
-                Button("Mostrar respuesta") { session.reveal() }
-                    .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
+                EmptyView() // a tap on the card shows the answer; its pill says so
             case .recite:
                 Button("Mostrar la tabla") { session.reveal() }
                     .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
