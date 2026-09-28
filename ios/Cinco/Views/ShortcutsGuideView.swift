@@ -20,7 +20,7 @@ struct ShortcutsGuideView: View {
                     .foregroundStyle(Palette.muted)
                 Text("Si la palabra ya está en tus tarjetas (con o sin artículo), no se duplica: Cinco te dice qué traería de nuevo (un ejemplo, una mnemotecnia, tiempos que faltan, otro significado) y solo lo cambia si dices que sí. Si no hay nada nuevo, te lo dice y no toca nada.")
                     .foregroundStyle(Palette.muted)
-                Text("Si el paso 2 o 3 falla porque la palabra ya está en ese idioma, bórralo: ChatGPT traduce también. Si un verbo está en el diccionario de Cinco, sus tablas salen del diccionario, que están revisadas, en lugar de las de ChatGPT.")
+                Text("Si el paso 2 o 3 falla porque la palabra ya está en ese idioma, bórralo: ChatGPT traduce también.")
                     .foregroundStyle(Palette.muted)
 
                 promptBox
@@ -39,8 +39,7 @@ struct ShortcutsGuideView: View {
 
                 heading("Las acciones de Cinco")
                 action("Añadir tarjetas", "Texto (obligatorio): JSON o CSV, una tarjeta o muchas. Etiquetas (opcional): para las que no traigan. Una palabra nueva entra directa; si ya la tienes, te pregunta antes de cambiarla y nunca pierde su progreso.")
-                action("Añadir palabra", "Palabra (obligatoria), Idioma (opcional: Detectar, Español, Inglés). La rellena con el diccionario de Cinco, sin internet ni IA. Siri: «Añadir una palabra a Cinco».")
-                action("Añadir una tarjeta", "Español e Inglés (obligatorios), Ejemplo y Frase (opcionales). Tal cual, sin rellenar nada.")
+                action("Añadir una tarjeta", "Español e Inglés (obligatorios), Ejemplo y Frase (opcionales). Tal cual, sin rellenar nada. Siri: «Añadir una tarjeta a Cinco».")
                 action("Palabras del mazo", "Sin entradas. Devuelve el español de todas tus tarjetas, para pedirle a un modelo palabras que aún no tengas.")
                 action("Tarjetas pendientes", "Sin entradas. Cuántos repasos te esperan. Siri: «¿Cuántas tarjetas tengo en Cinco?».")
             }

@@ -30,16 +30,14 @@ Before shipping to the App Store, deploy the CloudKit schema to Production in th
 
 ## Shortcuts and Siri
 
-`Cinco/Logic/Intents.swift` gives the Shortcuts app five actions: **Añadir palabra** (a word in Spanish or English,
-filled in from the dictionary like Diccionario's quick add; Siri: "Add a word to Cinco"), **Añadir tarjetas** (JSON
-or CSV text; ``` fences from a model are ignored), **Añadir una tarjeta**, **Palabras del mazo** (the deck's Spanish,
-to tell a model what to skip) and **Tarjetas pendientes**.
+`Cinco/Logic/Intents.swift` gives the Shortcuts app four actions: **Añadir tarjetas** (JSON or CSV text; ``` fences
+from a model are ignored), **Añadir una tarjeta** (Siri: "Add a card to Cinco"), **Palabras del mazo** (the deck's
+Spanish, to tell a model what to skip) and **Tarjetas pendientes**.
 
-Ajustes › Atajos y Siri (`ShortcutsGuideView`) walks through a one-word shortcut, with no API key: Ask for Input →
+Atajos on the home screen (`ShortcutsGuideView`, also in Ajustes) walks through a one-word shortcut, with no API key: Ask for Input →
 Translate Text to Spanish and to English → Use Model (ChatGPT) with the prompt the screen copies → Añadir tarjetas.
 The prompt asks for one JSON card (`CardJSON`): noun fields for a noun, all fifteen tables for a verb. Only
-`spanish` and `english` are required; a verb Cinco's dictionary knows keeps the dictionary's tables, and an import
-never replaces a mnemonic the learner wrote. A word already in the deck (matched with or without its article) isn't
+`spanish` and `english` are required, and an import never replaces a mnemonic the learner wrote. A word already in the deck (matched with or without its article) isn't
 duplicated: the action lists what would change (`Deck.changes`) and asks before updating it.
 
 ## Development
@@ -50,31 +48,17 @@ Debug builds take launch arguments for the simulator:
 
 - `-importCSV <path>` loads a deck file from the Mac at launch.
 - `-demo vocab|conj <steps> [stage]` opens a verb card at a stage and advances it that many reveal steps.
-- `-lookup <query>` opens the dictionary with that search; `-entry <word>` opens one word's page.
 - `-openTenses` opens the Conjugación tense picker.
 - `-studyNewest <n>` starts a session with the n most recently added word cards; `-studyCard <spanish>` with one card.
 
 ## Tabs
 
 Vocabulario (words, verbs included, as word ↔ meaning), Conjugación (one card per verb tense) and Frases
-(whole expressions). After an answer, «En una frase» shows the word in example sentences and «Origen» where it
-comes from, both from the dictionary. Frases can be loaded from `decks/frases-inicio.csv`, added by hand, or
-imported: a `type` column set to `phrase`, or any file imported while the Frases tab is open.
-
-## Dictionary
-
-Diccionario (on the home screen) looks up the 10,000 most common Spanish words, including by conjugated form
-(pidió finds pedir) or English meaning, and adds one to the deck with its conjugation tables.
-Its data is `Cinco/Resources/dictionary.sqlite`, built by `scripts/build_dictionary.py` from Wiktionary
-and verbecc, with word frequency from OpenSubtitles and example sentences from Tatoeba. Conjugated forms are kept only
-where Wiktionary and verbecc agree; `scripts/dictionary_report.md` lists the rest. To rebuild:
-
-    python3 -m venv /tmp/dict-venv && /tmp/dict-venv/bin/pip install verbecc
-    /tmp/dict-venv/bin/python scripts/build_dictionary.py        # downloads ~1 GB to ~/Library/Caches the first time
-
-To add words beyond the common 10,000 (slang, regional words, phrases), list them in
-`scripts/dictionary_extra.csv` and rebuild; its header explains the columns. Words it doesn't have can still be
-written by hand from the Diccionario screen.
+(whole expressions). After an answer, «En una frase» shows the card's own example and sentences.
+The starter deck (`decks/starter.csv`: 20 words, 10 of them verbs with their core tables, and
+`decks/frases-inicio.csv`: 20 phrases) loads with one button on an empty deck. After that, cards come from Añadir,
+the Shortcuts actions, or an import. An imported card goes to Frases when its `type` column is `phrase`, or when
+the file is imported while the Frases tab is open.
 
 ## Not yet in the native app
 

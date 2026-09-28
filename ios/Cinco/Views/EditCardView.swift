@@ -6,7 +6,7 @@ struct EditCardView: View {
     @Environment(\.modelContext) private var ctx
     @Environment(\.dismiss) private var dismiss
     let card: Card?
-    /// A new card's starting text, e.g. a word the dictionary didn't have.
+    /// A new card's starting text.
     var draft: CardRecord?
 
     @State private var rec = CardRecord()

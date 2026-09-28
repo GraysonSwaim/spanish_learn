@@ -55,7 +55,10 @@ struct HomeView: View {
                     Spacer().frame(height: 18)
                 }
                 if cards.isEmpty {
-                    Button("Cargar el mazo de inicio") { message = Deck.loadStarter(ctx)?.summary }
+                    Button("Cargar el mazo de inicio") {
+                        let words = Deck.loadStarter(ctx), phrases = Deck.loadStarter(ctx, deck: "frases-inicio")
+                        message = "Vocabulario: \(words?.added ?? 0), con \(words?.verbs ?? 0) verbos en Conjugación. Frases: \(phrases?.added ?? 0)."
+                    }
                         .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, size: 19))
                         .padding(.bottom, 22)
                 } else if tab == .phrases && tabCards.isEmpty {
@@ -107,24 +110,7 @@ struct HomeView: View {
         .sheet(item: $editing) { t in
             NavigationStack { EditCardView(card: t.card, draft: t.phrase ? CardRecord(phrase: true) : nil) }
         }
-        #if DEBUG
-        // Development: `-lookup <query>` or `-entry <word>` opens the dictionary at launch for screenshots.
-        .navigationDestination(item: $debugPage) { page in
-            if page.hasPrefix("entry:"), let e = Lexicon.shared.entry(String(page.dropFirst(6))) { EntryView(entry: e) }
-            else { LookupView(initial: String(page.dropFirst(7))) }
-        }
-        .onAppear {
-            let args = ProcessInfo.processInfo.arguments
-            for (flag, prefix) in [("-lookup", "lookup:"), ("-entry", "entry:")] {
-                if let i = args.firstIndex(of: flag), i + 1 < args.count { debugPage = prefix + args[i + 1] }
-            }
-        }
-        #endif
     }
-
-    #if DEBUG
-    @State private var debugPage: String?
-    #endif
 
     private var tabPicker: some View {
         SoftSegmented(options: Tab.allCases.map { ($0.rawValue, $0.name) }, selection: $tabRaw)
@@ -135,7 +121,7 @@ struct HomeView: View {
     private static let emptyLede: [Tab: String] = [
         .conj: "Aún no hay verbos con conjugación. Importa un CSV con columnas de tiempos (presente, preterito…) o añádelas al editar un verbo.",
         .phrases: "Frases hechas para armar conversaciones: saludos, pedir en un restaurante, preguntar direcciones… Carga las de inicio, añade las tuyas o impórtalas.",
-        .vocab: "Importa un CSV de palabras para empezar.",
+        .vocab: "Empieza con el mazo de inicio. Después añade tus palabras a mano, con un atajo o importando un CSV.",
     ]
 
     private func ladder(_ n: DeckCounts) -> some View {
@@ -183,7 +169,7 @@ struct HomeView: View {
     /// Five tiles in a row, lined up with the five stages above.
     private var menu: some View {
         HStack(spacing: 8) {
-            NavigationLink { LookupView() } label: { MenuTile(title: "Diccionario", icon: "book.closed.fill", tint: Palette.stage(1)) }
+            NavigationLink { ShortcutsGuideView() } label: { MenuTile(title: "Atajos", icon: "bolt.fill", tint: Palette.stage(1)) }
             NavigationLink { BrowseView() } label: { MenuTile(title: "Explorar", icon: "rectangle.stack.fill", tint: Palette.stage(2)) }
             Button { editing = EditTarget(card: nil, phrase: tab == .phrases) } label: {
                 MenuTile(title: "Añadir", icon: "plus", tint: Palette.stage(3))

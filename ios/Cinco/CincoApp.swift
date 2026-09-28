@@ -77,7 +77,7 @@ struct RootView: View {
             studying = true
             return
         }
-        // `-studyNewest <n>` studies the n most recently added word cards, e.g. ones from the dictionary.
+        // `-studyNewest <n>` studies the n most recently added word cards.
         if let i = args.firstIndex(of: "-studyNewest"), i + 1 < args.count, let n = Int(args[i + 1]) {
             let newest = Deck.allCards(ctx).filter { !$0.isConj }.sorted { $0.added > $1.added }.prefix(n)
             session = StudySession(queue: Array(newest), tab: .vocab, ctx: ctx)

@@ -68,7 +68,7 @@ struct CSVTests {
     @Test func starterDeckParses() throws {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../decks/starter.csv")
         let r = CSVImport.parse(try String(contentsOf: url, encoding: .utf8))
-        #expect(r.count > 50)
+        #expect(r.count == 20)
         #expect(r.allSatisfy { !$0.es.isEmpty && !$0.en.isEmpty })
     }
 }
@@ -121,95 +121,7 @@ struct SchedulerTests {
     }
 }
 
-/// The bundled dictionary: lookups, articles, and the cards it makes.
-@MainActor
-struct LexiconTests {
-    let lex = Lexicon.shared
-
-    @Test func findsWordsByConjugatedFormAndByEnglish() {
-        #expect(lex.isAvailable)
-        #expect(lex.search("pidió").first?.word == "pedir")
-        #expect(lex.search("manos").first?.word == "mano")
-        #expect(lex.search("fue").map(\.word).contains("ser"))
-        #expect(lex.search("fue").map(\.word).contains("ir"))
-        #expect(lex.search("to ask").map(\.word).contains("pedir"))
-    }
-
-    @Test func nounsGetTheirArticle() throws {
-        let mano = try #require(lex.entry("mano"))
-        #expect(mano.spanish(for: mano.senses.first) == "la mano")
-        let agua = try #require(lex.entry("agua"))
-        #expect(agua.spanish(for: agua.senses.first) == "el agua")
-        let libro = try #require(lex.entry("libro"))
-        #expect(libro.spanish(for: libro.senses.first) == "el libro")
-    }
-
-    @Test func verbCardsCarryTheCheckedTables() throws {
-        let pedir = try #require(lex.entry("pedir"))
-        let r = pedir.record(senses: [pedir.senses[0]], tenses: LexEntry.coreTenses)
-        #expect(r.es == "pedir")
-        #expect(r.tenses.keys.sorted() == LexEntry.coreTenses.sorted())
-        #expect(r.tenses["preterito"] == "pedí|pediste|pidió|pedimos|pedisteis|pidieron")
-        #expect(r.tenses["subjuntivo"] == "pida|pidas|pida|pidamos|pidáis|pidan")
-        #expect(pedir.tenses["perfecto"] == "he pedido|has pedido|ha pedido|hemos pedido|habéis pedido|han pedido")
-        #expect(pedir.tenses["imperativo"] == "|pide|pida|pidamos|pedid|pidan")
-        #expect(!r.frases.isEmpty)
-    }
-
-    /// The same forms as the hand-checked starter deck.
-    @Test func matchesTheStarterDeck() throws {
-        let url = try #require(Bundle.main.url(forResource: "starter", withExtension: "csv"))
-        let recs = CSVImport.parse(try String(contentsOf: url, encoding: .utf8)).filter { !$0.tenses.isEmpty }
-        #expect(recs.count >= 10)
-        for rec in recs {
-            let e = try #require(lex.entry(rec.es), "\(rec.es) missing")
-            for (k, v) in rec.tenses where !v.isEmpty {
-                let dict = e.tenses[k].map { $0.split(separator: "|", omittingEmptySubsequences: false).map { $0.split(separator: " / ").first.map(String.init) ?? "" } }
-                let deck = v.split(separator: "|", omittingEmptySubsequences: false).map { $0.split(separator: " / ").first.map(String.init) ?? "" }
-                #expect(dict == deck, "\(rec.es) \(k)")
-            }
-        }
-    }
-}
-
-/// Adding dictionary words to a deck, the way the Diccionario screen does.
-@MainActor
-struct DictionaryAddTests {
-    let lex = Lexicon.shared
-
-    private func store() throws -> ModelContext {
-        let schema = Schema([Card.self, DayLog.self])
-        let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
-        return ModelContext(c)
-    }
-
-    @Test func quickAddingSeveralWords() throws {
-        let ctx = try store()
-        for w in ["pedir", "mano", "chido"] {
-            let e = try #require(lex.entry(w))
-            #expect(Deck.save(e.record(senses: Array(e.senses.prefix(1)), tenses: LexEntry.coreTenses), editing: nil, ctx: ctx) == nil)
-        }
-        let cards = Deck.allCards(ctx)
-        #expect(Set(cards.filter { !$0.isConj }.map(\.es)) == ["pedir", "la mano", "chido"])
-        // pedir brings one Conjugación card per core tense.
-        #expect(Set(cards.filter(\.isConj).map(\.tense)) == LexEntry.coreTenses)
-        #expect(cards.first { $0.es == "la mano" }?.notes == "Plural: manos")
-        // Adding a word twice is refused, not duplicated.
-        let again = try #require(lex.entry("pedir"))
-        #expect(Deck.save(again.record(senses: [again.senses[0]], tenses: []), editing: nil, ctx: ctx) != nil)
-    }
-
-    @Test func extraWordsAreSearchable() throws {
-        #expect(lex.search("que onda").first?.word == "¿qué onda?")
-        #expect(lex.search("güey").first?.word == "güey")
-        let e = try #require(lex.entry("popote"))
-        #expect(e.id > lex.common)
-        #expect(e.spanish(for: e.senses.first) == "el popote")
-        #expect(e.senses.first?.t == ["Mexico"])
-    }
-}
-
-/// Frases: phrase cards live in their own tab, and come from a type column, the starter deck or the dictionary.
+/// Frases: phrase cards live in their own tab, and come from a type column or the starter deck.
 @MainActor
 struct PhraseTests {
     private func store() throws -> ModelContext {
@@ -231,22 +143,20 @@ struct PhraseTests {
     @Test func starterPhrasesLoad() throws {
         let ctx = try store()
         let r = try #require(Deck.loadStarter(ctx, deck: "frases-inicio"))
-        #expect(r.added >= 60)
+        #expect(r.added == 20)
         #expect(Deck.allCards(ctx).allSatisfy { $0.isPhrase })
     }
 
-    @Test func dictionaryPhrasesGoToFrases() throws {
-        let e = try #require(Lexicon.shared.entry("¿qué onda?"))
-        #expect(e.record(senses: Array(e.senses.prefix(1)), tenses: []).phrase)
-        let w = try #require(Lexicon.shared.entry("perro"))
-        #expect(!w.record(senses: Array(w.senses.prefix(1)), tenses: []).phrase)
+    /// Twenty words, ten of them verbs with their six core tables for Conjugación.
+    @Test func starterWordsLoad() throws {
+        let ctx = try store()
+        let r = try #require(Deck.loadStarter(ctx))
+        #expect(r.added == 20)
+        #expect(r.verbs == 10)
+        let conj = Deck.allCards(ctx).filter(\.isConj)
+        #expect(conj.count == 60)
     }
 
-    @Test func dictionaryHasSentencesAndOrigins() throws {
-        let e = try #require(Lexicon.shared.entry("hacer"))
-        #expect(!e.sentences.isEmpty)
-        #expect(e.origin.contains("Latin"))
-    }
 }
 
 struct IntentTests {
@@ -256,23 +166,6 @@ struct IntentTests {
         let recs = CSVImport.parse(AddCardsIntent.unfence(reply))
         #expect(recs.map(\.es) == ["la maleta", "el vuelo"])
         #expect(recs[0].ex == "Mi maleta es azul.")
-    }
-}
-
-@MainActor
-struct FindWordTests {
-    @Test(arguments: [
-        ("suitcase", "la maleta"), ("dog", "el perro"), ("run", "correr"), ("to run", "correr"),
-        ("house", "la casa"), ("bank", "el banco"), ("red", "rojo"), ("sin", "sin"), ("maleta", "la maleta"), ("hablé", "hablar"),
-    ])
-    func finds(_ word: String, _ es: String) throws {
-        let (e, s) = try #require(Lexicon.shared.find(word))
-        #expect(e.record(senses: s.map { [$0] } ?? [], tenses: []).es == es)
-    }
-
-    @Test func spanishOnly() throws {
-        let (e, _) = try #require(Lexicon.shared.find("red", in: .spanish))
-        #expect(e.word == "red")
     }
 }
 

@@ -103,7 +103,7 @@ struct HowView: View {
                         }
                     }
                 }
-                Text("En Vocabulario solo ves la palabra y su significado, también en los verbos. Tras la respuesta puedes tocar «En una frase» para verla en uso u «Origen» para saber de dónde viene. Frases funciona igual, con expresiones enteras (¿Dónde está el baño?, Me da igual) y su propio límite de nuevas al día.")
+                Text("En Vocabulario solo ves la palabra y su significado, también en los verbos. Tras la respuesta puedes tocar «En una frase» para verla en uso. Frases funciona igual, con expresiones enteras (¿Dónde está el baño?, Me da igual) y su propio límite de nuevas al día.")
                 Text("En Conjugación cada tiempo de cada verbo es una tarjeta: primero ves el verbo, luego su significado y después conjugas la tabla. Primero la estudias, luego la dices en voz alta y te calificas, y desde la etapa 4 escribes las formas. El pronombre es opcional.")
                 Text("Columnas del CSV: spanish, english, example, notes, tags. Solo las dos primeras son obligatorias. Los verbos pueden llevar una columna por tiempo (presente, preterito, imperfecto…), cada una con las seis formas separadas por |. Reimportar un archivo actualiza las tarjetas sin perder su progreso.")
                 Text("Si fallas una tarjeta, puedes escribir en ese momento una mnemotecnia: un truco para recordarla. Aparece con la respuesta la próxima vez. Se puede desactivar en Ajustes.")

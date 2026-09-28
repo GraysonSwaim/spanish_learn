@@ -9,7 +9,7 @@ index.html            the whole app (HTML, CSS, JavaScript)
 manifest.webmanifest  tells iOS to treat it as an app
 sw.js                 makes it work offline
 icons/                home screen icons
-decks/starter.csv     62 high-frequency words to begin with
+decks/starter.csv     20 words to begin with (10 verbs with tables)
 ```
 
 ## The five stages

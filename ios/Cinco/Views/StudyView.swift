@@ -7,14 +7,11 @@ struct StudyView: View {
     @State private var typed = ""
     @State private var grid: [Int: String] = [:]
     @State private var dragX: CGFloat = 0
-    /// The dictionary's entry for the card on screen (sentences, origin), looked up once per card.
-    @State private var lex: LexEntry?
-    @State private var more: More?
+    /// Whether the card's sentences are open under the answer.
+    @State private var showSentences = false
     /// The card just missed, while its mnemonic sheet is up.
     @State private var mnemonicFor: Card?
     @FocusState private var focus: Field?
-
-    private enum More { case sentences, origin }
 
     private enum Field: Hashable { case answer, cell(Int) }
 
@@ -41,8 +38,7 @@ struct StudyView: View {
         .padding(.bottom, 8)
         .background(Backdrop())
         .onChange(of: session.step, initial: true) {
-            typed = ""; grid = [:]; dragX = 0; more = nil
-            lex = session.current.flatMap { $0.isConj ? nil : Lexicon.shared.entry(for: $0) }
+            typed = ""; grid = [:]; dragX = 0; showSentences = false
         }
         .sheet(item: $mnemonicFor) { c in
             MnemonicSheet(card: c, meaning: c.isConj ? session.verb(of: c)?.en ?? "" : c.en)
@@ -236,69 +232,51 @@ struct StudyView: View {
         }
     }
 
-    // MARK: in a sentence, and where it comes from
+    // MARK: in a sentence
 
-    /// Sentences using the card: its own example and sentences first, then the dictionary's (with translations).
-    private func sentences(_ c: Card) -> [LexEntry.Example] {
-        let known = lex?.examples ?? []
-        let own = ([c.ex] + c.frases.split(separator: "|").map(String.init))
-            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-            .map { es in LexEntry.Example(es: es, en: known.first { TextMatch.strip($0.es) == TextMatch.strip(es) }?.en ?? "") }
+    /// The card's own example and sentences.
+    private func sentences(_ c: Card) -> [String] {
         var seen = Set<String>()
-        return (own + known).filter { seen.insert(TextMatch.strip($0.es)).inserted }.prefix(3).map { $0 }
+        return ([c.ex] + c.frases.split(separator: "|").map(String.init))
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && seen.insert(TextMatch.strip($0)).inserted }
+            .prefix(3).map { $0 }
     }
 
-    /// Two optional extras under the answer: the word in a sentence, and its origin.
+    /// An optional extra under the answer: the word in a sentence.
     @ViewBuilder
     private func moreAbout(_ c: Card) -> some View {
         let list = sentences(c)
-        let origin = lex?.origin ?? ""
-        if !list.isEmpty || !origin.isEmpty {
-            HStack(spacing: 10) {
-                if !list.isEmpty { moreChip("En una frase", icon: "text.bubble.fill", .sentences) }
-                if !origin.isEmpty { moreChip("Origen", icon: "leaf.fill", .origin) }
-            }
-            .padding(.top, 18)
-            switch more {
-            case .sentences:
+        if !list.isEmpty {
+            moreChip("En una frase", icon: "text.bubble.fill")
+                .padding(.top, 18)
+            if showSentences {
                 VStack(alignment: .leading, spacing: 12) {
-                    ForEach(list, id: \.es) { ex in
-                        Button { session.speak(ex.es) } label: {
+                    ForEach(list, id: \.self) { es in
+                        Button { session.speak(es) } label: {
                             HStack(alignment: .top, spacing: 10) {
                                 Image(systemName: "speaker.wave.2.fill").font(.system(size: 13, weight: .bold))
                                     .foregroundStyle(Palette.sea).padding(.top, 4)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(ex.es).font(Typo.italic(18)).foregroundStyle(Palette.ink)
-                                    if !ex.en.isEmpty { Text(ex.en).font(Typo.text(15)).foregroundStyle(Palette.en) }
-                                }
+                                Text(es).font(Typo.italic(18)).foregroundStyle(Palette.ink)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .contentShape(.rect)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("\(ex.es). \(ex.en)")
+                        .accessibilityLabel(es)
                         .accessibilityHint("Toca para escucharla")
                     }
                 }
                 .multilineTextAlignment(.leading)
                 .morePanel()
-            case .origin:
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(origin).font(Typo.text(15)).foregroundStyle(Palette.ink)
-                    Text("Wiktionary").font(Typo.text(12, .bold)).foregroundStyle(Palette.muted)
-                }
-                .multilineTextAlignment(.leading)
-                .morePanel()
-            case nil:
-                EmptyView()
             }
         }
     }
 
-    private func moreChip(_ title: String, icon: String, _ which: More) -> some View {
-        let on = more == which
+    private func moreChip(_ title: String, icon: String) -> some View {
+        let on = showSentences
         return Button {
-            withAnimation(.snappy(duration: 0.25)) { more = on ? nil : which }
+            withAnimation(.snappy(duration: 0.25)) { showSentences.toggle() }
         } label: {
             Label(title, systemImage: icon)
                 .font(Typo.text(14, .heavy))
@@ -547,7 +525,7 @@ struct VerdictTag: View {
 }
 
 private extension View {
-    /// The sunk box an extra (sentences, origin) opens in.
+    /// The sunk box the sentences open in.
     func morePanel() -> some View {
         self.frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)

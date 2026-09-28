@@ -27,10 +27,6 @@ struct AddCardsIntent: AppIntent {
         if let tags, !tags.isEmpty {
             for i in recs.indices where recs[i].tags.isEmpty { recs[i].tags = tags }
         }
-        // A verb Cinco's dictionary knows gets its reviewed tables rather than a model's.
-        for i in recs.indices where !recs[i].phrase && !recs[i].tenses.isEmpty {
-            if let e = Lexicon.shared.entry(TextMatch.noArticle(recs[i].es)), e.isVerb, !e.tenses.isEmpty { recs[i].tenses = e.tenses }
-        }
         guard recs.contains(where: { !$0.es.isEmpty && !$0.en.isEmpty }) else {
             throw $text.needsValueError("No encontré tarjetas. Cada línea necesita español y inglés, separados por coma.")
         }
@@ -91,60 +87,13 @@ struct AddCardsIntent: AppIntent {
     }
 }
 
-/// A word in Spanish or English, filled in from the dictionary the way Diccionario's quick add does it:
-/// article, meaning, example, notes, and for a verb the six core conjugation tables.
-struct AddWordIntent: AppIntent {
-    static let title: LocalizedStringResource = "Añadir palabra"
-    static let description = IntentDescription(
-        "Looks up a word in Spanish or English in Cinco's dictionary and adds it as a card, with its meaning, an example and, for verbs, conjugation tables.")
-
-    @Parameter(title: "Palabra", requestValueDialog: "¿Qué palabra? (What word?)")
-    var word: String
-
-    @Parameter(title: "Idioma", default: .auto)
-    var language: IntentLanguage
-
-    static var parameterSummary: some ParameterSummary {
-        Summary("Añadir \(\.$word)") { \.$language }
-    }
-
-    @MainActor func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
-        guard let (entry, sense) = Lexicon.shared.find(word, in: language.value) else {
-            return .result(value: "", dialog: "«\(word)» no está en el diccionario. Usa «Añadir una tarjeta» para escribirla a mano.")
-        }
-        let rec = entry.record(senses: sense.map { [$0] } ?? [], tenses: LexEntry.coreTenses)
-        if let clash = Deck.save(rec, editing: nil, ctx: Store.container.mainContext) {
-            return .result(value: rec.es, dialog: "\(clash)")
-        }
-        let tab = rec.phrase ? "Frases" : entry.isVerb ? "Vocabulario, con sus tablas en Conjugación" : "Vocabulario"
-        return .result(value: rec.es, dialog: "Añadida: \(rec.es), \(rec.en). La verás en \(tab).")
-    }
-}
-
-enum IntentLanguage: String, AppEnum {
-    case auto, spanish, english
-
-    static let typeDisplayRepresentation: TypeDisplayRepresentation = "Idioma"
-    static let caseDisplayRepresentations: [IntentLanguage: DisplayRepresentation] = [
-        .auto: "Detectar", .spanish: "Español", .english: "Inglés",
-    ]
-
-    var value: WordLanguage {
-        switch self {
-        case .auto: .auto
-        case .spanish: .spanish
-        case .english: .english
-        }
-    }
-}
-
 /// One word, for a quick "add *la maleta*, suitcase" from Siri.
 struct AddCardIntent: AppIntent {
     static let title: LocalizedStringResource = "Añadir una tarjeta"
     static let description = IntentDescription("Adds one word or phrase to the deck.")
 
-    @Parameter(title: "Español") var es: String
-    @Parameter(title: "Inglés") var en: String
+    @Parameter(title: "Español", requestValueDialog: "¿En español?") var es: String
+    @Parameter(title: "Inglés", requestValueDialog: "¿Y en inglés?") var en: String
     @Parameter(title: "Ejemplo") var ex: String?
     @Parameter(title: "Frase", description: "Study it in Frases rather than Vocabulario.", default: false)
     var phrase: Bool
@@ -192,12 +141,12 @@ struct CincoShortcuts: AppShortcutsProvider {
             "How many cards are due in \(.applicationName)",
             "¿Cuántas tarjetas tengo en \(.applicationName)?",
         ], shortTitle: "Pendientes", systemImageName: "clock")
-        AppShortcut(intent: AddWordIntent(), phrases: [
+        AppShortcut(intent: AddCardIntent(), phrases: [
             "Add a word to \(.applicationName)",
             "Add a card to \(.applicationName)",
             "Añadir una palabra a \(.applicationName)",
             "Añadir una tarjeta a \(.applicationName)",
-        ], shortTitle: "Añadir palabra", systemImageName: "plus.rectangle.on.rectangle")
+        ], shortTitle: "Añadir una tarjeta", systemImageName: "plus.rectangle.on.rectangle")
         AppShortcut(intent: AddCardsIntent(), phrases: [
             "Add cards to \(.applicationName)",
             "Añadir tarjetas a \(.applicationName)",
