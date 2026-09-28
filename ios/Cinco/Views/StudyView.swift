@@ -25,11 +25,7 @@ struct StudyView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 8)
                 card(c)
-                actions(c).padding(.top, 18)
-                if session.canGrade {
-                    Text("Desliza la tarjeta: → si la sabías, ← si no")
-                        .font(Typo.text(13, .bold)).foregroundStyle(Palette.muted).padding(.top, 12)
-                }
+                if !session.canGrade { actions(c).padding(.top, 18) }
             }
         }
         .overlay(alignment: .bottom) {
@@ -51,6 +47,7 @@ struct StudyView: View {
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .background(Backdrop())
+        .animation(.snappy(duration: 0.25), value: session.canGrade)
         .onChange(of: session.step, initial: true) {
             typed = ""; grid = [:]; dragX = 0; showSentences = false
         }
@@ -102,7 +99,8 @@ struct StudyView: View {
         .panel(radius: 28, shadow: 6)
         .overlay(alignment: .topLeading) { dropButton(c).opacity(dragX == 0 ? 1 : 0) }
         .overlay(alignment: .bottom) {
-            if let hint = tapHint { tapPill(hint).opacity(dragX == 0 ? 1 : 0).transition(.opacity) }
+            if session.canGrade { gradeTabs.transition(.opacity.combined(with: .offset(y: 12))) }
+            else if let hint = tapHint { tapPill(hint).opacity(dragX == 0 ? 1 : 0).transition(.opacity) }
         }
         .overlay(alignment: .topLeading) { stamp("¡La sé!", Palette.good, -12).opacity(Double(max(0, dragX) / 110)) }
         .overlay(alignment: .topTrailing) { stamp("Otra vez", Palette.again, 12).opacity(Double(max(0, -dragX) / 110)) }
@@ -140,7 +138,26 @@ struct StudyView: View {
             .padding(.horizontal, 22)
             .padding(.vertical, 28)
             // Room for the tap pill, so tall content never slides under it.
-            .padding(.bottom, tapHint == nil ? 0 : 44)
+            .padding(.bottom, session.canGrade ? 84 : tapHint == nil ? 0 : 44)
+    }
+
+    /// The two grades, along the foot of the card, each pointing the way its swipe goes. Dragging the card
+    /// leans on the one it's heading for: that one grows, the other fades.
+    private var gradeTabs: some View {
+        let toward = min(1, abs(dragX) / 110)
+        return HStack(spacing: 10) {
+            Button { grade(false) } label: { BigLabel("Otra vez", "baja una etapa").padding(.leading, 12) }
+                .buttonStyle(GradeTabStyle(color: Palette.again, text: .white, right: false))
+                .scaleEffect(dragX < 0 ? 1 + 0.06 * toward : 1)
+                .opacity(dragX > 0 ? 1 - 0.6 * toward : 1)
+                .accessibilityLabel("Otra vez, baja una etapa")
+            Button { grade(true) } label: { BigLabel("¡La sé!", "sube una etapa").padding(.trailing, 12) }
+                .buttonStyle(GradeTabStyle(color: Palette.good, text: Palette.onGood, right: true))
+                .scaleEffect(dragX > 0 ? 1 + 0.06 * toward : 1)
+                .opacity(dragX < 0 ? 1 - 0.6 * toward : 1)
+                .accessibilityLabel("La sé, sube una etapa")
+        }
+        .padding(.horizontal, 12).padding(.bottom, 12)
     }
 
     /// Pinned to the foot of the card: a hand that taps now and then, and what a tap will show.
@@ -455,12 +472,8 @@ struct StudyView: View {
                 EmptyView()
             }
         default:
-            HStack(spacing: 10) {
-                Button { grade(false) } label: { BigLabel("Otra vez", "baja una etapa") }
-                    .buttonStyle(SoftButtonStyle(fill: Palette.again, text: .white))
-                Button { session.grade(true) } label: { BigLabel("¡La sé!", "sube una etapa") }
-                    .buttonStyle(SoftButtonStyle(fill: Palette.good, text: Palette.onGood))
-            }
+            // Grading happens on the card itself (gradeTabs).
+            EmptyView()
         }
     }
 
@@ -514,6 +527,48 @@ struct StudyView: View {
 }
 
 /// Two lines on a big button: what it does, and a small note.
+/// A grade button shaped like an arrow tab, pointing the way the card swipes for that grade.
+private struct GradeTabStyle: ButtonStyle {
+    let color: Color
+    let text: Color
+    let right: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        let down = configuration.isPressed
+        configuration.label
+            .font(Typo.display(19))
+            .foregroundStyle(text)
+            .shadow(color: .black.opacity(0.15), radius: 1, y: 1)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 11)
+            .background { Gloss(color: color, shape: ArrowTab(right: right), lift: down ? 0.2 : 0.7) }
+            .offset(y: down ? 1.5 : 0)
+            .animation(.spring(duration: 0.18), value: down)
+            .contentShape(ArrowTab(right: right))
+    }
+}
+
+/// A rounded tab whose outer end comes to a soft point.
+nonisolated struct ArrowTab: Shape {
+    var right = true
+
+    func path(in r: CGRect) -> Path {
+        let d = min(22, r.height * 0.4)
+        var pts = [CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX - d, y: r.minY), CGPoint(x: r.maxX, y: r.midY),
+                   CGPoint(x: r.maxX - d, y: r.maxY), CGPoint(x: r.minX, y: r.maxY)]
+        if !right { pts = pts.map { CGPoint(x: r.minX + r.maxX - $0.x, y: $0.y) } }
+        let radii: [CGFloat] = [16, 12, 7, 12, 16]
+        var p = Path()
+        let n = pts.count
+        p.move(to: CGPoint(x: (pts[n - 1].x + pts[0].x) / 2, y: (pts[n - 1].y + pts[0].y) / 2))
+        for i in 0..<n {
+            p.addArc(tangent1End: pts[i], tangent2End: pts[(i + 1) % n], radius: radii[i])
+        }
+        p.closeSubpath()
+        return p
+    }
+}
+
 struct BigLabel: View {
     let title: String, sub: String
     init(_ title: String, _ sub: String) { self.title = title; self.sub = sub }
