@@ -4,13 +4,12 @@
 Sources (downloaded into --cache on first run):
   - Wiktionary's Spanish entries, as extracted by wiktextract (kaikki.org), CC BY-SA:
     meanings, gender, plurals, pronunciation, examples and conjugations.
-  - Fred Jehle's conjugation database (637 verbs), CC BY-NC-SA.
   - verbecc, a rule-based conjugator (pip install verbecc), LGPL. Only its output is used.
   - FrequencyWords (OpenSubtitles 2018, top 50k), CC BY-SA: which words are common.
   - Tatoeba (Spanish sentences with English translations), CC BY 2.0 FR: example sentences.
 
-Every conjugated form is voted on by the three conjugation sources. A form goes into the
-dictionary only when at least two of them agree; a tense with any unresolved person is left out.
+Every conjugated form is checked by both conjugation sources (Wiktionary and verbecc). A form goes into the
+dictionary only when they agree; a tense with any unresolved person is left out.
 Disagreements are written to scripts/dictionary_report.md.
 
   python3 scripts/build_dictionary.py --cache ~/Library/Caches/cinco-dictionary [--words 10000]
@@ -36,7 +35,6 @@ REPORT = os.path.join(ROOT, "scripts", "dictionary_report.md")
 
 SOURCES = {
     "kaikki-es.jsonl": "https://kaikki.org/dictionary/Spanish/kaikki.org-dictionary-Spanish.jsonl",
-    "jehle.csv": "https://raw.githubusercontent.com/ghidinelli/fred-jehle-spanish-verbs/master/jehle_verb_database.csv",
     "freq.txt": "https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/es/es_50k.txt",
     "spa_sentences.tsv.bz2": "https://downloads.tatoeba.org/exports/per_language/spa/spa_sentences.tsv.bz2",
     "eng_sentences.tsv.bz2": "https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2",
@@ -325,32 +323,7 @@ def pick_sentences(pairs, entry_forms, easy, per_word=3):
     return out
 
 
-# ---------- Jehle and verbecc ----------
-
-JEHLE = {("Indicativo", "Presente"): "presente", ("Indicativo", "Pretérito"): "preterito",
-         ("Indicativo", "Imperfecto"): "imperfecto", ("Indicativo", "Futuro"): "futuro",
-         ("Indicativo", "Condicional"): "condicional", ("Subjuntivo", "Presente"): "subjuntivo",
-         ("Subjuntivo", "Imperfecto"): "subj_imperfecto",
-         ("Imperativo Afirmativo", "Presente"): "imperativo", ("Imperativo Negativo", "Presente"): "imperativo_negativo",
-         ("Indicativo", "Pretérito perfecto"): "perfecto", ("Indicativo", "Pluscuamperfecto"): "pluscuamperfecto",
-         ("Indicativo", "Futuro perfecto"): "futuro_perfecto", ("Indicativo", "Condicional perfecto"): "condicional_perfecto",
-         ("Subjuntivo", "Pretérito perfecto"): "subj_perfecto", ("Subjuntivo", "Pluscuamperfecto"): "subj_pluscuamperfecto"}
-
-
-def read_jehle(path):
-    verbs = defaultdict(lambda: {"tables": {}, "part": set(), "en": ""})
-    with open(path, encoding="utf-8") as f:
-        for r in csv.DictReader(f):
-            k = JEHLE.get((r["mood"], r["tense"]))
-            if not k:
-                continue
-            v = verbs[r["infinitive"]]
-            v["en"] = r["infinitive_english"]
-            v["tables"][k] = [{x.strip()} if x.strip() else set() for x in
-                              (r[c] for c in ("form_1s", "form_2s", "form_3s", "form_1p", "form_2p", "form_3p"))]
-            v["part"] = {r["pastparticiple"].strip()}
-    return verbs
-
+# ---------- verbecc ----------
 
 VERBECC = {("indicativo", "presente"): "presente", ("indicativo", "pretérito-perfecto-simple"): "preterito",
            ("indicativo", "pretérito-imperfecto"): "imperfecto", ("indicativo", "futuro"): "futuro",
@@ -395,7 +368,7 @@ class Verbecc:
 # ---------- voting ----------
 
 def vote(cands):
-    """cands: {source: set of forms}. Returns (form or None, unanimous)."""
+    """cands: {source: set of forms}. Returns (form or None, whether every source had it)."""
     present = {s: f for s, f in cands.items() if f}
     count = defaultdict(set)
     for s, forms in present.items():
@@ -404,20 +377,18 @@ def vote(cands):
     agreed = [f for f, ss in count.items() if len(ss) >= 2]
     if not agreed:
         return None, False
-    # Prefer Jehle's spelling when it is confirmed, then the most-backed form.
-    agreed.sort(key=lambda f: (-len(count[f]), "jehle" not in count[f], f))
-    return agreed[0], len(present) == 3 and len(count[agreed[0]]) == 3
+    agreed.sort(key=lambda f: (-len(count[f]), f))
+    return agreed[0], len(present) == len(cands) and len(count[agreed[0]]) == len(cands)
 
 
 def ra_to_se(f):
     return re.sub(r"ra(s|mos|is|n)?$", lambda m: "se" + (m.group(1) or ""), f).replace("ramos", "semos")
 
 
-def build_verb(word, wikt, jehle, vbc, stats, issues):
+def build_verb(word, wikt, vbc, stats, issues):
     """Voted tables in Cinco's format ("a|b|c|d|e|f"), or {} when nothing could be confirmed."""
     w_tab, w_part = wikt
     v_tab, v_part, predicted = vbc
-    j = jehle or {"tables": {}, "part": set()}
     out = {}
     for key in SIMPLE + ["subj_imperfecto:se"]:
         forms, ok = [], True
@@ -425,14 +396,12 @@ def build_verb(word, wikt, jehle, vbc, stats, issues):
             if key in IMPERATIVES and p == 0:
                 forms.append("")
                 continue
+            cands = {"wiktionary": w_tab.get(key, [set()] * 6)[p],
+                     "verbecc": v_tab.get(key, [set()] * 6)[p]}
+            # The -se forms get a third vote: the agreed -ra form with its ending swapped.
             if key == "subj_imperfecto:se":
                 ra = out.get("subj_imperfecto", [""] * 6)[p]
-                jehle_side = {ra_to_se(ra)} if ra else set()
-            else:
-                jehle_side = j["tables"].get(key, [set()] * 6)[p]
-            cands = {"jehle": jehle_side,
-                     "wiktionary": w_tab.get(key, [set()] * 6)[p],
-                     "verbecc": v_tab.get(key, [set()] * 6)[p]}
+                cands["rule"] = {ra_to_se(ra)} if ra else set()
             if not any(cands.values()):
                 ok = False
                 break
@@ -458,15 +427,7 @@ def build_verb(word, wikt, jehle, vbc, stats, issues):
     se = out.pop("subj_imperfecto:se", None)
     if "subj_imperfecto" in out and se:
         out["subj_imperfecto"] = [f"{a} / {b}" if a and b else a for a, b in zip(out["subj_imperfecto"], se)]
-    # Some verbs have two participles (bendecido/bendito, imprimido/impreso) and the other sources may
-    # list only the adjective; Jehle gives the one the compound tenses use.
-    jp = next(iter(j["tables"].get("perfecto", [set()])[0]), "")
-    if jp.startswith("he "):
-        part = jp.removeprefix("he ")
-    elif j["part"]:
-        part = next(iter(j["part"]))
-    else:
-        part, _ = vote({"jehle": j["part"], "wiktionary": w_part, "verbecc": v_part})
+    part, _ = vote({"wiktionary": w_part, "verbecc": v_part})
     return out, part
 
 
@@ -521,7 +482,6 @@ def main():
     rank = {w: i + 1 for i, w in enumerate(ranked)}
     print(f"kept the top {common} words and {len(ranked) - common} extra")
 
-    jehle = read_jehle(src["jehle.csv"])
     vbc = Verbecc()
     stats = defaultdict(int)
     issues = []
@@ -531,22 +491,11 @@ def main():
         verbs.insert(0, "haber")
     for w in ["haber"] + [v for v in verbs if v != "haber"]:
         wikt = next(((e["tables"], e["part"]) for e in lemmas.get(w, []) if e["pos"] == "verb" and e["tables"]), ({}, set()))
-        tables, part = build_verb(w, wikt, jehle.get(w), vbc.tables(w), stats, issues)
+        tables, part = build_verb(w, wikt, vbc.tables(w), stats, issues)
         compound(w, tables, part, HABER)
         if "presente" in tables:
             verb_tables[w] = tables
     print(f"verbs: {len(verb_tables)} of {len(verbs)} have confirmed tables; slots {dict(stats)}")
-
-    # Jehle's own compound tables check the ones built from haber.
-    compound_mismatch = []
-    for w, t in verb_tables.items():
-        for key in list(COMPOUND) + ["subj_pluscuamperfecto"]:
-            jt = jehle.get(w, {}).get("tables", {}).get(key)
-            if jt and key in t:
-                for p in range(6):
-                    mine = t[key][p].split(" / ")[0]
-                    if jt[p] and mine and mine not in jt[p]:
-                        compound_mismatch.append((w, key, p, mine, next(iter(jt[p]))))
 
     if os.path.exists(OUT):
         os.remove(OUT)
@@ -612,7 +561,7 @@ def main():
     db.executemany("INSERT INTO meta VALUES (?,?)", [
         ("built", date.today().isoformat()),
         ("common", str(common)),
-        ("credits", "Definiciones y orígenes: Wiktionary (CC BY-SA), vía kaikki.org. Conjugaciones: Fred Jehle (CC BY-NC-SA), "
+        ("credits", "Definiciones y orígenes: Wiktionary (CC BY-SA), vía kaikki.org. Conjugaciones: "
                     "Wiktionary y verbecc, contrastadas entre sí. Frases: Tatoeba (CC BY 2.0 FR). "
                     "Frecuencia: FrequencyWords / OpenSubtitles (CC BY-SA)."),
     ])
@@ -621,45 +570,32 @@ def main():
     db.close()
     print(f"wrote {OUT}: {len(ranked)} entries, {n_forms} forms, {os.path.getsize(OUT) / 1e6:.1f} MB")
 
-    write_report(stats, issues, compound_mismatch, len(verb_tables), len(verbs), [v for v in verbs if v not in verb_tables])
+    write_report(stats, issues, len(verb_tables), len(verbs), [v for v in verbs if v not in verb_tables])
 
 
-def write_report(stats, issues, compound_mismatch, n_ok, n_verbs, missing):
+def write_report(stats, issues, n_ok, n_verbs, missing):
     names = ["yo", "tú", "él", "nosotros", "vosotros", "ellos"]
     total = stats["slots"] or 1
     L = ["# Dictionary cross-check", "",
-         f"Built {date.today().isoformat()} by `scripts/build_dictionary.py`. Each conjugated form was voted on by "
-         "Fred Jehle's database, Wiktionary and verbecc, and kept only when two agree. For the -se imperfect "
-         "subjunctive, which Jehle lacks, the third vote is the -ra form with its ending swapped. Compound tenses are "
-         "haber plus the voted participle, then compared with Jehle's own.", "",
+         f"Built {date.today().isoformat()} by `scripts/build_dictionary.py`. Each conjugated form was checked against "
+         "Wiktionary and verbecc and kept only when they agree. The -se imperfect subjunctive also gets the agreed -ra "
+         "form with its ending swapped as a third vote. Compound tenses are haber plus the agreed participle.", "",
          f"- Verbs with confirmed tables: **{n_ok}** of {n_verbs}",
          f"- Forms checked: **{stats['slots']}**",
-         f"- All three agreed: **{stats['unanimous']}** ({100 * stats['unanimous'] / total:.1f}%)",
-         f"- Only two sources had the form, and they agreed: **{stats['two']}** ({100 * stats['two'] / total:.1f}%)",
-         f"- Two agreed, the third differed (majority kept): **{stats['majority']}** ({100 * stats['majority'] / total:.1f}%)",
-         f"- No two agreed (tense left out): **{stats['unresolved']}** ({100 * stats['unresolved'] / total:.1f}%)",
-         f"- Compound tenses that differ from Jehle's: **{len(compound_mismatch)}**",
+         f"- Every source agreed: **{stats['unanimous']}** ({100 * stats['unanimous'] / total:.1f}%)",
+         f"- Agreed where both had the form: **{stats['two']}** ({100 * stats['two'] / total:.1f}%)",
+         f"- -se forms kept by majority: **{stats['majority']}** ({100 * stats['majority'] / total:.1f}%)",
+         f"- No agreement (tense left out): **{stats['unresolved']}** ({100 * stats['unresolved'] / total:.1f}%)",
          f"- Verbs left without tables (their present tense wasn't confirmed): {', '.join(sorted(missing)) or 'none'}", ""]
     unresolved = [i for i in issues if i[4] is None]
-    outvoted = [i for i in issues if i[4] is not None]
-    by_source = defaultdict(int)
-    for w, k, p, c, f in outvoted:
-        for s, forms in c.items():
-            if forms and f not in forms:
-                by_source[s] += 1
-    L += ["## Which source was outvoted", ""] + [f"- {s}: {n}" for s, n in sorted(by_source.items(), key=lambda x: -x[1])] + [""]
 
     def row(w, k, p, c):
-        return f"| {w} | {k} | {names[p]} | " + " | ".join(", ".join(sorted(c[s])) or "—" for s in ("jehle", "wiktionary", "verbecc")) + " |"
+        return f"| {w} | {k} | {names[p]} | " + " | ".join(", ".join(sorted(c.get(s, ()))) or "—" for s in ("wiktionary", "verbecc")) + " |"
 
-    L += ["## No agreement (left out of the dictionary)", "", "| verb | tense | person | Jehle | Wiktionary | verbecc |", "|---|---|---|---|---|---|"]
+    L += ["## No agreement (left out of the dictionary)", "", "| verb | tense | person | Wiktionary | verbecc |", "|---|---|---|---|---|"]
     L += [row(w, k, p, c) for w, k, p, c, _ in unresolved[:400]]
     if len(unresolved) > 400:
         L.append(f"\n…and {len(unresolved) - 400} more.")
-    L += ["", "## Jehle outvoted (the Jehle verbs only)", "", "| verb | tense | person | Jehle | Wiktionary | verbecc | kept |", "|---|---|---|---|---|---|---|"]
-    L += [row(w, k, p, c) + f" {f} |" for w, k, p, c, f in outvoted if c["jehle"] and f not in c["jehle"]]
-    L += ["", "## Compound tenses differing from Jehle's", "", "| verb | tense | person | built | Jehle |", "|---|---|---|---|---|"]
-    L += [f"| {w} | {k} | {names[p]} | {m} | {j} |" for w, k, p, m, j in compound_mismatch[:200]]
     with open(REPORT, "w", encoding="utf-8") as f:
         f.write("\n".join(L) + "\n")
     print(f"wrote {REPORT}")

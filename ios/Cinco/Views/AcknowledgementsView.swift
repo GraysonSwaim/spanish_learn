@@ -18,12 +18,8 @@ struct AcknowledgementsView: View {
                use: "Frases de ejemplo y sus traducciones.",
                license: "CC BY 2.0 FR",
                url: "https://tatoeba.org"),
-        Source(name: "Base de datos de verbos de Fred Jehle",
-               use: "Conjugaciones, para comprobar las demás fuentes.",
-               license: "CC BY-NC-SA 3.0",
-               url: "https://github.com/ghidinelli/fred-jehle-spanish-verbs"),
         Source(name: "verbecc",
-               use: "Conjugaciones, para comprobar las demás fuentes.",
+               use: "Conjugaciones, para comprobar las de Wiktionary.",
                license: "LGPL 3.0",
                url: "https://github.com/bretttolbert/verbecc"),
         Source(name: "FrequencyWords, de Hermit Dave",
@@ -35,6 +31,9 @@ struct AcknowledgementsView: View {
                license: "SIL Open Font License 1.1",
                url: "https://fonts.google.com/specimen/Nunito"),
     ]
+
+    /// The same file the app ships, outside the App Store's DRM, as CC BY-SA asks.
+    private static let dictionaryURL = URL(string: "https://github.com/GraysonSwaim/spanish_learn/blob/main/ios/Cinco/Resources/dictionary.sqlite")!
 
     var body: some View {
         ScrollView {
@@ -56,8 +55,13 @@ struct AcknowledgementsView: View {
                     .background(Palette.sunk, in: .rect(cornerRadius: 16))
                     .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Palette.line, lineWidth: 1))
                 }
-                Text("El diccionario de Cinco es una obra derivada de Wiktionary y se comparte con la misma licencia, CC BY-SA 4.0.")
-                    .font(Typo.text(13)).foregroundStyle(Palette.muted)
+                NavigationLink("Licencia de Nunito (SIL OFL 1.1)") { LicenseTextView(title: "Nunito", resource: "OFL") }
+                    .font(Typo.text(16, .heavy)).tint(Palette.accentInk)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("El diccionario de Cinco es una obra derivada de Wiktionary y se comparte con la misma licencia, CC BY-SA 4.0. Puedes descargarlo libremente, sin restricciones:")
+                    Link("dictionary.sqlite en GitHub", destination: Self.dictionaryURL).font(Typo.text(14))
+                }
+                .font(Typo.text(13)).foregroundStyle(Palette.muted)
             }
             .font(Typo.text(16))
             .foregroundStyle(Palette.ink)
@@ -67,5 +71,30 @@ struct AcknowledgementsView: View {
         }
         .background(Backdrop())
         .navigationTitle("Créditos")
+    }
+}
+
+/// A license bundled as a text file, shown in full.
+struct LicenseTextView: View {
+    let title: String
+    let resource: String
+
+    var body: some View {
+        ScrollView {
+            Text(text)
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundStyle(Palette.ink)
+                .textSelection(.enabled)
+                .padding(16)
+                .frame(maxWidth: 640, alignment: .leading)
+                .frame(maxWidth: .infinity)
+        }
+        .background(Backdrop())
+        .navigationTitle(title)
+    }
+
+    private var text: String {
+        Bundle.main.url(forResource: resource, withExtension: "txt")
+            .flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
     }
 }
