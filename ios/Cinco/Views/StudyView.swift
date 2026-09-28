@@ -326,7 +326,7 @@ struct StudyView: View {
             switch (session.mode, session.phase) {
             case (.intro, _), (.recite, .answer):
                 ConjTable(forms: f, tense: c.tense).padding(.top, 16)
-                conjExtras(v, note: note, skip: c.tense)
+                conjExtras(c, v, note: note)
             case (.grid, .prompt):
                 ConjTable(forms: f, tense: c.tense, hidden: { !asked.contains($0) }) { p in
                     TextField("", text: Binding(get: { grid[p] ?? "" }, set: { grid[p] = $0 }))
@@ -365,7 +365,7 @@ struct StudyView: View {
                     }
                 }
                 .padding(.top, 16)
-                conjExtras(v, note: note, skip: c.tense)
+                conjExtras(c, v, note: note)
             default:
                 EmptyView()
             }
@@ -373,10 +373,11 @@ struct StudyView: View {
     }
 
     @ViewBuilder
-    private func conjExtras(_ v: Card?, note: String, skip: String) -> some View {
+    private func conjExtras(_ c: Card, _ v: Card?, note: String) -> some View {
         if !note.isEmpty { notes(note) }
+        mnemonicIfAny(c)
         Button { session.speakTable() } label: { SpeakIcon() }.padding(.top, 14)
-        if let v { VerbTables(verb: v, skip: skip, showFirst: false).padding(.top, 14) }
+        if let v { VerbTables(verb: v, skip: c.tense, showFirst: false).padding(.top, 14) }
     }
 
     // MARK: actions under the card
@@ -437,6 +438,19 @@ struct StudyView: View {
     @ViewBuilder
     private func notesIfAny(_ c: Card) -> some View {
         if !c.notes.isEmpty { notes(c.notes) }
+        mnemonicIfAny(c)
+    }
+
+    @ViewBuilder
+    private func mnemonicIfAny(_ c: Card) -> some View {
+        if !c.mnemonic.isEmpty {
+            Label(c.mnemonic, systemImage: "lightbulb.fill")
+                .font(Typo.text(15, .bold)).foregroundStyle(Palette.ink)
+                .padding(.horizontal, 14).padding(.vertical, 9)
+                .background(Palette.stageSoft(2), in: .rect(cornerRadius: 14))
+                .padding(.top, 14)
+                .accessibilityLabel("Mnemotecnia: \(c.mnemonic)")
+        }
     }
 
     private func speakButton() -> some View {

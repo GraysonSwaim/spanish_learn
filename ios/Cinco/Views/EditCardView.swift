@@ -24,6 +24,9 @@ struct EditCardView: View {
                 TextField("En España, coche; en México, carro", text: $rec.notes, axis: .vertical).labeled("Notas")
                 TextField("transporte", text: $rec.tags).labeled("Etiquetas")
                     .textInputAutocapitalization(.never)
+                if card != nil {
+                    TextField("Coche suena a «coach»: un autobús", text: $rec.mnemonic, axis: .vertical).labeled("Mnemotecnia")
+                }
                 Toggle(isOn: $rec.phrase) {
                     VStack(alignment: .leading) {
                         Text("Es una frase")
@@ -92,7 +95,7 @@ struct EditCardView: View {
             return
         }
         rec = CardRecord(es: c.es, en: c.en, ex: c.ex, notes: c.notes, tags: c.tags,
-                         frases: c.frases.split(separator: "|").joined(separator: "\n"), tenses: c.tenses, phrase: c.isPhrase)
+                         frases: c.frases.split(separator: "|").joined(separator: "\n"), tenses: c.tenses, phrase: c.isPhrase, mnemonic: c.mnemonic)
         forms = c.tenses.mapValues { TextMatch.splitForms($0) }
     }
 
@@ -101,6 +104,7 @@ struct EditCardView: View {
         r.es = r.es.trimmingCharacters(in: .whitespacesAndNewlines)
         r.en = r.en.trimmingCharacters(in: .whitespacesAndNewlines)
         r.tags = r.tags.lowercased().trimmingCharacters(in: .whitespaces)
+        r.mnemonic = r.mnemonic.trimmingCharacters(in: .whitespacesAndNewlines)
         r.frases = r.frases.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.joined(separator: "|")
         guard !r.es.isEmpty, !r.en.isEmpty else { error = "Hacen falta el español y el inglés."; return }
         r.tenses = r.phrase ? [:] : forms.compactMapValues { f in

@@ -121,6 +121,7 @@ enum Deck {
         card.kind = rec.phrase ? .phrase : .word
         card.es = rec.es; card.en = rec.en; card.ex = rec.ex; card.notes = rec.notes
         card.tags = rec.tags; card.frases = rec.frases; card.tenses = rec.phrase ? [:] : rec.tenses
+        if old != nil { card.mnemonic = rec.mnemonic }
         byID[id] = card
         syncConj(card, byID: &byID, ctx: ctx)
         try? ctx.save()
@@ -135,6 +136,7 @@ enum Deck {
             let keep = group.max { ($0.reps, -$0.added.timeIntervalSince1970) < ($1.reps, -$1.added.timeIntervalSince1970) }!
             for c in group where c !== keep {
                 if c.dropped != nil && keep.dropped == nil && c.reps >= keep.reps { keep.dropped = c.dropped }
+                if keep.mnemonic.isEmpty { keep.mnemonic = c.mnemonic }
                 ctx.delete(c)
             }
             changed = true

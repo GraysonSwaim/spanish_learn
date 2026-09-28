@@ -19,6 +19,8 @@ final class Card {
     var ex: String = ""
     var notes: String = ""
     var tags: String = ""
+    /// A memory trick, written after missing the card (Ajustes › Pedir mnemotecnias).
+    var mnemonic: String = ""
     /// Extra sentences using a verb, separated by "|".
     var frases: String = ""
     /// Tense key -> "yo|tú|él|nosotros|vosotros|ellos".

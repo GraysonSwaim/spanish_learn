@@ -25,6 +25,7 @@ final class StudySession {
         let queue: [Card]
         let day: (reviewed: Int, correct: Int, newVocab: Int, newConj: Int, newPhrase: Int)
         let done: Int, right: Int
+        let missed: [Card]
     }
 
     private struct CardState {
@@ -53,6 +54,8 @@ final class StudySession {
     private(set) var cells: [Int: CellResult] = [:]
     private(set) var done = 0
     private(set) var right = 0
+    /// Cards swiped left this session, once each in the order they were missed, for the mnemonics screen.
+    private(set) var missed: [Card] = []
     private var undoState: Undo?
     /// Bumped on every card change, so a delayed auto-advance can tell it's stale.
     private var step = 0
@@ -184,7 +187,7 @@ final class StudySession {
     private func snapshot(_ c: Card) {
         let d = Deck.today(ctx)
         undoState = Undo(card: c, state: CardState(c), queue: queue,
-                         day: (d.reviewed, d.correct, d.newVocab, d.newConj, d.newPhrase), done: done, right: right)
+                         day: (d.reviewed, d.correct, d.newVocab, d.newConj, d.newPhrase), done: done, right: right, missed: missed)
     }
 
     /// Put a new card at stage 1 and ask it again a few cards later.
@@ -217,6 +220,7 @@ final class StudySession {
             done += 1
         } else {
             Scheduler.fail(c)
+            if !missed.contains(where: { $0 === c }) { missed.append(c) }
             requeue(c)
         }
         try? ctx.save()
@@ -240,6 +244,7 @@ final class StudySession {
         queue = u.queue
         done = u.done
         right = u.right
+        missed = u.missed
         undoState = nil
         try? ctx.save()
         next()

@@ -11,6 +11,7 @@ enum PrefKey {
     static let tab = "tab"
     static let tense = "tense"
     static let theme = "theme"
+    static let askMnemonics = "askMnemonics"
 }
 
 struct Prefs {
@@ -19,6 +20,7 @@ struct Prefs {
     var direction = Direction.stage
     var vosotros = false
     var voiceLang = "es-MX"
+    var askMnemonics = true
 
     static var current: Prefs {
         let d = UserDefaults.standard
@@ -28,6 +30,7 @@ struct Prefs {
         p.direction = Direction(rawValue: d.string(forKey: PrefKey.direction) ?? "") ?? .stage
         p.vosotros = d.bool(forKey: PrefKey.vosotros)
         p.voiceLang = d.string(forKey: PrefKey.voiceLang) ?? "es-MX"
+        if d.object(forKey: PrefKey.askMnemonics) != nil { p.askMnemonics = d.bool(forKey: PrefKey.askMnemonics) }
         return p
     }
 }

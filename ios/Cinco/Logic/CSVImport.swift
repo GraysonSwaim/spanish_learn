@@ -6,6 +6,8 @@ nonisolated struct CardRecord: Equatable, Hashable, Identifiable {
     var tenses: [String: String] = [:]
     /// A phrase card (Frases tab) rather than a word: a "type" column saying "phrase" or "frase".
     var phrase = false
+    /// Only set when editing a card by hand; imports and new cards leave it empty.
+    var mnemonic = ""
     var id: String { es }
 }
 

@@ -284,3 +284,61 @@ struct FindWordTests {
         #expect(e.word == "red")
     }
 }
+
+/// The cards a session remembers missing, for the mnemonics screen, and the mnemonic an edit keeps.
+@MainActor
+struct MnemonicTests {
+    private func store() throws -> ModelContext {
+        let schema = Schema([Card.self, DayLog.self])
+        let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+        return ModelContext(c)
+    }
+
+    private func cards(_ ctx: ModelContext, _ words: [String]) -> [Card] {
+        words.enumerated().map { i, w in
+            let c = Card(id: w, es: w, en: w, order: Double(i))
+            c.stage = 1
+            ctx.insert(c)
+            return c
+        }
+    }
+
+    @Test func missedCardsAreListedOnceAndUndoTakesThemBack() throws {
+        let ctx = try store()
+        var prefs = Prefs(); prefs.autoSpeak = false; prefs.direction = .esEn
+        let s = StudySession(queue: cards(ctx, ["uno", "dos"]), tab: .vocab, ctx: ctx, prefs: prefs)
+        func answer(_ pass: Bool) { s.reveal(); s.grade(pass) }
+        answer(false)                       // uno missed, comes back later
+        #expect(s.missed.map(\.es) == ["uno"])
+        answer(true)                        // dos
+        answer(false)                       // uno again: still listed once
+        #expect(s.missed.map(\.es) == ["uno"])
+        s.undo()
+        s.undo()
+        #expect(s.missed.map(\.es) == ["uno"])
+        answer(true)                        // uno right this time; it's still a card that was missed
+        #expect(s.missed.map(\.es) == ["uno"])
+    }
+
+    @Test func undoingTheOnlyMissForgetsIt() throws {
+        let ctx = try store()
+        var prefs = Prefs(); prefs.autoSpeak = false; prefs.direction = .esEn
+        let s = StudySession(queue: cards(ctx, ["uno"]), tab: .vocab, ctx: ctx, prefs: prefs)
+        s.reveal(); s.grade(false)
+        s.undo()
+        #expect(s.missed.isEmpty)
+    }
+
+    @Test func editingKeepsTheMnemonic() throws {
+        let ctx = try store()
+        #expect(Deck.save(CardRecord(es: "el coche", en: "car"), editing: nil, ctx: ctx) == nil)
+        let c = try #require(Deck.allCards(ctx).first)
+        c.mnemonic = "suena a «coach»"
+        var r = CardRecord(es: "el coche", en: "the car", mnemonic: c.mnemonic)
+        #expect(Deck.save(r, editing: c, ctx: ctx) == nil)
+        #expect(c.mnemonic == "suena a «coach»")
+        r.mnemonic = ""
+        #expect(Deck.save(r, editing: c, ctx: ctx) == nil)
+        #expect(c.mnemonic.isEmpty)
+    }
+}
