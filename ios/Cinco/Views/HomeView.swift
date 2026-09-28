@@ -40,7 +40,7 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Wordmark()
-                    .padding(.top, 12).padding(.bottom, 28)
+                    .padding(.top, 12).padding(.bottom, 44)
 
                 tabPicker
                 if tab == .conj { TenseSwitch(cards: cards, selection: $tense).padding(.bottom, 12) }
@@ -174,24 +174,19 @@ struct HomeView: View {
         }
     }
 
+    /// Five tiles in a row, lined up with the five stages above.
     private var menu: some View {
-        VStack(spacing: 0) {
-            NavigationLink { LookupView() } label: {
-                MenuRowLabel(title: "Diccionario", sub: "Busca una palabra y añádela a tus tarjetas")
+        HStack(spacing: 8) {
+            NavigationLink { LookupView() } label: { MenuTile(title: "Diccionario", icon: "book.closed.fill", tint: Palette.stage(1)) }
+            Button { importing = true } label: { MenuTile(title: "Importar", icon: "square.and.arrow.down.fill", tint: Palette.stage(2)) }
+            Button { editing = EditTarget(card: nil, phrase: tab == .phrases) } label: {
+                MenuTile(title: "Añadir", icon: "plus", tint: Palette.stage(3))
             }
-            Divider().overlay(Palette.line)
-            MenuRow(title: "Importar tarjetas", sub: "CSV de iCloud Drive o exportado de Anki") { importing = true }
-            Divider().overlay(Palette.line)
-            MenuRow(title: tab == .phrases ? "Añadir una frase" : "Añadir una tarjeta", sub: "Escríbela a mano") {
-                editing = EditTarget(card: nil, phrase: tab == .phrases)
-            }
-            Divider().overlay(Palette.line)
-            NavigationLink { BrowseView() } label: { MenuRowLabel(title: "Explorar tarjetas", sub: nil) }
-            Divider().overlay(Palette.line)
-            NavigationLink { SettingsView() } label: { MenuRowLabel(title: "Ajustes", sub: nil) }
+            .accessibilityLabel(tab == .phrases ? "Añadir una frase" : "Añadir una tarjeta")
+            NavigationLink { BrowseView() } label: { MenuTile(title: "Explorar", icon: "rectangle.stack.fill", tint: Palette.stage(4)) }
+            NavigationLink { SettingsView() } label: { MenuTile(title: "Ajustes", icon: "gearshape.fill", tint: Palette.stage(5)) }
         }
-        .buttonStyle(.plain)
-        .panel()
+        .buttonStyle(TileStyle())
     }
 
     // MARK: starting sessions
@@ -240,6 +235,39 @@ struct EditTarget: Identifiable {
     /// A new card starts as a phrase (added from the Frases tab).
     var phrase = false
     var id: String { card?.id ?? "new" }
+}
+
+/// One of the Home tiles: an icon in its colour over a short name.
+private struct MenuTile: View {
+    let title: String
+    let icon: String
+    let tint: Color
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon).font(.system(size: 20, weight: .bold)).foregroundStyle(tint)
+                .frame(height: 24)
+            Text(title).font(Typo.text(12, .bold)).foregroundStyle(Palette.ink)
+                .lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14).padding(.horizontal, 4)
+    }
+}
+
+/// A paper tile that presses in a little.
+private struct TileStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        let down = configuration.isPressed
+        let shape = RoundedRectangle(cornerRadius: 18)
+        configuration.label
+            .background(Palette.paper, in: shape)
+            .overlay(shape.strokeBorder(Palette.edge, lineWidth: 1))
+            .softShadow(radius: down ? 3 : 8, y: down ? 1 : 4)
+            .scaleEffect(down ? 0.95 : 1)
+            .animation(.spring(duration: 0.18), value: down)
+            .contentShape(shape)
+    }
 }
 
 struct MenuRowLabel: View {
