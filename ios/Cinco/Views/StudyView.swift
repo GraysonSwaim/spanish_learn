@@ -11,6 +11,8 @@ struct StudyView: View {
     @State private var showSentences = false
     /// The card just missed, while its mnemonic sheet is up.
     @State private var mnemonicFor: Card?
+    /// A short note after a card is set aside, with a way to take it back.
+    @State private var droppedNote: String?
     @FocusState private var focus: Field?
 
     private enum Field: Hashable { case answer, cell(Int) }
@@ -28,10 +30,22 @@ struct StudyView: View {
                     Text("Desliza la tarjeta: → si la sabías, ← si no")
                         .font(Typo.text(13, .bold)).foregroundStyle(Palette.muted).padding(.top, 12)
                 }
-                Button(c.isConj ? "Descartar este tiempo de este verbo" : "Descartar esta palabra, no la necesito") {
-                    session.drop()
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if let note = droppedNote {
+                HStack(spacing: 14) {
+                    Text(note).font(Typo.text(14, .bold)).foregroundStyle(Palette.ink)
+                    Button("Deshacer") { session.undo(); droppedNote = nil }
+                        .font(Typo.text(14, .heavy)).tint(Palette.accentInk)
                 }
-                .font(Typo.text(14, .bold)).foregroundStyle(Palette.muted).padding(.top, 10)
+                .padding(.horizontal, 18).padding(.vertical, 12)
+                .panel(radius: 20, shadow: 3)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .task(id: note) {
+                    try? await Task.sleep(for: .seconds(4))
+                    withAnimation { droppedNote = nil }
+                }
             }
         }
         .padding(.horizontal, 16)
@@ -86,6 +100,7 @@ struct StudyView: View {
         }
         .clipShape(.rect(cornerRadius: 28))
         .panel(radius: 28, shadow: 6)
+        .overlay(alignment: .topLeading) { dropButton(c).opacity(dragX == 0 ? 1 : 0) }
         .overlay(alignment: .topLeading) { stamp("¡La sé!", Palette.good, -12).opacity(Double(max(0, dragX) / 110)) }
         .overlay(alignment: .topTrailing) { stamp("Otra vez", Palette.again, 12).opacity(Double(max(0, -dragX) / 110)) }
         .offset(x: dragX)
@@ -93,6 +108,24 @@ struct StudyView: View {
         .contentShape(.rect)
         .onTapGesture { tap() }
         .simultaneousGesture(swipe)
+    }
+
+    /// Sets the card aside for good: hidden from study, but kept in Explorar, where it can come back.
+    private func dropButton(_ c: Card) -> some View {
+        Button {
+            let note = c.isConj ? "Tiempo descartado · en Explorar" : "Descartada · en Explorar"
+            session.drop()
+            withAnimation(.snappy) { droppedNote = note }
+        } label: {
+            Image(systemName: "eye.slash")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Palette.muted)
+                .frame(width: 44, height: 44)
+                .contentShape(.rect)
+        }
+        .padding(6)
+        .accessibilityLabel(c.isConj ? "Descartar este tiempo de este verbo" : "Descartar esta palabra")
+        .accessibilityHint("Deja de salir al estudiar. Puedes recuperarla en Explorar.")
     }
 
     /// Centred in the card when it fits, scrolling when a verb's tables make it tall.
@@ -120,6 +153,7 @@ struct StudyView: View {
     private func grade(_ pass: Bool) {
         guard let c = session.current, session.canGrade else { return }
         let firstMiss = !pass && !session.missed.contains { $0 === c }
+        droppedNote = nil // its Deshacer would now undo this grade instead
         session.grade(pass)
         if firstMiss && session.prefs.askMnemonics { mnemonicFor = c }
     }
