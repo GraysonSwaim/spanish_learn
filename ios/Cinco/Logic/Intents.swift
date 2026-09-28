@@ -50,10 +50,11 @@ struct AddCardsIntent: AppIntent {
             let r = Deck.importRecords(fresh, into: ctx)
             if fresh.count == 1, let c = fresh.first {
                 let tables = c.tenses.count
-                lines.append("Añadida: \(c.es), \(c.en)."
+                lines.append("Añadida en \(c.phrase ? "Frases" : "Vocabulario"): \(c.es), \(c.en)."
                     + (tables > 0 ? " Con \(tables) \(tables == 1 ? "tiempo" : "tiempos") en Conjugación." : ""))
             } else {
-                lines.append("Añadidas: \(r.added).")
+                let p = fresh.filter(\.phrase).count
+                lines.append("Añadidas: \(r.added)" + (p == 0 ? " en Vocabulario." : p == fresh.count ? " en Frases." : " (\(p) en Frases)."))
             }
         }
         if !updates.isEmpty {
