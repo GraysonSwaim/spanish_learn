@@ -42,11 +42,12 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 0) {
                 Wordmark()
                     .padding(.top, 12)
-                // Pushes everything under the banner to the bottom of the screen.
+                // Pushes everything under the banner to the bottom of the screen; the stage
+                // columns grow first, so this only takes what's left once they're at their tallest.
                 Spacer(minLength: 44)
 
                 tabPicker
-                if tab == .conj { TenseSwitch(cards: cards, selection: $tense).padding(.bottom, 12) }
+                if tab == .conj { TenseSwitch(cards: cards, selection: $tense).padding(.bottom, 12).fixedSize(horizontal: false, vertical: true) }
 
                 if n.total == 0 {
                     Text(Self.emptyLede[tab] ?? "").font(Typo.text(17)).foregroundStyle(Palette.muted).padding(.bottom, 18)
@@ -62,7 +63,7 @@ struct HomeView: View {
                         .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, size: 19))
                         .padding(.bottom, 22)
                 }
-                ladder(n)
+                ladder(n).layoutPriority(1)
                 Button("\(n.unseen) nuevas esperando") { startFresh() }
                     .font(Typo.text(15, .heavy)).tint(Palette.accentInk).disabled(n.unseen == 0)
                     .padding(.top, 12).padding(.bottom, 20)
@@ -87,9 +88,6 @@ struct HomeView: View {
                 }
                 .frame(minHeight: 44)
                 .padding(.top, 14)
-                Text("Tus tarjetas y tu progreso se guardan en iCloud y se sincronizan entre tus dispositivos.")
-                    .font(Typo.text(13)).foregroundStyle(Palette.muted)
-                    .frame(maxWidth: .infinity).multilineTextAlignment(.center).padding(.top, 6)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
@@ -131,6 +129,7 @@ struct HomeView: View {
     private var tabPicker: some View {
         SoftSegmented(options: Tab.allCases.map { ($0.rawValue, $0.name) }, selection: $tabRaw)
             .padding(.top, 2).padding(.bottom, 16)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private static let emptyLede: [Tab: String] = [
@@ -164,7 +163,8 @@ struct HomeView: View {
                     .accessibilityLabel("Estudiar las \(n.byStage[i]) tarjetas de la etapa \(i), \(StageInfo.all[i].name)")
                 }
             }
-            .frame(height: 150)
+            // Grows to fill a tall screen, up to about twice its smallest height.
+            .frame(minHeight: 150, maxHeight: 300)
             HStack(spacing: 8) {
                 ForEach(1...5, id: \.self) { i in
                     VStack(spacing: 0) {
@@ -193,6 +193,7 @@ struct HomeView: View {
             Button { importing = true } label: { MenuTile(title: "Importar", icon: "square.and.arrow.down.fill", tint: Palette.stage(5)) }
         }
         .buttonStyle(TileStyle())
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: starting sessions
