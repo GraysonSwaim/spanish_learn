@@ -9,6 +9,8 @@
 			<string>Cinco</string>
 		</dict>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Nunito-Medium.ttf</string>

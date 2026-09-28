@@ -50,8 +50,8 @@ nonisolated struct Scalloped: Shape {
     }
 }
 
-/// One flag: scalloped, with a row of dots cut out above the scallops and either a daisy in the middle
-/// or, for a flag that carries a letter, two small diamonds at the top corners.
+/// One flag: scalloped, with a row of dots cut out above the scallops and, unless it carries a letter,
+/// a daisy in the middle.
 nonisolated struct PapelFlag: Shape {
     var daisy = true
 
@@ -61,14 +61,6 @@ nonisolated struct PapelFlag: Shape {
         if daisy {
             let d = w * 0.5
             p.addPath(Daisy().path(in: CGRect(x: rect.midX - d / 2, y: rect.minY + rect.height * 0.14, width: d, height: d)))
-        } else {
-            let r = w * 0.055
-            for x in [rect.minX + w * 0.16, rect.maxX - w * 0.16] {
-                let c = CGPoint(x: x, y: rect.minY + w * 0.16)
-                p.move(to: CGPoint(x: c.x, y: c.y - r))
-                p.addLines([CGPoint(x: c.x + r, y: c.y), CGPoint(x: c.x, y: c.y + r), CGPoint(x: c.x - r, y: c.y)])
-                p.closeSubpath()
-            }
         }
         let dot = w * 0.07, y = rect.maxY - w * 0.3
         for i in 0..<4 {
@@ -114,19 +106,26 @@ struct Bunting: View {
     @ViewBuilder private func flagView(_ i: Int) -> some View {
         let color = Palette.stage(i % 5 + 1)
         if i < letters.count {
-            PapelFlag(daisy: false)
-                .fill(color, style: FillStyle(eoFill: true))
-                .overlay {
-                    Text(letters[i])
-                        .font(.custom("Nunito-ExtraBold", size: flag * 0.95, relativeTo: .largeTitle))
-                        .offset(y: -flag * 0.12)
-                        .blendMode(.destinationOut)
+            // The raised flag with its letter cut through, and the flag's own shadow falling into the cut.
+            cut(Gloss(color: color, shape: PapelFlag(daisy: false), lift: 0.6, eoFill: true), letters[i])
+                .background {
+                    cut(PapelFlag(daisy: false).fill(.black.opacity(0.22)), letters[i])
+                        .offset(y: 1.5).blur(radius: 0.8)
                 }
-                .compositingGroup()
-                .shadow(color: color.opacity(0.3), radius: 3, y: 2)
         } else {
-            PapelFlag().fill(color, style: FillStyle(eoFill: true))
+            Gloss(color: color, shape: PapelFlag(), lift: 0.4, eoFill: true)
         }
+    }
+
+    private func cut(_ paper: some View, _ letter: String) -> some View {
+        paper
+            .overlay {
+                Text(letter)
+                    .font(.custom("Nunito-ExtraBold", size: flag * 0.95, relativeTo: .largeTitle))
+                    .offset(y: -flag * 0.12)
+                    .blendMode(.destinationOut)
+            }
+            .compositingGroup()
     }
 }
 

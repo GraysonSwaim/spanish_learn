@@ -132,19 +132,19 @@ struct HomeView: View {
                 ForEach(1...5, id: \.self) { i in
                     Button { if n.byStage[i] > 0 { startStage(i) } } label: {
                         ZStack(alignment: .bottom) {
-                            LinearGradient(colors: [Palette.stageSoft(i).opacity(0.9), Palette.stageSoft(i)], startPoint: .top, endPoint: .bottom)
+                            Gloss(color: Palette.stage(i), shape: Scalloped())
+                            // How full the stage is, as a lighter band rising from the foot.
                             GeometryReader { g in
-                                VStack { Spacer(minLength: 0); Palette.stage(i).opacity(0.3).frame(height: g.size.height * CGFloat(n.byStage[i]) / CGFloat(total)) }
+                                VStack { Spacer(minLength: 0); Color.white.opacity(0.22).frame(height: g.size.height * CGFloat(n.byStage[i]) / CGFloat(total)) }
                             }
+                            .clipShape(Scalloped())
                             VStack(spacing: 8) {
-                                Text("\(n.byStage[i])").font(Typo.display(22)).foregroundStyle(n.byStage[i] == 0 ? Palette.muted : Palette.ink).padding(.top, 10)
-                                Daisy().fill(Palette.stage(i)).frame(width: 16, height: 16)
+                                Text("\(n.byStage[i])").font(Typo.display(22)).foregroundStyle(.white)
+                                    .shadow(color: .black.opacity(0.15), radius: 1, y: 1).padding(.top, 10)
+                                Daisy().fill(.white.opacity(0.9)).frame(width: 16, height: 16)
                                 Spacer()
                             }
                         }
-                        .clipShape(Scalloped())
-                        .overlay(Scalloped().stroke(.white.opacity(0.5), lineWidth: 1))
-                        .softShadow(radius: 8, y: 4)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Estudiar las \(n.byStage[i]) tarjetas de la etapa \(i), \(StageInfo.all[i].name)")
@@ -239,8 +239,10 @@ private struct MenuTile: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Image(systemName: icon).font(.system(size: 20, weight: .bold)).foregroundStyle(tint)
-                .frame(height: 24)
+            Image(systemName: icon).font(.system(size: 17, weight: .bold)).foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.15), radius: 1, y: 1)
+                .frame(width: 38, height: 38)
+                .background { Gloss(color: tint, shape: RoundedRectangle(cornerRadius: 11), lift: 0.4) }
             Text(title).font(Typo.text(12, .bold)).foregroundStyle(Palette.ink)
                 .lineLimit(1).minimumScaleFactor(0.7)
         }
@@ -255,9 +257,7 @@ private struct TileStyle: ButtonStyle {
         let down = configuration.isPressed
         let shape = RoundedRectangle(cornerRadius: 18)
         configuration.label
-            .background(Palette.paper, in: shape)
-            .overlay(shape.strokeBorder(Palette.edge, lineWidth: 1))
-            .softShadow(radius: down ? 3 : 8, y: down ? 1 : 4)
+            .background { Gloss(color: Palette.paper, shape: shape, shade: 0.4, lift: down ? 0.3 : 0.8) }
             .scaleEffect(down ? 0.95 : 1)
             .animation(.spring(duration: 0.18), value: down)
             .contentShape(shape)

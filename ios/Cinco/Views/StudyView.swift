@@ -405,7 +405,7 @@ struct StudyView: View {
         default:
             HStack(spacing: 10) {
                 Button { grade(false) } label: { BigLabel("Otra vez", "baja una etapa") }
-                    .buttonStyle(SoftButtonStyle(fill: Palette.againSoft, text: Palette.again))
+                    .buttonStyle(SoftButtonStyle(fill: Palette.again, text: .white))
                 Button { session.grade(true) } label: { BigLabel("¡La sé!", "sube una etapa") }
                     .buttonStyle(SoftButtonStyle(fill: Palette.good, text: Palette.onGood))
             }

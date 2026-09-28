@@ -16,7 +16,7 @@ nonisolated enum Palette {
     /// Soft shadow under anything that floats.
     static let shadow = dyn(0x8A5A2B, 0x000000, alpha: (0.13, 0.5))
     /// Terracotta, a deepened take on the red flag at the top of the icon's 5; then teal and blue.
-    static let accent = dyn(0xCF5B3E, 0xC4563B)
+    static let accent = dyn(0xE14E32, 0xEE5E40)
     static let accentInk = dyn(0xC24E2F, 0xFFA084)
     static let sea = dyn(0x2A9D99, 0x4CC3BE)
     static let seaSoft = dyn(0xD8F0EE, 0x1D3B3A)
@@ -29,9 +29,9 @@ nonisolated enum Palette {
     static let againSoft = dyn(0xFBDAD5, 0x45221F)
     /// English text.
     static let en = blue
-    /// The five cards of the mockup, in its circle's order: orange, yellow, mint, blue, lavender.
-    static let stages = [dyn(0xF2803F, 0xFF9A5E), dyn(0xE9A514, 0xFFC94D), dyn(0x34A488, 0x5CCBA9),
-                         dyn(0x3576C2, 0x6FA4E8), dyn(0x9063BF, 0xB48BE0)]
+    /// The icon's five flags, top to bottom: red, marigold, sky, leaf green, navy.
+    static let stages = [dyn(0xE9573A, 0xF46A4C), dyn(0xF3B221, 0xF8BF3A), dyn(0x22A2CF, 0x3DB5DE),
+                         dyn(0x3E9A48, 0x55B45F), dyn(0x2C5CA3, 0x4A7BC4)]
     /// The same five as pastel card fills.
     static let stagesSoft = [dyn(0xFCC9A6, 0x4A2E20), dyn(0xFFDF8A, 0x4A3D1C), dyn(0xBDE5D4, 0x1F3D34),
                              dyn(0xC1D6F1, 0x1F3047), dyn(0xDAC8EB, 0x362A45)]
@@ -92,6 +92,35 @@ struct Backdrop: View {
     }
 }
 
+/// The icon's look: a smooth, solid piece of card lying on the page. No outline: it reads as solid because
+/// its own edge, a shade darker, shows just below it, the light falls gently from above, the top edge
+/// catches a little of it, and it casts a close shadow and a faint wide one. `shade` tones it down for large
+/// paper panels; `lift` shrinks as it's pressed, so it sinks onto its edge.
+struct Gloss<S: Shape>: View {
+    let color: Color
+    let shape: S
+    var shade: CGFloat = 1
+    var lift: CGFloat = 1
+    var eoFill = false
+
+    var body: some View {
+        let style = FillStyle(eoFill: eoFill)
+        ZStack {
+            shape.fill(color.mix(with: .black, by: 0.12 + 0.2 * shade), style: style)
+                .offset(y: 2.5 * lift)
+            shape.fill(LinearGradient(colors: [color.mix(with: .white, by: 0.08 * shade), color, color.mix(with: .black, by: 0.05 * shade)],
+                                      startPoint: .top, endPoint: .bottom), style: style)
+                .overlay {
+                    shape.stroke(LinearGradient(stops: [.init(color: .white.opacity(0.4), location: 0), .init(color: .clear, location: 0.1)],
+                                                startPoint: .top, endPoint: .bottom), lineWidth: 1.5)
+                        .clipShape(shape, style: style)
+                }
+        }
+        .shadow(color: .black.opacity(0.12), radius: 1.5, y: 1 + 1.5 * lift)
+        .shadow(color: .black.opacity(0.1), radius: 10 * lift, y: 7 * lift)
+    }
+}
+
 /// A soft pill button: a faint sheen on top, a light shadow tinted by its own colour, and a small press.
 struct SoftButtonStyle: ButtonStyle {
     var fill: Color = Palette.paper
@@ -110,13 +139,10 @@ struct SoftButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 17)
             .padding(.horizontal, 12)
-            .background {
-                shape.fill(fill)
-                    .overlay(shape.fill(LinearGradient(colors: [.white.opacity(plain ? 0 : 0.1), .clear], startPoint: .top, endPoint: .center)))
-                    .overlay(shape.strokeBorder(plain ? Palette.edge : .white.opacity(0.15), lineWidth: 1))
-                    .shadow(color: plain ? Palette.shadow : fill.opacity(0.2), radius: down ? 4 : 10, y: down ? 2 : 5)
-            }
-            .scaleEffect(down ? 0.975 : 1)
+            .shadow(color: .black.opacity(plain ? 0 : 0.15), radius: 1, y: 1)
+            .background { Gloss(color: fill, shape: shape, shade: plain ? 0.4 : 1, lift: down ? 0.3 : 1) }
+            .offset(y: down ? 2 : 0)
+            .scaleEffect(down ? 0.985 : 1)
             .animation(.spring(duration: 0.18), value: down)
     }
 }
@@ -125,9 +151,7 @@ extension View {
     /// The floating panel the cards and menus use: paper, a hairline, and a soft shadow.
     func panel(radius: CGFloat = 24, shadow: CGFloat = 4) -> some View {
         self
-            .background(Palette.paper, in: .rect(cornerRadius: radius))
-            .overlay(RoundedRectangle(cornerRadius: radius).strokeBorder(Palette.edge, lineWidth: 1))
-            .softShadow(radius: shadow * 4, y: shadow * 2)
+            .background { Gloss(color: Palette.paper, shape: RoundedRectangle(cornerRadius: radius), shade: 0.3, lift: shadow / 4) }
     }
 
     func softShadow(radius: CGFloat = 14, y: CGFloat = 6) -> some View {
@@ -142,9 +166,11 @@ struct StageTiles: View {
     var body: some View {
         HStack(spacing: 5) {
             ForEach(1...5, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(i <= stage ? Palette.stage(i) : Palette.line)
-                    .frame(width: 14, height: 14)
+                Group {
+                    if i <= stage { Gloss(color: Palette.stage(i), shape: RoundedRectangle(cornerRadius: 4), lift: 0.3) }
+                    else { RoundedRectangle(cornerRadius: 4).fill(Palette.line) }
+                }
+                .frame(width: 14, height: 14)
             }
             Text(stage > 0 ? "Etapa \(stage) · \(StageInfo.all[stage].name)" : "Nueva")
                 .font(Typo.text(14, .bold))
@@ -177,9 +203,7 @@ struct SoftSegmented<Value: Hashable>: View {
                         .padding(.vertical, 10)
                         .background {
                             if on {
-                                RoundedRectangle(cornerRadius: 12).fill(Palette.paper)
-                                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Palette.edge, lineWidth: 1))
-                                    .softShadow(radius: 6, y: 2)
+                                Gloss(color: Palette.paper, shape: RoundedRectangle(cornerRadius: 12), shade: 0.4, lift: 0.5)
                                     .matchedGeometryEffect(id: "pill", in: pill)
                             }
                         }
@@ -191,7 +215,8 @@ struct SoftSegmented<Value: Hashable>: View {
         }
         .padding(4)
         .background(Palette.sunk, in: .rect(cornerRadius: 16))
-        // In dark mode the track is nearly the backdrop's colour; the edge keeps it from vanishing.
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Palette.edge, lineWidth: 1))
+        // Pressed into the page: shadowed along the top inside edge, caught by the light along the bottom.
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(
+            LinearGradient(colors: [.black.opacity(0.1), .clear, .white.opacity(0.2)], startPoint: .top, endPoint: .bottom), lineWidth: 1))
     }
 }
