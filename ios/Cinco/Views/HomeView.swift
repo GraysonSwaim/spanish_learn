@@ -178,13 +178,13 @@ struct HomeView: View {
     private var menu: some View {
         HStack(spacing: 8) {
             NavigationLink { LookupView() } label: { MenuTile(title: "Diccionario", icon: "book.closed.fill", tint: Palette.stage(1)) }
-            Button { importing = true } label: { MenuTile(title: "Importar", icon: "square.and.arrow.down.fill", tint: Palette.stage(2)) }
+            NavigationLink { BrowseView() } label: { MenuTile(title: "Explorar", icon: "rectangle.stack.fill", tint: Palette.stage(2)) }
             Button { editing = EditTarget(card: nil, phrase: tab == .phrases) } label: {
                 MenuTile(title: "Añadir", icon: "plus", tint: Palette.stage(3))
             }
             .accessibilityLabel(tab == .phrases ? "Añadir una frase" : "Añadir una tarjeta")
-            NavigationLink { BrowseView() } label: { MenuTile(title: "Explorar", icon: "rectangle.stack.fill", tint: Palette.stage(4)) }
-            NavigationLink { SettingsView() } label: { MenuTile(title: "Ajustes", icon: "gearshape.fill", tint: Palette.stage(5)) }
+            NavigationLink { SettingsView() } label: { MenuTile(title: "Ajustes", icon: "gearshape.fill", tint: Palette.stage(4)) }
+            Button { importing = true } label: { MenuTile(title: "Importar", icon: "square.and.arrow.down.fill", tint: Palette.stage(5)) }
         }
         .buttonStyle(TileStyle())
     }
