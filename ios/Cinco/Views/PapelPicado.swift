@@ -130,15 +130,19 @@ struct Bunting: View {
     }
 }
 
-/// "cinco" as a papel picado banner: five letters, five flags, the five stage colours.
+/// "choca cinco" as two papel picado banners, a small "choca" strung above "cinco": five letters and
+/// five flags each, in the five stage colours.
 struct Wordmark: View {
     var flag: CGFloat = 58
 
     var body: some View {
-        Bunting(flag: flag, spacing: 5, letters: ["c", "i", "n", "c", "o"])
-            .accessibilityElement()
-            .accessibilityLabel("Cinco")
-            .accessibilityAddTraits(.isHeader)
+        VStack(spacing: flag * 0.08) {
+            Bunting(flag: flag * 0.6, spacing: 4, letters: ["c", "h", "o", "c", "a"])
+            Bunting(flag: flag, spacing: 5, letters: ["c", "i", "n", "c", "o"])
+        }
+        .accessibilityElement()
+        .accessibilityLabel("Choca Cinco")
+        .accessibilityAddTraits(.isHeader)
     }
 }
 
