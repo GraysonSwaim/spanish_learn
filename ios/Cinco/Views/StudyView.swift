@@ -74,13 +74,13 @@ struct StudyView: View {
     }
 
     private var topBar: some View {
-        HStack {
-            Button("‹ Inicio", action: onExit)
-            Spacer()
+        // The count stays centred with nothing on the right to balance "Inicio".
+        ZStack {
             Text((session.label.isEmpty ? "" : session.label + " · ") + (session.remaining == 1 ? "Queda 1" : "Quedan \(session.remaining)"))
                 .font(Typo.display(20)).foregroundStyle(Palette.ink)
-            Spacer()
-            Button("Deshacer") { session.undo() }.disabled(!session.canUndo)
+                .padding(.horizontal, 80)
+            Button("‹ Inicio", action: onExit)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .font(Typo.text(16, .heavy))
         .tint(Palette.accentInk)
