@@ -2,13 +2,14 @@ import SwiftUI
 import SwiftData
 
 /// Comes up the moment a card is missed: a box for a memory trick, filled in if the card already has one.
-/// Turned off in Ajustes › Pedir mnemotecnias.
+/// Turned off with the switch at its foot, or in Ajustes › Pedir mnemotecnias.
 struct MnemonicSheet: View {
     @Environment(\.modelContext) private var ctx
     @Environment(\.dismiss) private var dismiss
     let card: Card
     let meaning: String
 
+    @AppStorage(PrefKey.askMnemonics) private var askMnemonics = true
     @State private var text = ""
     @FocusState private var focused: Bool
 
@@ -47,6 +48,17 @@ struct MnemonicSheet: View {
                         .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white, size: 17))
                 }
                 .padding(.top, 8)
+                Toggle(isOn: $askMnemonics) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Preguntar cada vez que fallo").font(Typo.text(15, .bold)).foregroundStyle(Palette.ink)
+                        Text(askMnemonics ? "También en Ajustes" : "Ya no saldrá. Actívalo aquí o en Ajustes.")
+                            .font(Typo.text(13)).foregroundStyle(Palette.muted)
+                    }
+                }
+                .tint(Palette.good)
+                .padding(.horizontal, 16).padding(.vertical, 12)
+                .background(Palette.sunk, in: .rect(cornerRadius: 16))
+                .padding(.top, 10)
             }
             .padding(.horizontal, 16).padding(.bottom, 16)
         }

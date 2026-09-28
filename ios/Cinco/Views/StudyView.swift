@@ -7,6 +7,8 @@ struct StudyView: View {
     @State private var typed = ""
     @State private var grid: [Int: String] = [:]
     @State private var dragX: CGFloat = 0
+    /// Read live, so switching it off in the mnemonic sheet holds for the rest of the session.
+    @AppStorage(PrefKey.askMnemonics) private var askMnemonics = true
     /// Counts swipes to the right, the only ones that buzz.
     @State private var rightSwipes = 0
     /// Whether the card's sentences are open under the answer.
@@ -53,6 +55,9 @@ struct StudyView: View {
         .onChange(of: session.step, initial: true) {
             typed = ""; grid = [:]; dragX = 0; showSentences = false
         }
+        #if DEBUG
+        .onAppear { if ProcessInfo.processInfo.arguments.contains("-openMnemonic") { mnemonicFor = session.current } }
+        #endif
         .sheet(item: $mnemonicFor) { c in
             MnemonicSheet(card: c, meaning: c.isConj ? session.verb(of: c)?.en ?? "" : c.en)
                 .presentationDetents([.medium, .large])
@@ -216,7 +221,7 @@ struct StudyView: View {
         let firstMiss = !pass && !session.missed.contains { $0 === c }
         droppedNote = nil // its Deshacer would now undo this grade instead
         session.grade(pass)
-        if firstMiss && session.prefs.askMnemonics { mnemonicFor = c }
+        if firstMiss && askMnemonics { mnemonicFor = c }
     }
 
     private func tap() {
