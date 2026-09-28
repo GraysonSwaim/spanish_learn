@@ -1,5 +1,7 @@
 # Cinco for iOS
 
+On the App Store and the home screen it is **Choca Cinco** ("high five"): plain "Cinco" was taken.
+
 The native version of Cinco: SwiftUI with SwiftData, syncing cards and progress through iCloud (CloudKit).
 It follows the same rules as the web app: the same five stages, CSV format and card ids.
 `../decks/starter.csv` is bundled straight from the repo.
@@ -31,7 +33,7 @@ Before shipping to the App Store, deploy the CloudKit schema to Production in th
 ## Shortcuts and Siri
 
 `Cinco/Logic/Intents.swift` gives the Shortcuts app four actions: **Añadir tarjetas** (JSON or CSV text; ``` fences
-from a model are ignored), **Añadir una tarjeta** (Siri: "Add a card to Cinco"), **Palabras del mazo** (the deck's
+from a model are ignored), **Añadir una tarjeta** (Siri: "Add a card to Choca Cinco"; "Cinco" works too), **Palabras del mazo** (the deck's
 Spanish, to tell a model what to skip) and **Tarjetas pendientes**.
 
 Atajos on the home screen (`ShortcutsGuideView`, also in Ajustes) walks through a one-word shortcut, with no API key: Ask for Input →

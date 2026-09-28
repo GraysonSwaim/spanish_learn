@@ -15,7 +15,7 @@ struct ShortcutsGuideView: View {
                 step(2, "**Translate Text** (Traducir texto): de *Detectar idioma* a **Español**. Toca el resultado y renómbralo «Español».")
                 step(3, "Otro **Translate Text** con la misma entrada: de *Detectar idioma* a **Inglés**. Renómbralo «Inglés».")
                 step(4, "**Use Model** (Usar modelo): elige **ChatGPT**. Pega el prompt de abajo y cambia cada [ENTRADA], [ESPAÑOL] e [INGLÉS] por la variable del paso 1, 2 y 3.")
-                step(5, "**Añadir tarjetas** (de Cinco): en Texto pon la *Respuesta* del paso 4.")
+                step(5, "**Añadir tarjetas** (de Choca Cinco): en Texto pon la *Respuesta* del paso 4.")
                 Text("Ponle nombre y ya puedes decir «Oye Siri, Añadir a Cinco» o lanzarlo desde la hoja de compartir. La tarjeta aparece en Vocabulario (o en Frases), y los tiempos de un verbo en Conjugación.")
                     .foregroundStyle(Palette.muted)
                 Text("Si la palabra ya está en tus tarjetas (con o sin artículo), no se duplica: Cinco te dice qué traería de nuevo (un ejemplo, una mnemotecnia, tiempos que faltan, otro significado) y solo lo cambia si dices que sí. Si no hay nada nuevo, te lo dice y no toca nada.")
@@ -37,11 +37,11 @@ struct ShortcutsGuideView: View {
                 field("frases", "Opcional", "Más frases con un verbo, en una lista.")
                 field("tenses", "Solo verbos", "Cada tiempo con sus seis formas (yo, tú, él, nosotros, vosotros, ellos). Cada tiempo es una tarjeta en Conjugación.")
 
-                heading("Las acciones de Cinco")
+                heading("Las acciones de Choca Cinco")
                 action("Añadir tarjetas", "Texto (obligatorio): JSON o CSV, una tarjeta o muchas. Etiquetas (opcional): para las que no traigan. Una palabra nueva entra directa; si ya la tienes, te pregunta antes de cambiarla y nunca pierde su progreso.")
-                action("Añadir una tarjeta", "Español e Inglés (obligatorios), Ejemplo y Frase (opcionales). Tal cual, sin rellenar nada. Siri: «Añadir una tarjeta a Cinco».")
+                action("Añadir una tarjeta", "Español e Inglés (obligatorios), Ejemplo y Frase (opcionales). Tal cual, sin rellenar nada. Siri: «Añadir una tarjeta a Choca Cinco».")
                 action("Palabras del mazo", "Sin entradas. Devuelve el español de todas tus tarjetas, para pedirle a un modelo palabras que aún no tengas.")
-                action("Tarjetas pendientes", "Sin entradas. Cuántos repasos te esperan. Siri: «¿Cuántas tarjetas tengo en Cinco?».")
+                action("Tarjetas pendientes", "Sin entradas. Cuántos repasos te esperan. Siri: «¿Cuántas tarjetas tengo en Choca Cinco?».")
             }
             .font(Typo.text(16))
             .foregroundStyle(Palette.ink)
