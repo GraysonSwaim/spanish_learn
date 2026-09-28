@@ -41,6 +41,7 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Wordmark()
+                    .frame(maxWidth: .infinity)
                     .padding(.top, 12)
                 // Pushes everything under the banner to the bottom of the screen; the stage
                 // columns grow first, so this only takes what's left once they're at their tallest.
