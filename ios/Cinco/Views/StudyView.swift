@@ -101,6 +101,9 @@ struct StudyView: View {
         .clipShape(.rect(cornerRadius: 28))
         .panel(radius: 28, shadow: 6)
         .overlay(alignment: .topLeading) { dropButton(c).opacity(dragX == 0 ? 1 : 0) }
+        .overlay(alignment: .bottom) {
+            if let hint = tapHint { tapPill(hint).opacity(dragX == 0 ? 1 : 0).transition(.opacity) }
+        }
         .overlay(alignment: .topLeading) { stamp("¡La sé!", Palette.good, -12).opacity(Double(max(0, dragX) / 110)) }
         .overlay(alignment: .topTrailing) { stamp("Otra vez", Palette.again, 12).opacity(Double(max(0, -dragX) / 110)) }
         .offset(x: dragX)
@@ -132,19 +135,34 @@ struct StudyView: View {
     private func cardContent(_ c: Card) -> some View {
             VStack(spacing: 0) {
                 if c.isConj { conjContent(c) } else { vocabContent(c) }
-                if let hint = tapHint {
-                    Text(hint).font(Typo.text(13, .bold)).foregroundStyle(Palette.muted).opacity(0.8).padding(.top, 22)
-                }
             }
             .multilineTextAlignment(.center)
             .padding(.horizontal, 22)
             .padding(.vertical, 28)
+            // Room for the tap pill, so tall content never slides under it.
+            .padding(.bottom, tapHint == nil ? 0 : 44)
+    }
+
+    /// Pinned to the foot of the card: a hand that taps now and then, and what a tap will show.
+    private func tapPill(_ hint: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "hand.tap.fill")
+                .foregroundStyle(Palette.accentInk)
+                .symbolEffect(.bounce, options: .repeat(.periodic(delay: 2.5)))
+            Text(hint).foregroundStyle(Palette.muted)
+        }
+        .font(Typo.text(14, .bold))
+        .padding(.horizontal, 16).padding(.vertical, 9)
+        .background(Palette.sunk, in: .capsule)
+        .padding(.bottom, 18)
+        .allowsHitTesting(false) // a tap on it is a tap on the card
+        .accessibilityHidden(true)
     }
 
     private var tapHint: String? {
         switch session.phase {
-        case .word: "Toca la tarjeta para ver el significado"
-        case .prompt where [.esEn, .enEs, .recite].contains(session.mode): "Toca la tarjeta para ver la respuesta"
+        case .word: "Toca para ver el significado"
+        case .prompt where [.esEn, .enEs, .recite].contains(session.mode): "Toca para ver la respuesta"
         default: nil
         }
     }
