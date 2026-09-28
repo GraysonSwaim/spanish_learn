@@ -16,6 +16,7 @@ struct HomeView: View {
     @State private var importing = false
     @State private var message: String?
     @State private var editing: EditTarget?
+    @State private var screenHeight: CGFloat = 0
 
     private var tab: Tab { Tab(rawValue: tabRaw) ?? .vocab }
     private var tabCards: [Card] { cards.filter { Scheduler.inTab($0, tab: tab, tense: tense) } }
@@ -40,7 +41,9 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Wordmark()
-                    .padding(.top, 12).padding(.bottom, 44)
+                    .padding(.top, 12)
+                // Pushes everything under the banner to the bottom of the screen.
+                Spacer(minLength: 44)
 
                 tabPicker
                 if tab == .conj { TenseSwitch(cards: cards, selection: $tense).padding(.bottom, 12) }
@@ -90,9 +93,10 @@ struct HomeView: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
-            .frame(maxWidth: 560)
+            .frame(maxWidth: 560, minHeight: screenHeight)
             .frame(maxWidth: .infinity)
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { screenHeight = $0 }
         .background(Backdrop())
         .toolbar(.hidden, for: .navigationBar)
         .fileImporter(isPresented: $importing, allowedContentTypes: [.commaSeparatedText, .tabSeparatedText, .plainText, .text],
@@ -171,6 +175,8 @@ struct HomeView: View {
                     .frame(maxWidth: .infinity)
                 }
             }
+            // Keeps the Home spacer from squeezing the stage names smaller.
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
