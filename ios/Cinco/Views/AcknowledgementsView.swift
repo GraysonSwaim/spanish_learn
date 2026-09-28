@@ -20,7 +20,7 @@ struct AcknowledgementsView: View {
                url: "https://tatoeba.org"),
         Source(name: "Base de datos de verbos de Fred Jehle",
                use: "Conjugaciones, para comprobar las demás fuentes.",
-               license: "Uso no comercial",
+               license: "CC BY-NC-SA 3.0",
                url: "https://github.com/ghidinelli/fred-jehle-spanish-verbs"),
         Source(name: "verbecc",
                use: "Conjugaciones, para comprobar las demás fuentes.",
