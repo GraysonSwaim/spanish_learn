@@ -25,7 +25,7 @@ struct StudyView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 8)
                 card(c)
-                if !session.canGrade { actions(c).padding(.top, 18) }
+                if !onCard { actions(c).padding(.top, 18) }
             }
         }
         .overlay(alignment: .bottom) {
@@ -47,7 +47,7 @@ struct StudyView: View {
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .background(Backdrop())
-        .animation(.snappy(duration: 0.25), value: session.canGrade)
+        .animation(.snappy(duration: 0.25), value: onCard)
         .onChange(of: session.step, initial: true) {
             typed = ""; grid = [:]; dragX = 0; showSentences = false
         }
@@ -100,10 +100,15 @@ struct StudyView: View {
         .overlay(alignment: .topLeading) { dropButton(c).opacity(dragX == 0 ? 1 : 0) }
         .overlay(alignment: .bottom) {
             if session.canGrade { gradeTabs.transition(.opacity.combined(with: .offset(y: 12))) }
+            else if session.phase == .intro { introTab.transition(.opacity.combined(with: .offset(y: 12))) }
             else if let hint = tapHint { tapPill(hint).opacity(dragX == 0 ? 1 : 0).transition(.opacity) }
         }
-        .overlay(alignment: .topLeading) { stamp("¡La sé!", Palette.good, -12).opacity(Double(max(0, dragX) / 110)) }
-        .overlay(alignment: .topTrailing) { stamp("Otra vez", Palette.again, 12).opacity(Double(max(0, -dragX) / 110)) }
+        .overlay(alignment: .topLeading) {
+            if session.canGrade { stamp("¡La sé!", Palette.good, -12).opacity(Double(max(0, dragX) / 110)) }
+        }
+        .overlay(alignment: .topTrailing) {
+            if session.canGrade { stamp("Otra vez", Palette.again, 12).opacity(Double(max(0, -dragX) / 110)) }
+        }
         .offset(x: dragX)
         .rotationEffect(.degrees(Double(dragX) / 20))
         .contentShape(.rect)
@@ -138,7 +143,25 @@ struct StudyView: View {
             .padding(.horizontal, 22)
             .padding(.vertical, 28)
             // Room for the tap pill, so tall content never slides under it.
-            .padding(.bottom, session.canGrade ? 84 : tapHint == nil ? 0 : 44)
+            .padding(.bottom, onCard ? 84 : tapHint == nil ? 0 : 44)
+    }
+
+    /// Whether the card's own buttons are showing, in place of the button under it.
+    private var onCard: Bool { session.canGrade || session.phase == .intro }
+
+    private var canSwipe: Bool { onCard }
+
+    /// A new card's one choice, along its foot: pointing right, the way it can also be swiped away.
+    private var introTab: some View {
+        let toward = min(1, max(0, dragX) / 110)
+        return Button { session.introDone() } label: {
+            BigLabel("Entendido, pregúntame luego", "Vuelve dentro de unas tarjetas")
+                .lineLimit(1).minimumScaleFactor(0.8)
+                .padding(.leading, 8).padding(.trailing, 24)
+        }
+        .buttonStyle(GradeTabStyle(color: Palette.accent, text: .white, right: true))
+        .scaleEffect(1 + 0.04 * toward)
+        .padding(.horizontal, 12).padding(.bottom, 12)
     }
 
     /// The two grades, along the foot of the card, each pointing the way its swipe goes. Dragging the card
@@ -204,11 +227,12 @@ struct StudyView: View {
     private var swipe: some Gesture {
         DragGesture(minimumDistance: 20)
             .onChanged { v in
-                guard session.canGrade, abs(v.translation.width) > abs(v.translation.height) else { return }
-                dragX = v.translation.width
+                guard canSwipe, abs(v.translation.width) > abs(v.translation.height) else { return }
+                // A new card only goes one way: right, to "Entendido". Leftward it just resists.
+                dragX = session.canGrade || v.translation.width > 0 ? v.translation.width : v.translation.width / 8
             }
             .onEnded { v in
-                guard session.canGrade, abs(dragX) > 110 else {
+                guard canSwipe, abs(dragX) > 110, session.canGrade || dragX > 0 else {
                     withAnimation(.easeOut(duration: 0.2)) { dragX = 0 }
                     return
                 }
@@ -216,7 +240,7 @@ struct StudyView: View {
                 withAnimation(.easeIn(duration: 0.2)) { dragX = pass ? 600 : -600 }
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(200))
-                    grade(pass)
+                    if session.canGrade { grade(pass) } else { session.introDone() }
                 }
             }
     }
@@ -450,10 +474,7 @@ struct StudyView: View {
     private func actions(_ c: Card) -> some View {
         switch session.phase {
         case .intro:
-            Button { session.introDone() } label: {
-                BigLabel("Entendido, pregúntame luego", "Vuelve dentro de unas tarjetas")
-            }
-            .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
+            EmptyView() // on the card (introTab)
         case .word:
             Button("Ver el significado") { session.showMeaning() }
                 .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
