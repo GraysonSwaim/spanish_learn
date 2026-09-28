@@ -49,7 +49,7 @@ Every `git push` to `main` republishes it within about a minute.
 
 ### 3. Set up iCloud Drive as your card store
 
-On your Mac, in Finder → iCloud Drive, make a folder called `Spanish` with four folders inside: `vocabulario` (topic decks), `verbos` (decks with tense columns), `archivo` (old decks you keep but no longer import) and `backups`. Copy `decks/starter.csv` into `vocabulario`. Anything you put here shows up in the Files app on your phone within seconds. `scripts/make_audio.py` reads decks from every folder but `backups`.
+On your Mac, in Finder → iCloud Drive, make a folder called `Spanish` with four folders inside: `vocabulario` (topic decks), `verbos` (decks with tense columns), `archivo` (old decks you keep but no longer import) and `backups`. Copy `decks/starter.csv` into `vocabulario`. Anything you put here shows up in the Files app on your phone within seconds.
 
 ## Daily use
 

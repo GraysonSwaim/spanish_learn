@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		C1A0F0000000000000000001 /* es-MX in Resources */ = {isa = PBXBuildFile; fileRef = C1A0F000000000000000000D /* es-MX */; };
 		C1A0F0000000000000000002 /* starter.csv in Resources */ = {isa = PBXBuildFile; fileRef = C1A0F000000000000000000E /* starter.csv */; };
 		C1A0F0000000000000000031 /* frases-inicio.csv in Resources */ = {isa = PBXBuildFile; fileRef = C1A0F0000000000000000030 /* frases-inicio.csv */; };
 /* End PBXBuildFile section */
@@ -25,7 +24,6 @@
 /* Begin PBXFileReference section */
 		C1A0F000000000000000000B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C1A0F000000000000000000C /* Cinco.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Cinco.entitlements; sourceTree = "<group>"; };
-		C1A0F000000000000000000D /* es-MX */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "es-MX"; path = "../audio/es-MX"; sourceTree = "<group>"; };
 		C1A0F000000000000000000E /* starter.csv */ = {isa = PBXFileReference; lastKnownFileType = text; name = starter.csv; path = ../decks/starter.csv; sourceTree = "<group>"; };
 		C1A0F000000000000000000F /* Cinco.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Cinco.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C1A0F0000000000000000010 /* CincoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CincoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -87,7 +85,6 @@
 		C1A0F0000000000000000013 /* Shared with the web app */ = {
 			isa = PBXGroup;
 			children = (
-				C1A0F000000000000000000D /* es-MX */,
 				C1A0F000000000000000000E /* starter.csv */,
 				C1A0F0000000000000000030 /* frases-inicio.csv */,
 			);
@@ -182,7 +179,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C1A0F0000000000000000001 /* es-MX in Resources */,
 				C1A0F0000000000000000002 /* starter.csv in Resources */,
 				C1A0F0000000000000000031 /* frases-inicio.csv in Resources */,
 			);

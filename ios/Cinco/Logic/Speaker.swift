@@ -1,11 +1,10 @@
 import AVFoundation
 import AudioToolbox
 
-/// Says Spanish words: the Mac recording from audio/es-MX when there is one (Latin American accent only),
-/// otherwise the best iOS voice installed for the accent. Settings › Accessibility › Spoken Content › Voices
+/// Says Spanish words with the best iOS voice installed for the accent. Settings › Accessibility › Spoken Content › Voices
 /// can download Enhanced and Premium voices, which sound far better than the default.
 ///
-/// Both go through one chain: a presence boost for clarity, then a limiter with pre-gain, so words play
+/// Speech goes through a presence boost for clarity, then a limiter with pre-gain, so words play
 /// louder than the phone's plain media volume without clipping.
 @MainActor
 final class Speaker: NSObject {
@@ -20,13 +19,12 @@ final class Speaker: NSObject {
         componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0))
     /// Everything is converted to this before it reaches the chain.
     private let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
-    private let recordingLang = "es-MX"
     /// Bumped on every speak/stop so late speech buffers from an earlier word are dropped.
     private var generation = 0
     private var speechArrived = false
 
     /// Into the limiter, in dB. Its ceiling is -3 dBFS, so this sets how hard quiet syllables are lifted,
-    /// not the peak level: the recordings come out about 5 dB louder on average.
+    /// not the peak level.
     private static let preGain: AudioUnitParameterValue = 10
 
     override private init() {
@@ -34,7 +32,7 @@ final class Speaker: NSObject {
         // Full media volume, like a music app, rather than the quiet "ambient" default.
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
 
-        // Recordings are 22 kHz and a little dull; lift the consonants and trim the low rumble.
+        // Lift the consonants and trim the low rumble.
         let presence = eq.bands[0]
         presence.filterType = .parametric
         presence.frequency = 3_500
@@ -62,10 +60,6 @@ final class Speaker: NSObject {
         stop()
         try? AVAudioSession.sharedInstance().setActive(true)
         guard startEngine() else { return fallbackSpeak(t, lang: lang) }
-        if lang == recordingLang, let url = recording(for: t), let buffer = Self.load(url) {
-            play(buffer)
-            return
-        }
         let u = utterance(t, lang: lang)
         let gen = generation
         speechArrived = false
@@ -133,18 +127,6 @@ final class Speaker: NSObject {
         u.voice = Self.bestVoice(lang)
         u.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
         return u
-    }
-
-    private static func load(_ url: URL) -> AVAudioPCMBuffer? {
-        guard let file = try? AVAudioFile(forReading: url),
-              let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)),
-              (try? file.read(into: buffer)) != nil else { return nil }
-        return buffer
-    }
-
-    /// Recordings are named hash(strip(text)), the same key the web app uses.
-    private func recording(for text: String) -> URL? {
-        Bundle.main.url(forResource: TextMatch.cardID(text), withExtension: "m4a", subdirectory: recordingLang)
     }
 
     /// Premium over Enhanced over default, for the exact accent if possible, else any Spanish.

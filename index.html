@@ -360,17 +360,11 @@ let speakTimer=null,currentUtterance=null,speechUnlocked=false;
 // "playback" uses the full media volume, like a music or video app (Safari 16.4+).
 try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}
 
-// Recorded audio. iOS speech turned out quiet or silent on the phone speaker, so words are recorded on
-// the Mac by scripts/make_audio.py into audio/es-MX/<key>.m4a, where key is hash(strip(the spoken text)).
-// index.json lists what exists; anything missing, or the Spain accent, falls back to iOS speech.
-const REC_LANG='es-MX';
-let recorded=new Set();
-fetch(`audio/${REC_LANG}/index.json`,{cache:'no-cache'}).then(r=>r.ok?r.json():[]).then(a=>{recorded=new Set(a);}).catch(()=>{});
 // One shared <audio> element. iOS only lets an element play after a tap has played it once;
 // after that, changing its src and calling play() works from anywhere, including automatic speech.
 const player=new Audio();player.setAttribute('playsinline','');player.setAttribute('x-webkit-airplay','deny');
 let playerUnlocked=false,speakSeq=0;
-const clips=new Map();   // key -> blob URL of recordings already played this session
+const clips=new Map();   // key -> blob URL of words already generated this session
 function wav(rate,n,sample){
   const b=new Uint8Array(44+n*2),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i);};
   w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
@@ -402,16 +396,15 @@ document.addEventListener('touchend',unlockSpeech,{passive:true});
 document.addEventListener('click',unlockSpeech);
 const spokenText=text=>text.replace(/\s*[\/;].*$/,'').replace(/[…]/g,'').trim();
 // Each word tries its sources in order until one plays: Piper (generated on the phone, cached per word),
-// then the Mac recording, then iOS speech. A newer speak() call cancels an older one still loading.
+// then iOS speech. A newer speak() call cancels an older one still loading.
 function speak(text){
   if(document.hidden)return;
   const t=spokenText(text);
   if(!t)return;
   clearTimeout(speakTimer);
   if('speechSynthesis' in window&&(speechSynthesis.speaking||speechSynthesis.pending))speechSynthesis.cancel();
-  const key=hash(strip(t)),mine=++speakSeq,sources=[];
+  const mine=++speakSeq,sources=[];
   if(piperReady())sources.push(()=>piperClip(t));
-  if((S.settings.voiceLang||'es-MX')===REC_LANG&&recorded.has(key))sources.push(()=>recordingClip(key));
   player.pause();
   const next=i=>{
     if(mine!==speakSeq)return;
@@ -423,14 +416,6 @@ function speak(text){
   };
   next(0);
 }
-// Recordings are fetched whole and played from a blob: Safari plays media with range requests,
-// which the service worker's cached copy can't answer.
-function recordingClip(key){
-  if(clips.has(key))return Promise.resolve(clips.get(key));
-  return fetch(`audio/${REC_LANG}/${key}.m4a`).then(r=>{if(!r.ok)throw 0;return r.blob();})
-    .then(b=>{const u=URL.createObjectURL(b);clips.set(key,u);return u;});
-}
-
 /* ---------- Piper: a neural voice that runs on the phone ---------- */
 // The voice model (about 63 MB) downloads once into the phone's private storage, the engine loads in the
 // background when the app opens, and each generated word is kept in the "cinco-words" cache so replays
@@ -802,7 +787,7 @@ async function shareFile(name,text,type){
 }
 // Shortcut backups travel through the clipboard, and a large clipboard makes the Shortcut's Save File fail
 // ("file doesn't exist"). With conjugation tables a backup passed 400 KB, so it goes gzipped and base64'd
-// (about 60 KB), marked with PACKED. Restore and scripts/make_audio.py read both forms.
+// (about 60 KB), marked with PACKED. Restore reads both forms.
 const PACKED='cinco-gz:';
 async function packBackup(json){
   if(!('CompressionStream' in window))return json;
@@ -1118,7 +1103,7 @@ function howView(){
   <p>Abre la app una vez al día. Primero van los repasos y después las nuevas, hasta tu límite diario. Una sesión de 30 tarjetas dura unos cinco minutos.</p>
   <h3>La voz</h3>
   <p>La voz del iPhone suena muy baja, así que Cinco usa una voz natural que se genera en el propio teléfono. Descárgala una vez en <b>Ajustes › Voz natural</b> (unos 63 MB, mejor con wifi). Cada palabra se genera la primera vez que suena y se guarda, así que después suena al instante y sin conexión, también las que añades a mano.</p>
-  <p>Hasta que la descargues, las palabras suenan con grabaciones hechas en el Mac y, si no hay grabación, con la voz del iPhone. Si cambias el acento a España, esa voz se descarga aparte.</p>
+  <p>Hasta que la descargues, las palabras suenan con la voz del iPhone. Si cambias el acento a España, esa voz se descarga aparte.</p>
   <h3>Tus datos</h3>
   <p>Las tarjetas y el progreso se guardan en este teléfono. Importa mazos en CSV desde iCloud Drive. Toca <b>Guardar copia de seguridad</b> para guardar un archivo que puedas restaurar más tarde.</p>
   <p>Columnas del CSV: <code>spanish,english,example,notes,tags</code>. Solo las dos primeras son obligatorias. Los verbos pueden llevar una columna por tiempo (<code>presente</code>, <code>preterito</code>, <code>imperfecto</code>, <code>futuro</code>, <code>condicional</code>, <code>subjuntivo</code>, <code>subj_imperfecto</code>, <code>imperativo</code>, <code>imperativo_negativo</code>, <code>perfecto</code>, <code>pluscuamperfecto</code>, <code>futuro_perfecto</code>, <code>condicional_perfecto</code>, <code>subj_perfecto</code>, <code>subj_pluscuamperfecto</code>), cada una con las seis formas separadas por <code>|</code>: <code>tengo|tienes|tiene|tenemos|tenéis|tienen</code>. Una columna <code>frases</code> añade frases con el verbo, separadas por <code>|</code>, para practicarlo en contexto. Reimportar un archivo actualiza las tarjetas que ya existen sin perder su progreso; se emparejan por el texto en español.</p>

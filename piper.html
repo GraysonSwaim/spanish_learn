@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cinco · Prueba de voz</title>
 <meta name="theme-color" content="#FFE9C9">
-<!-- Experiment: Piper text-to-speech running on the phone (ONNX + WebAssembly), compared with the Mac recordings.
+<!-- Experiment: Piper text-to-speech running on the phone (ONNX + WebAssembly).
      piper-tts-web imports "onnxruntime-web/wasm" and expects the 1.18.0 engine files, so pin exactly that. -->
 <script type="importmap">
 {"imports":{"onnxruntime-web/wasm":"https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/esm/ort.wasm.min.js"}}
@@ -40,7 +40,6 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;touch-
 .row .t{font-size:12px;color:var(--muted);min-width:64px;text-align:right;font-variant-numeric:tabular-nums}
 .pill{padding:8px 12px;border-radius:999px;font-size:13px;font-weight:800;white-space:nowrap}
 .pill.piper{background:var(--sea);color:#fff}
-.pill.mac{background:var(--sunk);border:2px solid var(--edge)}
 .pill:disabled{opacity:.35}
 .typein{display:flex;gap:8px}
 .typein input{flex:1;min-width:0;font:700 18px "Nunito",system-ui,sans-serif;padding:12px 14px;border:2px solid var(--edge);border-radius:14px;background:var(--sunk);color:var(--ink)}
@@ -52,7 +51,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;touch-
 <main>
   <a class="back" href="./">‹ Volver a Cinco</a>
   <h1>Prueba de voz</h1>
-  <p class="lede">Piper genera la voz aquí mismo, en el teléfono. Descarga una voz una vez, prueba palabras y compárala con la grabación del Mac (Paulina).</p>
+  <p class="lede">Piper genera la voz aquí mismo, en el teléfono. Descarga una voz una vez, y prueba palabras.</p>
 
   <section class="box">
     <h2>1. Elige y descarga una voz</h2>
@@ -93,10 +92,7 @@ const VOICES=[
 const WORDS=['hola','gracias','buenos días','la manzana','el baño','¿dónde?','¿cuánto?','el médico / la médica','¿a qué te dedicas?','conocer'];
 let voice=VOICES[0].id,session=null,tts=null;
 
-// Same text handling and file keys as the app, to find the Mac recording of each word.
-function norm(s){return String(s).toLowerCase().trim().replace(/[¿?¡!.,;:"“”…]/g,'').replace(/\s+/g,' ');}
-function strip(s){return norm(s).replace(/ñ/g,'\u0001').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\u0001/g,'ñ');}
-function hash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return (h>>>0).toString(36);}
+// Same text handling as the app.
 const spoken=t=>t.replace(/\s*[\/;].*$/,'').replace(/[…]/g,'').trim();
 // iOS silently reloads a page that uses too much memory, which wipes everything on screen.
 // Each step is saved first, so after a reload the page can say where it died.
@@ -104,8 +100,6 @@ const STEP='cinco.piper.step';
 function step(m){try{localStorage.setItem(STEP,m);}catch(e){}log('→ '+m);}
 function stepDone(){try{localStorage.removeItem(STEP);}catch(e){}}
 let crashed=null;try{crashed=localStorage.getItem(STEP);}catch(e){}
-let recorded=new Set();
-fetch('audio/es-MX/index.json').then(r=>r.json()).then(a=>{recorded=new Set(a);renderWords();}).catch(()=>{});
 
 try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}
 const player=new Audio();player.setAttribute('playsinline','');
@@ -119,10 +113,9 @@ function renderVoices(){
 }
 function renderWords(){
   $('wordsHint').hidden=!!session;
-  $('words').innerHTML=WORDS.map((w,i)=>{const k=hash(strip(spoken(w)));
-    return `<div class="row"><span class="w">${w}</span><span class="t" id="t${i}"></span>
+  $('words').innerHTML=WORDS.map((w,i)=>`<div class="row"><span class="w">${w}</span><span class="t" id="t${i}"></span>
       <button class="pill piper" data-i="${i}" ${session?'':'disabled'}>Piper</button>
-      <button class="pill mac" data-mac="${k}" ${recorded.has(k)?'':'disabled'}>Mac</button></div>`;}).join('');
+</div>`).join('');
 }
 $('voices').onclick=e=>{const b=e.target.closest('button');if(!b||b.dataset.v===voice)return;
   voice=b.dataset.v;session=null;renderVoices();renderWords();$('status').textContent='Voz cambiada. Descárgala o prepárala.';$('prog').style.width='0';};
@@ -165,8 +158,7 @@ async function sayPiper(text,cell){
   }catch(e){stepDone();log('Error: '+(e&&e.message||e),'err');}
 }
 $('words').onclick=e=>{const b=e.target.closest('button');if(!b)return;
-  if(b.dataset.i!=null){const i=+b.dataset.i;sayPiper(WORDS[i],$('t'+i));}
-  else if(b.dataset.mac)play(`audio/es-MX/${b.dataset.mac}.m4a`).catch(err=>log('Error: '+err.message,'err'));};
+  if(b.dataset.i!=null){const i=+b.dataset.i;sayPiper(WORDS[i],$('t'+i));}};
 $('own').onsubmit=e=>{e.preventDefault();const t=$('text').value.trim();if(t)sayPiper(t,null);};
 
 renderVoices();renderWords();showStorage();

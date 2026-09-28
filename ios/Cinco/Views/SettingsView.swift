@@ -48,7 +48,7 @@ struct SettingsView: View {
             } header: {
                 Text("Voz")
             } footer: {
-                Text("Con Latinoamérica suenan las grabaciones hechas en el Mac. Si una palabra no tiene grabación, habla la mejor voz de iOS instalada: descarga una voz Mejorada o Premium en Ajustes › Accesibilidad › Contenido leído › Voces › Español.")
+                Text("Habla la mejor voz de iOS instalada. Para que suene mucho mejor, descarga una voz Mejorada o Premium en Ajustes › Accesibilidad › Contenido leído › Voces › Español.")
             }
             Section {
                 NavigationLink("Atajos y Siri") { ShortcutsGuideView() }
@@ -66,6 +66,9 @@ struct SettingsView: View {
                 LabeledContent("iCloud", value: iCloud)
             } footer: {
                 Text("Las tarjetas y el progreso se guardan en iCloud y se sincronizan entre tus dispositivos. Los ajustes se quedan en cada dispositivo.")
+            }
+            Section {
+                NavigationLink("Créditos") { AcknowledgementsView() }
             }
         }
         .font(Typo.text(16))

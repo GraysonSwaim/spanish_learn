@@ -1,8 +1,8 @@
 # Cinco for iOS
 
 The native version of Cinco: SwiftUI with SwiftData, syncing cards and progress through iCloud (CloudKit).
-It follows the same rules as the web app: the same five stages, CSV format and card ids. The Mac
-recordings in `../audio/es-MX` and `../decks/starter.csv` are bundled straight from the repo.
+It follows the same rules as the web app: the same five stages, CSV format and card ids.
+`../decks/starter.csv` is bundled straight from the repo.
 
 ```
 Cinco/Model/Card.swift        Card and DayLog, the SwiftData models (CloudKit-safe: defaults, no unique, no relationships)

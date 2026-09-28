@@ -7,8 +7,8 @@ nonisolated enum Verdict: String {
     var isNear: Bool { self == .accent || self == .article }
 }
 
-/// Text rules shared with the web app. `strip` and `hash` must match it exactly: card ids and
-/// recording file names are `hash(strip(text))`, so backups and audio/es-MX line up across both apps.
+/// Text rules shared with the web app. `strip` and `hash` must match it exactly: card ids
+/// are `hash(strip(text))`, so backups line up across both apps.
 nonisolated enum TextMatch {
     private static let punctuation = Set("¿?¡!.,;:\"“”…")
 

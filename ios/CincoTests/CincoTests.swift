@@ -71,15 +71,6 @@ struct CSVTests {
         #expect(r.count > 50)
         #expect(r.allSatisfy { !$0.es.isEmpty && !$0.en.isEmpty })
     }
-
-    /// Recording names are hash(strip(word)); the bundled index proves the ids line up.
-    @Test func recordingsLineUpWithCardIDs() throws {
-        let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../audio/es-MX")
-        let index = try JSONDecoder().decode([String].self, from: Data(contentsOf: dir.appendingPathComponent("index.json")))
-        let deck = CSVImport.parse(try String(contentsOf: dir.appendingPathComponent("../../decks/starter.csv"), encoding: .utf8))
-        let found = deck.filter { index.contains(TextMatch.cardID(TextMatch.spokenText($0.es))) }
-        #expect(found.count > deck.count / 2)
-    }
 }
 
 @MainActor
