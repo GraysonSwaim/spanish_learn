@@ -18,6 +18,8 @@ struct ShortcutsGuideView: View {
                 step(5, "**Añadir tarjetas** (de Cinco): en Texto pon la *Respuesta* del paso 4.")
                 Text("Ponle nombre y ya puedes decir «Oye Siri, Añadir a Cinco» o lanzarlo desde la hoja de compartir. La tarjeta aparece en Vocabulario (o en Frases), y los tiempos de un verbo en Conjugación.")
                     .foregroundStyle(Palette.muted)
+                Text("Si la palabra ya está en tus tarjetas (con o sin artículo), no se duplica: Cinco te dice qué traería de nuevo (un ejemplo, una mnemotecnia, tiempos que faltan, otro significado) y solo lo cambia si dices que sí. Si no hay nada nuevo, te lo dice y no toca nada.")
+                    .foregroundStyle(Palette.muted)
                 Text("Si el paso 2 o 3 falla porque la palabra ya está en ese idioma, bórralo: ChatGPT traduce también. Si un verbo está en el diccionario de Cinco, sus tablas salen del diccionario, que están revisadas, en lugar de las de ChatGPT.")
                     .foregroundStyle(Palette.muted)
 
@@ -36,7 +38,7 @@ struct ShortcutsGuideView: View {
                 field("tenses", "Solo verbos", "Cada tiempo con sus seis formas (yo, tú, él, nosotros, vosotros, ellos). Cada tiempo es una tarjeta en Conjugación.")
 
                 heading("Las acciones de Cinco")
-                action("Añadir tarjetas", "Texto (obligatorio): JSON o CSV, una tarjeta o muchas. Etiquetas (opcional): para las que no traigan. Si la tarjeta ya existe, se actualiza sin perder su progreso.")
+                action("Añadir tarjetas", "Texto (obligatorio): JSON o CSV, una tarjeta o muchas. Etiquetas (opcional): para las que no traigan. Una palabra nueva entra directa; si ya la tienes, te pregunta antes de cambiarla y nunca pierde su progreso.")
                 action("Añadir palabra", "Palabra (obligatoria), Idioma (opcional: Detectar, Español, Inglés). La rellena con el diccionario de Cinco, sin internet ni IA. Siri: «Añadir una palabra a Cinco».")
                 action("Añadir una tarjeta", "Español e Inglés (obligatorios), Ejemplo y Frase (opcionales). Tal cual, sin rellenar nada.")
                 action("Palabras del mazo", "Sin entradas. Devuelve el español de todas tus tarjetas, para pedirle a un modelo palabras que aún no tengas.")

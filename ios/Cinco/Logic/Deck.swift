@@ -76,6 +76,39 @@ enum Deck {
         return r
     }
 
+    /// The word or phrase card a record is about: same id, or the same word once articles are set aside
+    /// (a model's "maleta" is the deck's "la maleta").
+    static func existing(_ rec: CardRecord, in cards: [Card]) -> Card? {
+        let id = TextMatch.cardID(rec.es), bare = TextMatch.noArticle(TextMatch.strip(rec.es))
+        return cards.first { !$0.isConj && $0.id == id }
+            ?? cards.first { !$0.isConj && TextMatch.noArticle(TextMatch.strip($0.es)) == bare }
+    }
+
+    /// What importing a record would change on a card already in the deck, in words, for a confirmation.
+    /// Mirrors importRecords: English and the other text fields are replaced when the record has them,
+    /// a mnemonic only fills an empty one, tables are merged.
+    static func changes(_ rec: CardRecord, to c: Card) -> [String] {
+        var out: [String] = []
+        func field(_ new: String, _ old: String, added: String, replaced: String) {
+            guard !new.isEmpty, new != old else { return }
+            out.append(old.isEmpty ? added : replaced)
+        }
+        if !rec.en.isEmpty && rec.en != c.en { out.append("inglés: «\(c.en)» → «\(rec.en)»") }
+        field(rec.ex, c.ex, added: "ejemplo", replaced: "otro ejemplo")
+        field(rec.notes, c.notes, added: "notas", replaced: "otras notas")
+        field(rec.tags, c.tags, added: "etiquetas", replaced: "etiquetas: «\(c.tags)» → «\(rec.tags)»")
+        field(rec.frases, c.frases, added: "frases", replaced: "otras frases")
+        if c.mnemonic.isEmpty && !rec.mnemonic.isEmpty { out.append("mnemotecnia") }
+        if rec.phrase && c.kind == .word { out.append("pasa a Frases") }
+        if !c.isPhrase && !rec.phrase {
+            let added = rec.tenses.keys.filter { (c.tenses[$0] ?? "").isEmpty }.count
+            let fixed = rec.tenses.filter { k, v in !(c.tenses[k] ?? "").isEmpty && c.tenses[k] != v }.count
+            if added > 0 { out.append("\(added) \(added == 1 ? "tiempo nuevo" : "tiempos nuevos") en Conjugación") }
+            if fixed > 0 { out.append("\(fixed) \(fixed == 1 ? "tabla distinta" : "tablas distintas")") }
+        }
+        return out
+    }
+
     /// Makes one conj card per tense the verb has, and removes those for tenses it no longer has.
     static func syncConj(_ v: Card, byID: inout [String: Card], ctx: ModelContext) {
         for (i, t) in Tense.all.enumerated() {

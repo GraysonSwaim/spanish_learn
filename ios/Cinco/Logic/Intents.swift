@@ -34,14 +34,52 @@ struct AddCardsIntent: AppIntent {
         guard recs.contains(where: { !$0.es.isEmpty && !$0.en.isEmpty }) else {
             throw $text.needsValueError("No encontré tarjetas. Cada línea necesita español y inglés, separados por coma.")
         }
-        let r = Deck.importRecords(recs, into: Store.container.mainContext)
-        if recs.count == 1, let c = recs.first {
-            let tables = c.tenses.count
-            let msg = (r.added == 1 ? "Añadida" : "Actualizada") + ": \(c.es), \(c.en)."
-                + (tables > 0 ? " Con \(tables) \(tables == 1 ? "tiempo" : "tiempos") en Conjugación." : "")
-            return .result(value: msg, dialog: "\(msg)")
+        recs = recs.filter { !$0.es.isEmpty && !$0.en.isEmpty }
+        let ctx = Store.container.mainContext
+        let cards = Deck.allCards(ctx)
+        // New words go straight in; words already in the deck are only changed once the learner agrees.
+        var fresh: [CardRecord] = [], updates: [(rec: CardRecord, card: Card, changes: [String])] = [], same: [String] = []
+        for var rec in recs {
+            guard let c = Deck.existing(rec, in: cards) else { fresh.append(rec); continue }
+            rec.es = c.es
+            let ch = Deck.changes(rec, to: c)
+            if ch.isEmpty { same.append(c.es) } else { updates.append((rec, c, ch)) }
         }
-        return .result(value: r.summary, dialog: "\(r.summary)")
+        var lines: [String] = []
+        if !fresh.isEmpty {
+            let r = Deck.importRecords(fresh, into: ctx)
+            if fresh.count == 1, let c = fresh.first {
+                let tables = c.tenses.count
+                lines.append("Añadida: \(c.es), \(c.en)."
+                    + (tables > 0 ? " Con \(tables) \(tables == 1 ? "tiempo" : "tiempos") en Conjugación." : ""))
+            } else {
+                lines.append("Añadidas: \(r.added).")
+            }
+        }
+        if !updates.isEmpty {
+            let ask = updates.count == 1
+                ? "«\(updates[0].card.es)» ya está en tus tarjetas. Traigo: \(updates[0].changes.joined(separator: "; ")). ¿La actualizo?"
+                : "\(updates.count) ya están en tus tarjetas y traen algo nuevo: "
+                    + updates.map { "\($0.card.es) (\($0.changes.joined(separator: ", ")))" }.joined(separator: "; ") + ". ¿Las actualizo?"
+            do {
+                try await requestConfirmation(actionName: .set, dialog: IntentDialog(stringLiteral: ask))
+                Deck.importRecords(updates.map(\.rec), into: ctx)
+                lines.append(updates.count == 1 ? "Actualizada: \(updates[0].card.es)." : "Actualizadas: \(updates.count).")
+            } catch {
+                // Declining leaves those cards as they were; anything new above is already in.
+                guard lines.isEmpty else { lines.append("Las que ya tenías, sin cambios."); return Self.done(lines) }
+                throw error
+            }
+        }
+        if !same.isEmpty {
+            lines.append(same.count == 1 ? "«\(same[0])» ya está en tus tarjetas, sin nada nuevo." : "\(same.count) ya estaban, sin nada nuevo.")
+        }
+        return Self.done(lines)
+    }
+
+    private static func done(_ lines: [String]) -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+        let msg = lines.joined(separator: " ")
+        return .result(value: msg, dialog: "\(msg)")
     }
 
     /// Models like to wrap CSV in ``` fences; drop those lines.

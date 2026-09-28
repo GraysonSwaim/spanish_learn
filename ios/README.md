@@ -39,7 +39,8 @@ Ajustes › Atajos y Siri (`ShortcutsGuideView`) walks through a one-word shortc
 Translate Text to Spanish and to English → Use Model (ChatGPT) with the prompt the screen copies → Añadir tarjetas.
 The prompt asks for one JSON card (`CardJSON`): noun fields for a noun, all fifteen tables for a verb. Only
 `spanish` and `english` are required; a verb Cinco's dictionary knows keeps the dictionary's tables, and an import
-never replaces a mnemonic the learner wrote.
+never replaces a mnemonic the learner wrote. A word already in the deck (matched with or without its article) isn't
+duplicated: the action lists what would change (`Deck.changes`) and asks before updating it.
 
 ## Development
 

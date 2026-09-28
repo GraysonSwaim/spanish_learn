@@ -393,3 +393,35 @@ struct CardJSONTests {
         #expect(c.mnemonic == "mío")
     }
 }
+
+/// Añadir tarjetas on a word the deck already has: it's found without its article, and the confirmation
+/// lists exactly what would change.
+@MainActor
+struct ExistingCardTests {
+    private func store() throws -> ModelContext {
+        let schema = Schema([Card.self, DayLog.self])
+        let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+        return ModelContext(c)
+    }
+
+    @Test func foundWithOrWithoutTheArticle() throws {
+        let ctx = try store()
+        Deck.importRecords([CardRecord(es: "la maleta", en: "suitcase")], into: ctx)
+        let cards = Deck.allCards(ctx)
+        #expect(Deck.existing(CardRecord(es: "maleta", en: "x"), in: cards)?.es == "la maleta")
+        #expect(Deck.existing(CardRecord(es: "La Maleta", en: "x"), in: cards)?.es == "la maleta")
+        #expect(Deck.existing(CardRecord(es: "el maletín", en: "x"), in: cards) == nil)
+    }
+
+    @Test func changesListWhatsNewAndKeepsTheMnemonic() throws {
+        let ctx = try store()
+        Deck.importRecords([CardRecord(es: "hablar", en: "to speak", tenses: ["presente": "hablo|hablas|habla|hablamos|habláis|hablan"])], into: ctx)
+        let c = try #require(Deck.allCards(ctx).first { !$0.isConj })
+        c.mnemonic = "mío"
+        #expect(Deck.changes(CardRecord(es: "hablar", en: "to speak"), to: c).isEmpty)
+        let rec = CardRecord(es: "hablar", en: "to talk", ex: "Hablo inglés.", tenses: [
+            "presente": "hablo|hablas|habla|hablamos|habláis|hablan", "futuro": "hablaré|hablarás|hablará|hablaremos|hablaréis|hablarán",
+        ], mnemonic: "otro")
+        #expect(Deck.changes(rec, to: c) == ["inglés: «to speak» → «to talk»", "ejemplo", "1 tiempo nuevo en Conjugación"])
+    }
+}
