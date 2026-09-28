@@ -342,3 +342,54 @@ struct MnemonicTests {
         #expect(c.mnemonic.isEmpty)
     }
 }
+
+/// The JSON a model sends to Añadir tarjetas.
+@MainActor
+struct CardJSONTests {
+    private func store() throws -> ModelContext {
+        let schema = Schema([Card.self, DayLog.self])
+        let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+        return ModelContext(c)
+    }
+
+    @Test func aNounCard() throws {
+        let recs = try #require(CardJSON.parse("""
+            {"spanish": "la maleta", "english": "suitcase", "type": "word", "example": "Mi maleta es azul.",
+             "notes": "Femenino. Plural: las maletas", "mnemonic": "A mallet smashing a suitcase", "tags": ["travel"]}
+            """))
+        #expect(recs == [CardRecord(es: "la maleta", en: "suitcase", ex: "Mi maleta es azul.", notes: "Femenino. Plural: las maletas",
+                                    tags: "travel", mnemonic: "A mallet smashing a suitcase")])
+    }
+
+    @Test func aVerbInFencesWithEveryTense() throws {
+        let text = AddCardsIntent.unfence("""
+            ```json
+            {"spanish": "bailar", "english": "to dance", "tenses": {
+              "presente": ["bailo", "bailas", "baila", "bailamos", "bailáis", "bailan"],
+              "imperativo_negativo": ["", "no bailes", "no baile", "no bailemos", "no bailéis", "no bailen"],
+              "subj_imperfecto": "bailara / bailase|bailaras / bailases|bailara / bailase|bailáramos / bailásemos|bailarais / bailaseis|bailaran / bailasen",
+              "made_up": ["x"]}}
+            ```
+            """)
+        let r = try #require(CardJSON.parse(text)?.first)
+        #expect(r.es == "bailar")
+        #expect(Set(r.tenses.keys) == ["presente", "imperativo_negativo", "subj_imperfecto"])
+        #expect(r.tenses["imperativo_negativo"] == "|no bailes|no baile|no bailemos|no bailéis|no bailen")
+    }
+
+    @Test func aListAndCSVStillWorks() throws {
+        #expect(CardJSON.parse(#"[{"es": "uno", "en": "one"}, {"es": "dos", "en": "two"}]"#)?.map(\.es) == ["uno", "dos"])
+        #expect(CardJSON.parse("spanish,english\nuno,one") == nil)
+        #expect(CSVImport.parse("spanish,english,mnemonic\nuno,one,one → uno").first?.mnemonic == "one → uno")
+    }
+
+    @Test func importKeepsTheLearnersMnemonic() throws {
+        let ctx = try store()
+        Deck.importRecords([CardRecord(es: "uno", en: "one", mnemonic: "del modelo")], into: ctx)
+        let c = try #require(Deck.allCards(ctx).first)
+        #expect(c.mnemonic == "del modelo")
+        c.mnemonic = "mío"
+        Deck.importRecords([CardRecord(es: "uno", en: "one", mnemonic: "otro")], into: ctx)
+        #expect(c.mnemonic == "mío")
+    }
+}

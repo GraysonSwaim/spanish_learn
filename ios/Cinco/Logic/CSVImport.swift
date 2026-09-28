@@ -6,7 +6,7 @@ nonisolated struct CardRecord: Equatable, Hashable, Identifiable {
     var tenses: [String: String] = [:]
     /// A phrase card (Frases tab) rather than a word: a "type" column saying "phrase" or "frase".
     var phrase = false
-    /// Only set when editing a card by hand; imports and new cards leave it empty.
+    /// From a mnemonic column or JSON key, or Editar tarjeta. An import only fills it on a card that has none.
     var mnemonic = ""
     var id: String { es }
 }
@@ -56,6 +56,7 @@ nonisolated enum CSVImport {
             "tags": ["tags", "tag", "category", "topic"],
             "frases": ["frases", "oraciones", "sentences"],
             "type": ["type", "kind", "tipo"],
+            "mnemonic": ["mnemonic", "mnemonics", "mnemotecnia", "mnemotecnica", "mnemonico", "memory trick", "truco"],
             "presente": ["presente", "present", "conjugation", "conjugación", "conjugacion", "conj", "forms", "formas"],
             "preterito": ["preterito", "pretérito", "preterite"],
             "imperfecto": ["imperfecto", "imperfect"],
@@ -77,8 +78,9 @@ nonisolated enum CSVImport {
         let body = hasHeader ? Array(rows.dropFirst()) : rows
         // Headerless files: spanish, english, example, notes, tags, then the tenses in order.
         var idx: [String: Int?] = hasHeader
-            ? ["es": map["es"] ?? 0, "en": map["en"] ?? 1, "ex": map["ex"], "notes": map["notes"], "tags": map["tags"], "frases": map["frases"], "type": map["type"]]
-            : ["es": 0, "en": 1, "ex": 2, "notes": 3, "tags": 4, "frases": nil, "type": nil]
+            ? ["es": map["es"] ?? 0, "en": map["en"] ?? 1, "ex": map["ex"], "notes": map["notes"], "tags": map["tags"], "frases": map["frases"],
+               "type": map["type"], "mnemonic": map["mnemonic"]]
+            : ["es": 0, "en": 1, "ex": 2, "notes": 3, "tags": 4, "frases": nil, "type": nil, "mnemonic": nil]
         for (i, t) in Tense.all.enumerated() { idx[t.key] = hasHeader ? map[t.key] : 5 + i }
 
         return body.map { r in
@@ -89,7 +91,66 @@ nonisolated enum CSVImport {
             var rec = CardRecord(es: g("es"), en: g("en"), ex: g("ex"), notes: g("notes"), tags: g("tags"), frases: g("frases"))
             for t in Tense.all { let f = g(t.key); if !f.isEmpty { rec.tenses[t.key] = f } }
             rec.phrase = ["phrase", "frase", "expresion", "expression"].contains(TextMatch.strip(g("type")))
+            rec.mnemonic = g("mnemonic")
             return rec
         }
+    }
+}
+
+/// Cards as JSON, which models write more reliably than CSV once a verb brings fifteen tables: one object,
+/// an array of them, or {"cards": [...]}. Keys answer to the same names as CSV headers; "tenses" (or
+/// "conjugations") maps a tense key or name to its six forms, as a list or "a|b|c|d|e|f"; "frases" is a list.
+nonisolated enum CardJSON {
+    static func parse(_ text: String) -> [CardRecord]? {
+        guard let start = text.firstIndex(where: { $0 == "{" || $0 == "[" }),
+              let data = String(text[start...]).data(using: .utf8),
+              let any = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) else { return nil }
+        let objects: [[String: Any]]
+        if let list = any as? [[String: Any]] { objects = list }
+        else if let one = any as? [String: Any] { objects = (one["cards"] as? [[String: Any]]) ?? [one] }
+        else { return nil }
+        return objects.map(record)
+    }
+
+    private static func key(_ raw: String) -> String? {
+        let n = TextMatch.norm(raw.replacingOccurrences(of: "_", with: " "))
+        return CSVImport.aliases.first { _, names in names.contains(n) || names.contains(TextMatch.norm(raw)) }?.key
+    }
+
+    private static func text(_ v: Any?) -> String {
+        switch v {
+        case let s as String: s.trimmingCharacters(in: .whitespacesAndNewlines)
+        case let list as [Any]: list.map { text($0) }.filter { !$0.isEmpty }.joined(separator: "|")
+        case let n as NSNumber: n.stringValue
+        default: ""
+        }
+    }
+
+    private static func record(_ o: [String: Any]) -> CardRecord {
+        var r = CardRecord()
+        for (k, v) in o {
+            let n = TextMatch.norm(k)
+            if ["tenses", "conjugations", "conjugaciones", "tiempos"].contains(n), let t = v as? [String: Any] {
+                for (tk, forms) in t {
+                    // Six forms: a list keeps empty slots (imperativo has no yo); a string is already "a|b|…".
+                    let f = (forms as? [Any]).map { $0.map { ($0 as? String ?? "").trimmingCharacters(in: .whitespaces) }.joined(separator: "|") } ?? text(forms)
+                    if let tense = key(tk), Tense.named(tense) != nil, f.contains(where: { $0 != "|" }) { r.tenses[tense] = f }
+                }
+                continue
+            }
+            switch key(k) {
+            case "es": r.es = text(v)
+            case "en": r.en = text(v)
+            case "ex": r.ex = text(v)
+            case "notes": r.notes = text(v)
+            case "tags": r.tags = (v as? [Any]).map { $0.map { text($0) }.joined(separator: " ") } ?? text(v)
+            case "frases": r.frases = text(v)
+            case "mnemonic": r.mnemonic = text(v)
+            case "type": r.phrase = ["phrase", "frase", "expresion", "expression"].contains(TextMatch.strip(text(v)))
+            case let t? where Tense.named(t) != nil: let f = text(v); if !f.isEmpty { r.tenses[t] = f }
+            default: break
+            }
+        }
+        return r
     }
 }

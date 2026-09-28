@@ -31,10 +31,15 @@ Before shipping to the App Store, deploy the CloudKit schema to Production in th
 ## Shortcuts and Siri
 
 `Cinco/Logic/Intents.swift` gives the Shortcuts app five actions: **Añadir palabra** (a word in Spanish or English,
-filled in from the dictionary like Diccionario's quick add; Siri: "Add a word to Cinco"), **Añadir tarjetas** (CSV text, the same
-format as Importar; ``` fences from a model are ignored), **Añadir una tarjeta**, **Palabras del mazo** (the
-deck's Spanish, to tell a model what to skip) and **Tarjetas pendientes**. To have AI make cards on your own
-plan, with no API key: Shortcuts' *Use Model* action (ChatGPT or Apple's model) → *Añadir tarjetas*.
+filled in from the dictionary like Diccionario's quick add; Siri: "Add a word to Cinco"), **Añadir tarjetas** (JSON
+or CSV text; ``` fences from a model are ignored), **Añadir una tarjeta**, **Palabras del mazo** (the deck's Spanish,
+to tell a model what to skip) and **Tarjetas pendientes**.
+
+Ajustes › Atajos y Siri (`ShortcutsGuideView`) walks through a one-word shortcut, with no API key: Ask for Input →
+Translate Text to Spanish and to English → Use Model (ChatGPT) with the prompt the screen copies → Añadir tarjetas.
+The prompt asks for one JSON card (`CardJSON`): noun fields for a noun, all fifteen tables for a verb. Only
+`spanish` and `english` are required; a verb Cinco's dictionary knows keeps the dictionary's tables, and an import
+never replaces a mnemonic the learner wrote.
 
 ## Development
 

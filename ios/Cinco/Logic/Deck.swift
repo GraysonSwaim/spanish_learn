@@ -54,10 +54,13 @@ enum Deck {
                 if !rec.notes.isEmpty { c.notes = rec.notes }
                 if !rec.tags.isEmpty { c.tags = rec.tags }
                 if !rec.frases.isEmpty { c.frases = rec.frases }
+                // Never over a trick the learner wrote.
+                if c.mnemonic.isEmpty { c.mnemonic = rec.mnemonic }
                 r.updated += 1
             } else {
                 card = Card(id: id, kind: rec.phrase ? .phrase : .word, es: rec.es, en: rec.en, order: nextOrder)
                 card.ex = rec.ex; card.notes = rec.notes; card.tags = rec.tags; card.frases = rec.frases
+                card.mnemonic = rec.mnemonic
                 nextOrder += 1
                 ctx.insert(card)
                 byID[id] = card

@@ -50,6 +50,11 @@ struct SettingsView: View {
             } footer: {
                 Text("Con Latinoamérica suenan las grabaciones hechas en el Mac. Si una palabra no tiene grabación, habla la mejor voz de iOS instalada: descarga una voz Mejorada o Premium en Ajustes › Accesibilidad › Contenido leído › Voces › Español.")
             }
+            Section {
+                NavigationLink("Atajos y Siri") { ShortcutsGuideView() }
+            } footer: {
+                Text("Añade una palabra desde Atajos: se traduce, ChatGPT rellena el resto y va directa a tus tarjetas.")
+            }
             Section("Aspecto") {
                 Picker("Tema", selection: $theme) {
                     Text("Automático").tag("auto")

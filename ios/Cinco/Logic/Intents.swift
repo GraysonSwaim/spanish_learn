@@ -2,15 +2,16 @@ import AppIntents
 import SwiftData
 
 // Shortcuts and Siri actions. The main use is a shortcut that asks a model (Shortcuts' "Use Model" action,
-// on-device or ChatGPT) for cards as CSV and hands the answer to "Añadir tarjetas".
+// on-device or ChatGPT) for a card as JSON and hands the answer to "Añadir tarjetas". Atajos in Ajustes
+// (ShortcutsGuideView) walks through building it and copies the prompt.
 
-/// Takes a deck as text: the same CSV the Importar screen reads, with or without a header.
+/// Takes cards as text: JSON (CardJSON), or the same CSV the Importar screen reads, with or without a header.
 struct AddCardsIntent: AppIntent {
     static let title: LocalizedStringResource = "Añadir tarjetas"
     static let description = IntentDescription(
-        "Adds cards from CSV text: spanish,english[,example,notes,tags], one card per line. A header row is optional, and cards already in the deck are updated without losing their progress.")
+        "Adds cards from JSON or CSV text. JSON: {\"spanish\", \"english\", \"example\", \"notes\", \"tags\", \"type\", \"mnemonic\", \"frases\", \"tenses\": {\"presente\": [six forms], …}}, one object or a list. CSV: spanish,english[,example,notes,tags], one card per line. Only spanish and english are required; cards already in the deck are updated without losing their progress.")
 
-    @Parameter(title: "CSV", inputOptions: String.IntentInputOptions(multiline: true))
+    @Parameter(title: "Texto", description: "JSON or CSV.", inputOptions: String.IntentInputOptions(multiline: true))
     var text: String
 
     @Parameter(title: "Tags", description: "Added to cards that don't have tags of their own.")
@@ -21,14 +22,25 @@ struct AddCardsIntent: AppIntent {
     }
 
     @MainActor func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
-        var recs = CSVImport.parse(Self.unfence(text))
+        let body = Self.unfence(text)
+        var recs = CardJSON.parse(body) ?? CSVImport.parse(body)
         if let tags, !tags.isEmpty {
             for i in recs.indices where recs[i].tags.isEmpty { recs[i].tags = tags }
+        }
+        // A verb Cinco's dictionary knows gets its reviewed tables rather than a model's.
+        for i in recs.indices where !recs[i].phrase && !recs[i].tenses.isEmpty {
+            if let e = Lexicon.shared.entry(TextMatch.noArticle(recs[i].es)), e.isVerb, !e.tenses.isEmpty { recs[i].tenses = e.tenses }
         }
         guard recs.contains(where: { !$0.es.isEmpty && !$0.en.isEmpty }) else {
             throw $text.needsValueError("No encontré tarjetas. Cada línea necesita español y inglés, separados por coma.")
         }
         let r = Deck.importRecords(recs, into: Store.container.mainContext)
+        if recs.count == 1, let c = recs.first {
+            let tables = c.tenses.count
+            let msg = (r.added == 1 ? "Añadida" : "Actualizada") + ": \(c.es), \(c.en)."
+                + (tables > 0 ? " Con \(tables) \(tables == 1 ? "tiempo" : "tiempos") en Conjugación." : "")
+            return .result(value: msg, dialog: "\(msg)")
+        }
         return .result(value: r.summary, dialog: "\(r.summary)")
     }
 
