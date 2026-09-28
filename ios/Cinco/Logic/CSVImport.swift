@@ -143,7 +143,9 @@ nonisolated enum CardJSON {
             case "en": r.en = text(v)
             case "ex": r.ex = text(v)
             case "notes": r.notes = text(v)
-            case "tags": r.tags = (v as? [Any]).map { $0.map { text($0) }.joined(separator: " ") } ?? text(v)
+            // Tags are space-separated; models also write "slang, surprise" or a list.
+            case "tags": r.tags = ((v as? [Any]).map { $0.map { text($0) }.joined(separator: " ") } ?? text(v))
+                .split { $0 == "," || $0 == ";" || $0.isWhitespace }.joined(separator: " ")
             case "frases": r.frases = text(v)
             case "mnemonic": r.mnemonic = text(v)
             case "type": r.phrase = ["phrase", "frase", "expresion", "expression"].contains(TextMatch.strip(text(v)))

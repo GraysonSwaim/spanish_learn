@@ -361,6 +361,19 @@ struct CardJSONTests {
                                     tags: "travel", mnemonic: "A mallet smashing a suitcase")])
     }
 
+    /// A phrase exactly as ChatGPT sent it from the shortcut.
+    @Test func aPhraseFromChatGPT() throws {
+        let r = try #require(CardJSON.parse("""
+            {"type": "phrase", "spanish": "¡Qué meningitis!", "english": "No way! / You're kidding!", "example": "—Me ganaste la lotería. —¡Qué meningitis!",
+            "notes": "Casual (tú), México.", "mnemonic": "Think of meningitis as a wild surprise that shocks you.", "tags": "slang, surprise"}
+            """)?.first)
+        #expect(r.phrase)
+        #expect(r.es == "¡Qué meningitis!" && r.en == "No way! / You're kidding!")
+        #expect(r.ex == "—Me ganaste la lotería. —¡Qué meningitis!")
+        #expect(r.mnemonic.hasPrefix("Think of meningitis"))
+        #expect(r.tags == "slang surprise")
+    }
+
     @Test func aVerbInFencesWithEveryTense() throws {
         let text = AddCardsIntent.unfence("""
             ```json

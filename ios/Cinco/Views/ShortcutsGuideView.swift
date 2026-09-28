@@ -120,9 +120,9 @@ struct ShortcutsGuideView: View {
     "english": a short meaning; a verb starts with "to". Two meanings: "suitcase / bag".
     "type": "phrase" if it is several words or an expression, otherwise "word".
     "example": one short, natural Spanish sentence using it.
-    "notes": a noun: its gender and plural, like "Femenino. Plural: las maletas". An adjective: its feminine, like "Femenino: bonita". A verb: its irregularity, like "o → ue" or "yo: tengo"; "" if regular. Otherwise "".
+    "notes": a noun: its gender and plural, like "Femenino. Plural: las maletas". An adjective: its feminine, like "Femenino: bonita". A verb: its irregularity, like "o → ue" or "yo: tengo"; "" if regular. A phrase: its register or region only if it matters, like "Casual, México" or "Formal: ¿Cómo está?". Otherwise "". One short line.
     "mnemonic": a short, vivid memory trick in English linking the Spanish sound to the meaning.
-    "tags": one or two lowercase English topic words, like "travel".
+    "tags": one or two lowercase English words separated by a space, like "travel" or "slang food".
     "tenses": only for a verb; leave it out for anything else. An object with these 15 keys, each a list of exactly 6 forms without pronouns, in the order yo, tú, él/ella/usted, nosotros, vosotros, ellos/ellas/ustedes:
     presente, preterito, imperfecto, futuro, condicional, subjuntivo, subj_imperfecto, imperativo, imperativo_negativo, perfecto, pluscuamperfecto, futuro_perfecto, condicional_perfecto, subj_perfecto, subj_pluscuamperfecto.
     imperativo and imperativo_negativo have "" for yo; imperativo_negativo forms start with "no" ("no hables"). subj_imperfecto gives both endings ("hablara / hablase"). Compound tenses use haber ("he hablado"). A reflexive verb keeps its pronoun ("me levanto").
