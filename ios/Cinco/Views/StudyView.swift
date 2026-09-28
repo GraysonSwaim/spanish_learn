@@ -10,6 +10,8 @@ struct StudyView: View {
     /// The dictionary's entry for the card on screen (sentences, origin), looked up once per card.
     @State private var lex: LexEntry?
     @State private var more: More?
+    /// The card just missed, while its mnemonic sheet is up.
+    @State private var mnemonicFor: Card?
     @FocusState private var focus: Field?
 
     private enum More { case sentences, origin }
@@ -41,6 +43,13 @@ struct StudyView: View {
         .onChange(of: session.step, initial: true) {
             typed = ""; grid = [:]; dragX = 0; more = nil
             lex = session.current.flatMap { $0.isConj ? nil : Lexicon.shared.entry(for: $0) }
+        }
+        .sheet(item: $mnemonicFor) { c in
+            MnemonicSheet(card: c, meaning: c.isConj ? session.verb(of: c)?.en ?? "" : c.en)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(Palette.bg)
+                .presentationCornerRadius(28)
         }
         .onChange(of: session.phase) { _, p in
             if p == .prompt, let c = session.current {
@@ -111,6 +120,14 @@ struct StudyView: View {
         }
     }
 
+    /// Grades the card; a first miss this session asks for a mnemonic (Ajustes › Pedir mnemotecnias).
+    private func grade(_ pass: Bool) {
+        guard let c = session.current, session.canGrade else { return }
+        let firstMiss = !pass && !session.missed.contains { $0 === c }
+        session.grade(pass)
+        if firstMiss && session.prefs.askMnemonics { mnemonicFor = c }
+    }
+
     private func tap() {
         switch session.phase {
         case .word: session.showMeaning()
@@ -134,7 +151,7 @@ struct StudyView: View {
                 withAnimation(.easeIn(duration: 0.2)) { dragX = pass ? 600 : -600 }
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(200))
-                    session.grade(pass)
+                    grade(pass)
                 }
             }
     }
@@ -409,7 +426,7 @@ struct StudyView: View {
             }
         default:
             HStack(spacing: 10) {
-                Button { session.grade(false) } label: { BigLabel("Otra vez", "baja una etapa") }
+                Button { grade(false) } label: { BigLabel("Otra vez", "baja una etapa") }
                     .buttonStyle(SoftButtonStyle(fill: Palette.againSoft, text: Palette.again))
                 Button { session.grade(true) } label: { BigLabel("¡La sé!", "sube una etapa") }
                     .buttonStyle(SoftButtonStyle(fill: Palette.good, text: Palette.onGood))

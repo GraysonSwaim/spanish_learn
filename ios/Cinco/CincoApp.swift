@@ -34,8 +34,6 @@ struct RootView: View {
 
     @State private var session: StudySession?
     @State private var studying = false
-    /// The mnemonics screen was shown for the session that just ended.
-    @State private var mnemonicsDone = false
 
     var body: some View {
         NavigationStack {
@@ -49,17 +47,12 @@ struct RootView: View {
                 if let s = current, !s.isFinished {
                     StudyView(session: s) { studying = false }
                 } else if let s = current {
-                    if Prefs.current.askMnemonics && !s.missed.isEmpty && !mnemonicsDone {
-                        MnemonicsView(cards: s.missed, verb: s.verb(of:)) { mnemonicsDone = true }
-                    } else {
-                        DoneView(done: s.done) { studying = false; session = nil }
-                    }
+                    DoneView(done: s.done) { studying = false; session = nil }
                 }
             }
             .preferredColorScheme(scheme)
         }
         .preferredColorScheme(scheme)
-        .onChange(of: session === nil) { mnemonicsDone = false }
         .onChange(of: scenePhase, initial: true) { _, p in
             // Merge anything a second device created with the same id.
             if p == .active { Deck.dedupe(ctx) }
@@ -88,23 +81,6 @@ struct RootView: View {
         if let i = args.firstIndex(of: "-studyNewest"), i + 1 < args.count, let n = Int(args[i + 1]) {
             let newest = Deck.allCards(ctx).filter { !$0.isConj }.sorted { $0.added > $1.added }.prefix(n)
             session = StudySession(queue: Array(newest), tab: .vocab, ctx: ctx)
-            studying = true
-            return
-        }
-        // `-missDemo` misses two word cards and a conj card, then ends the session: the mnemonics screen.
-        if args.contains("-missDemo") {
-            let all = Deck.allCards(ctx)
-            let picks = Array(all.filter { !$0.isConj }.prefix(2)) + Array(all.filter(\.isConj).prefix(1))
-            for c in picks where c.stage == 0 { c.stage = 1 }
-            let s = StudySession(queue: picks, tab: .vocab, ctx: ctx)
-            for _ in picks {
-                if s.phase == .word { s.showMeaning() }
-                if s.mode == .type { s.check("x") } else if s.mode == .grid { s.checkGrid([:]) } else { s.reveal() }
-                s.grade(false)
-            }
-            while !s.isFinished { s.drop() }
-            for c in picks { c.dropped = nil }
-            session = s
             studying = true
             return
         }

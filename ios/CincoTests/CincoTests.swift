@@ -285,7 +285,7 @@ struct FindWordTests {
     }
 }
 
-/// The cards a session remembers missing, for the mnemonics screen, and the mnemonic an edit keeps.
+/// The cards a session remembers missing (a mnemonic is asked for on the first miss), and the mnemonic an edit keeps.
 @MainActor
 struct MnemonicTests {
     private func store() throws -> ModelContext {

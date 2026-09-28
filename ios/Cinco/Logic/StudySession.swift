@@ -54,7 +54,7 @@ final class StudySession {
     private(set) var cells: [Int: CellResult] = [:]
     private(set) var done = 0
     private(set) var right = 0
-    /// Cards swiped left this session, once each in the order they were missed, for the mnemonics screen.
+    /// Cards missed this session, once each in the order they were missed: a mnemonic is asked for only the first time.
     private(set) var missed: [Card] = []
     private var undoState: Undo?
     /// Bumped on every card change, so a delayed auto-advance can tell it's stale, and the view resets
