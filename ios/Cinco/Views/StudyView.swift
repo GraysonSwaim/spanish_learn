@@ -38,7 +38,7 @@ struct StudyView: View {
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .background(Backdrop())
-        .onChange(of: session.current?.id, initial: true) {
+        .onChange(of: session.step, initial: true) {
             typed = ""; grid = [:]; dragX = 0; more = nil
             lex = session.current.flatMap { $0.isConj ? nil : Lexicon.shared.entry(for: $0) }
         }

@@ -57,8 +57,9 @@ final class StudySession {
     /// Cards swiped left this session, once each in the order they were missed, for the mnemonics screen.
     private(set) var missed: [Card] = []
     private var undoState: Undo?
-    /// Bumped on every card change, so a delayed auto-advance can tell it's stale.
-    private var step = 0
+    /// Bumped on every card change, so a delayed auto-advance can tell it's stale, and the view resets
+    /// its drag and typing even when a missed card comes straight back (same id).
+    private(set) var step = 0
 
     private let ctx: ModelContext
     private let verbs: [String: Card]
