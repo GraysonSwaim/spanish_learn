@@ -7,6 +7,8 @@ struct StudyView: View {
     @State private var typed = ""
     @State private var grid: [Int: String] = [:]
     @State private var dragX: CGFloat = 0
+    /// Counts swipes to the right, the only ones that buzz.
+    @State private var rightSwipes = 0
     /// Whether the card's sentences are open under the answer.
     @State private var showSentences = false
     /// The card just missed, while its mnemonic sheet is up.
@@ -114,6 +116,7 @@ struct StudyView: View {
         .contentShape(.rect)
         .onTapGesture { tap() }
         .simultaneousGesture(swipe)
+        .sensoryFeedback(.success, trigger: rightSwipes)
     }
 
     /// Sets the card aside for good: hidden from study, but kept in Explorar, where it can come back.
@@ -237,6 +240,7 @@ struct StudyView: View {
                     return
                 }
                 let pass = dragX > 0
+                if pass { rightSwipes += 1 }
                 withAnimation(.easeIn(duration: 0.2)) { dragX = pass ? 600 : -600 }
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(200))
