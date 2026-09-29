@@ -44,7 +44,7 @@ duplicated: the action lists what would change (`Deck.changes`) and asks before 
 
 ## Development
 
-Tests: `xcodebuild test -project Cinco.xcodeproj -scheme Cinco -destination 'platform=iOS Simulator,name=iPhone Air' CODE_SIGNING_ALLOWED=NO`
+Tests: `xcodebuild test -project Cinco.xcodeproj -scheme 'Choca Cinco' -destination 'platform=iOS Simulator,name=iPhone Air' CODE_SIGNING_ALLOWED=NO`
 
 Debug builds take launch arguments for the simulator:
 
