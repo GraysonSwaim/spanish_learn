@@ -214,10 +214,8 @@ struct HomeView: View {
             let ok = url.startAccessingSecurityScopedResource()
             defer { if ok { url.stopAccessingSecurityScopedResource() } }
             guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
-            // Importing while Frases is open files every row there.
-            var recs = CSVImport.parse(text)
-            if tab == .phrases { for i in recs.indices { recs[i].phrase = true } }
-            let r = Deck.importRecords(recs, into: ctx)
+            // Each row sorts itself: a type column, else tense tables (verb), else how the Spanish reads.
+            let r = Deck.importRecords(CSVImport.parse(text), into: ctx)
             total.added += r.added; total.updated += r.updated; total.skipped += r.skipped; total.verbs += r.verbs
         }
         message = total.summary

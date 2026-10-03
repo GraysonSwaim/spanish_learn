@@ -48,7 +48,7 @@ enum Deck {
             let card: Card
             if let c = byID[id] {
                 card = c
-                if rec.phrase && c.kind == .word { c.kind = .phrase }
+                if rec.phrase && !rec.phraseGuessed && c.kind == .word { c.kind = .phrase }
                 c.en = rec.en
                 if !rec.ex.isEmpty { c.ex = rec.ex }
                 if !rec.notes.isEmpty { c.notes = rec.notes }
@@ -99,8 +99,8 @@ enum Deck {
         field(rec.tags, c.tags, added: "etiquetas", replaced: "etiquetas: «\(c.tags)» → «\(rec.tags)»")
         field(rec.frases, c.frases, added: "frases", replaced: "otras frases")
         if c.mnemonic.isEmpty && !rec.mnemonic.isEmpty { out.append("mnemotecnia") }
-        if rec.phrase && c.kind == .word { out.append("pasa a Frases") }
-        if !c.isPhrase && !rec.phrase {
+        if rec.phrase && !rec.phraseGuessed && c.kind == .word { out.append("pasa a Frases") }
+        if !c.isPhrase && !(rec.phrase && !rec.phraseGuessed) {
             let added = rec.tenses.keys.filter { (c.tenses[$0] ?? "").isEmpty }.count
             let fixed = rec.tenses.filter { k, v in !(c.tenses[k] ?? "").isEmpty && c.tenses[k] != v }.count
             if added > 0 { out.append("\(added) \(added == 1 ? "tiempo nuevo" : "tiempos nuevos") en Conjugación") }

@@ -6,9 +6,27 @@ nonisolated struct CardRecord: Equatable, Hashable, Identifiable {
     var tenses: [String: String] = [:]
     /// A phrase card (Frases tab) rather than a word: a "type" column saying "phrase" or "frase".
     var phrase = false
+    /// The file gave no type, so `phrase` was inferred from the Spanish (see `CardRecord.sort`). An inferred
+    /// phrase files a new card in Frases but never moves a word already in Vocabulario.
+    var phraseGuessed = false
     /// From a mnemonic column or JSON key, or Editar tarjeta. An import only fills it on a card that has none.
     var mnemonic = ""
     var id: String { es }
+}
+
+nonisolated extension CardRecord {
+    /// Sets `phrase` from a "type" column, or when there is none from the row itself: tense tables make a verb,
+    /// a sentence (¿ ¡, closing punctuation, a comma, or four words past the article) makes a phrase, the rest are words.
+    mutating func sort(type: String) {
+        let t = TextMatch.strip(type)
+        if ["phrase", "frase", "expresion", "expression"].contains(t) { phrase = true; return }
+        phrase = false
+        guard t.isEmpty, tenses.isEmpty else { return }
+        let first = es.split(separator: "/").first.map(String.init) ?? es
+        let s = first.trimmingCharacters(in: .whitespaces)
+        let words = TextMatch.noArticle(s).split(whereSeparator: \.isWhitespace).count
+        if s.contains(where: { "¿¡?!,.;".contains($0) }) || words >= 4 { phrase = true; phraseGuessed = true }
+    }
 }
 
 /// Reads the CSV decks the web app reads: comma, semicolon or tab separated, quoted fields, "#" comments,
@@ -90,7 +108,7 @@ nonisolated enum CSVImport {
             }
             var rec = CardRecord(es: g("es"), en: g("en"), ex: g("ex"), notes: g("notes"), tags: g("tags"), frases: g("frases"))
             for t in Tense.all { let f = g(t.key); if !f.isEmpty { rec.tenses[t.key] = f } }
-            rec.phrase = ["phrase", "frase", "expresion", "expression"].contains(TextMatch.strip(g("type")))
+            rec.sort(type: g("type"))
             rec.mnemonic = g("mnemonic")
             return rec
         }
@@ -128,6 +146,7 @@ nonisolated enum CardJSON {
 
     private static func record(_ o: [String: Any]) -> CardRecord {
         var r = CardRecord()
+        var type = ""
         for (k, v) in o {
             let n = TextMatch.norm(k)
             if ["tenses", "conjugations", "conjugaciones", "tiempos"].contains(n), let t = v as? [String: Any] {
@@ -148,11 +167,12 @@ nonisolated enum CardJSON {
                 .split { $0 == "," || $0 == ";" || $0.isWhitespace }.joined(separator: " ")
             case "frases": r.frases = text(v)
             case "mnemonic": r.mnemonic = text(v)
-            case "type": r.phrase = ["phrase", "frase", "expresion", "expression"].contains(TextMatch.strip(text(v)))
+            case "type": type = text(v)
             case let t? where Tense.named(t) != nil: let f = text(v); if !f.isEmpty { r.tenses[t] = f }
             default: break
             }
         }
+        r.sort(type: type)
         return r
     }
 }

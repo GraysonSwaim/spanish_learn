@@ -130,6 +130,16 @@ struct PhraseTests {
         return ModelContext(c)
     }
 
+    @Test func rowsSortThemselves() throws {
+        let csv = "spanish,english,type,presente\n¿Dónde está el baño?,Where is the bathroom?,,\nno hay de qué,you're welcome,,\nla conferencia de prensa,press conference,,\nhablar,to speak,,hablo|hablas|habla|hablamos|habláis|hablan\nel gato,cat,word,\n"
+        let recs = CSVImport.parse(csv)
+        #expect(recs.map(\.phrase) == [true, true, false, false, false])
+        let ctx = try store()
+        Deck.importRecords([CardRecord(es: "no hay de qué", en: "old")], into: ctx)
+        Deck.importRecords(recs, into: ctx)
+        #expect(Deck.allCards(ctx).first { $0.es == "no hay de qué" }?.isPhrase == false)
+    }
+
     @Test func typeColumnMakesPhrases() throws {
         let recs = CSVImport.parse("spanish,english,type\n¿Qué tal?,How's it going?,phrase\nel gato,cat,\n")
         #expect(recs.map(\.phrase) == [true, false])
