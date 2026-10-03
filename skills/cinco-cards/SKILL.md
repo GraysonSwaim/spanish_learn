@@ -9,10 +9,10 @@ Cinco is a personal Spanish flashcard app. Cards climb five stages: first the le
 
 ## Output format
 
-A UTF-8 CSV, one card per row. A deck without verbs uses the first five columns:
+A UTF-8 CSV, one card per row. A deck without verbs uses the first five columns plus `type` (see below):
 
 ```csv
-spanish,english,example,notes,tags
+spanish,english,example,notes,tags,type
 ```
 
 A deck with verbs adds a column per tense and then `frases`:
@@ -43,7 +43,7 @@ The Spanish text is the card's identity. Re-importing a row with the same Spanis
 
 **frases** — for a verb, extra sentences separated by `|`, used when the learner sets Conjugación to Frase: the app finds the verb's form in a sentence by matching it against the tense columns, blanks it out (`Siempre ___ café con leche`, with the person in the gap) and asks for it. So every sentence must contain one of the forms exactly as written in the columns (reflexives with their pronoun: `Me vestí rápido`). The example counts as one sentence already, so write frases for the other tenses, at least one in the preterite: `Ayer tuve que trabajar hasta tarde.` If the example uses the infinitive (`Tengo que devolver este libro`), add a present-tense frase too. Prefer persons whose form belongs to only one tense: nosotros in -ar and -ir is the same in present and preterite (`hablamos`), and a sentence opening with the él form of the present (`Sigue derecho`) also reads as a tú command. Give the sentence enough context to point to the tense (`ayer`, `anoche`, `el año pasado`). No `|` inside a sentence.
 
-**type** — optional; `phrase` puts the row in the iOS app's Frases tab (whole expressions such as `¿Dónde está el baño?`, `Me da igual`), studied like vocabulary but kept apart from single words. Leave it out for words and verbs. A deck of phrases gets `type` = `phrase` on every row, no tense columns, an example showing the phrase in a short exchange, and a note on register or region (`Formal: ¿Cómo está?`, `Mexico`). Without a `type`, the app sorts each row itself: tense tables make a verb, a sentence (two or more words with ¿ ¡ or punctuation, or four words past the article) makes a phrase, anything else is a word; set `type` to override. The open tab no longer matters.
+**type** — last column, written on every row as `word` or `phrase` (verbs are `word`), so nothing is left to the app's guessing; optional for the app, required by this skill; `phrase` puts the row in the iOS app's Frases tab (whole expressions such as `¿Dónde está el baño?`, `Me da igual`), studied like vocabulary but kept apart from single words. A deck of phrases gets `type` = `phrase` on every row, no tense columns, an example showing the phrase in a short exchange, and a note on register or region (`Formal: ¿Cómo está?`, `Mexico`). Without a `type`, the app sorts each row itself: tense tables make a verb, a sentence (two or more words with ¿ ¡ or punctuation, or four words past the article) makes a phrase, anything else is a word; set `type` to override. The open tab no longer matters.
 
 ## Choosing and ordering words
 
