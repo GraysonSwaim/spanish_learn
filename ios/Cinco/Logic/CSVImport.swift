@@ -16,7 +16,7 @@ nonisolated struct CardRecord: Equatable, Hashable, Identifiable {
 
 nonisolated extension CardRecord {
     /// Sets `phrase` from a "type" column, or when there is none from the row itself: tense tables make a verb,
-    /// a sentence (¿ ¡, closing punctuation, a comma, or four words past the article) makes a phrase, the rest are words.
+    /// a sentence (two or more words with ¿ ¡ or punctuation, or four words past the article) makes a phrase, the rest are words.
     mutating func sort(type: String) {
         let t = TextMatch.strip(type)
         if ["phrase", "frase", "expresion", "expression"].contains(t) { phrase = true; return }
@@ -25,7 +25,8 @@ nonisolated extension CardRecord {
         let first = es.split(separator: "/").first.map(String.init) ?? es
         let s = first.trimmingCharacters(in: .whitespaces)
         let words = TextMatch.noArticle(s).split(whereSeparator: \.isWhitespace).count
-        if s.contains(where: { "¿¡?!,.;".contains($0) }) || words >= 4 { phrase = true; phraseGuessed = true }
+        // A lone "¿dónde?" is a word; punctuation only makes a phrase out of two or more words.
+        if (words >= 2 && s.contains(where: { "¿¡?!,.;".contains($0) })) || words >= 4 { phrase = true; phraseGuessed = true }
     }
 }
 
