@@ -36,6 +36,8 @@ nonisolated enum Palette {
     static let stagesSoft = [dyn(0xFCC9A6, 0x4A2E20), dyn(0xFFDF8A, 0x4A3D1C), dyn(0xBDE5D4, 0x1F3D34),
                              dyn(0xC1D6F1, 0x1F3047), dyn(0xDAC8EB, 0x362A45)]
     static let near = dyn(0xE9A514, 0xFFC94D)
+    /// A highlighter: words marked in a reading.
+    static let mark = dyn(0xFFE08A, 0x6B5520)
     /// The soft light falling on the backdrop.
     static let glow = dyn(0xFFFFFF, 0xFFD9B0, alpha: (0.6, 0.06))
 

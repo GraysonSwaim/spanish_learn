@@ -13,6 +13,9 @@ Cinco/Logic/StudySession.swift one sitting: queue, reveal steps, grading, undo
 Cinco/Logic/TextMatch.swift   answer checking, and hash(strip()) ids that match the web app
 Cinco/Logic/CSVImport.swift   deck parsing (same columns and aliases as the web app)
 Cinco/Logic/Deck.swift        import, verb tables -> conj cards, merging iCloud duplicates
+Cinco/Model/Reading.swift     Reading, a pasted text for Lecturas (same CloudKit rules)
+Cinco/Logic/Lectura.swift     lines, words and marked runs of a reading; recycling old readings
+Cinco/Logic/Tutor.swift       Claude through the proxy in ../proxy: checking translations, drafting cards
 Cinco/Views/                  the screens
 CincoTests/                   parity tests against values from the web app
 ```
@@ -51,6 +54,7 @@ Debug builds take launch arguments for the simulator:
 - `-importCSV <path>` loads a deck file from the Mac at launch.
 - `-demo vocab|conj <steps> [stage]` opens a verb card at a stage and advances it that many reveal steps.
 - `-openTenses` opens the Conjugación tense picker.
+- `-tutorDemo` gives Lecturas canned answers instead of Claude; `-tutorURL http://localhost:8787` uses a proxy running on the Mac.
 - `-studyNewest <n>` starts a session with the n most recently added word cards; `-studyCard <spanish>` with one card.
 
 ## Tabs
@@ -61,6 +65,19 @@ The starter deck (`decks/starter.csv`: 20 words, 10 of them verbs with their cor
 `decks/frases-inicio.csv`: 20 phrases) loads with one button on an empty deck. After that, cards come from Añadir,
 the Shortcuts actions, or an import. An imported card goes to Frases when its `type` column is `phrase`, or when
 the file is imported while the Frases tab is open.
+
+## Lecturas
+
+Home › Lecturas: paste a Spanish text and it's split into one line per sentence. Tap the words you don't know (neighbours
+join into one phrase) and write your English under each line; words already in the deck are underlined with dots.
+**Revisar** sends the reading to Claude, which grades each line (Bien, Casi, No del todo), says what went wrong, lists
+words you seem to have missed (a tap marks them) and adds a few notes on the text. **Inglés → español** is Al revés: write
+the Spanish back from the English, then compare with the original. **Tarjetas** turns the marked words into cards:
+Claude drafts the dictionary form, the meaning in that sentence and a note, and the sentence becomes the example. A word
+already in the deck is brought forward for review instead. Readings not opened for 30 days are deleted.
+
+Claude is reached through the Cloudflare Worker in `../proxy`, which holds the API key; the app asks once before
+sending anything.
 
 ## Not yet in the native app
 

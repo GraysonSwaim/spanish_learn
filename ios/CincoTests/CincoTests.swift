@@ -332,3 +332,54 @@ struct ExistingCardTests {
         #expect(Deck.changes(rec, to: c) == ["inglés: «to speak» → «to talk»", "ejemplo", "1 tiempo nuevo en Conjugación"])
     }
 }
+
+struct LecturaTests {
+    @Test func splitsIntoSentencesKeepingLineBreaks() {
+        let text = "Ayer quedamos en el café. ¿Vienes mañana?\nTe echo de menos.\n\n¡Hasta luego!"
+        #expect(Lectura.lines(text) == ["Ayer quedamos en el café.", "¿Vienes mañana?", "Te echo de menos.", "¡Hasta luego!"])
+    }
+
+    @Test func wordsSkipPunctuation() {
+        let line = "¿Vienes mañana, María?"
+        #expect(Lectura.words(line).map { String(line[$0]) } == ["Vienes", "mañana", "María"])
+    }
+
+    @Test func markedNeighboursMakeOnePhrase() {
+        let lines = ["Te echo de menos, de verdad.", "Quedamos mañana."]
+        // echo de menos (1-3) is one run; "de" after the comma (4) stands alone; line 2's "Quedamos" too.
+        let runs = Lectura.runs(lines: lines, marks: ["0.1", "0.2", "0.3", "0.4", "1.0"])
+        #expect(runs.map(\.text) == ["echo de menos", "de", "Quedamos"])
+        #expect(runs.map(\.id) == ["0.1-3", "0.4-4", "1.0-0"])
+    }
+
+    @Test func findsMissedWordsIgnoringCaseAndAccents() {
+        #expect(Lectura.find("echo de menos", in: "Te echo de menos.") == [1, 2, 3])
+        #expect(Lectura.find("cafe", in: "Ayer quedamos en el Café.") == [4])
+        #expect(Lectura.find("perro", in: "Ayer quedamos en el café.") == nil)
+    }
+
+    @Test func aGlossMakesTheCardAndTheSentenceIsItsExample() {
+        let run = Run(line: 0, first: 1, last: 3, text: "echo de menos")
+        let gloss = Tutor.Gloss(spanish: "echar de menos", english: "to miss (someone)", phrase: false, note: "echo: presente, yo")
+        let rec = Lectura.record(run, gloss: gloss, sentence: "Te echo de menos.")
+        #expect(rec.es == "echar de menos" && rec.en == "to miss (someone)" && rec.ex == "Te echo de menos.")
+        #expect(rec.notes == "echo: presente, yo" && rec.tags == "lectura" && !rec.phrase)
+        // Without a gloss: the words as written, no meaning yet.
+        let plain = Lectura.record(run, gloss: nil, sentence: "Te echo de menos.")
+        #expect(plain.es == "echo de menos" && plain.en.isEmpty)
+    }
+
+    @Test @MainActor func oldReadingsAreRecycled() throws {
+        let schema = Schema([Card.self, DayLog.self, Reading.self])
+        let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+        let ctx = c.mainContext
+        let now = Date.now
+        let fresh = Reading(title: "nueva", lines: ["Hola."])
+        let stale = Reading(title: "vieja", lines: ["Adiós."])
+        stale.opened = now.addingTimeInterval(-31 * 86_400)
+        ctx.insert(fresh); ctx.insert(stale)
+        Lectura.recycle(ctx, now: now)
+        let left = try ctx.fetch(FetchDescriptor<Reading>()).map(\.title)
+        #expect(left == ["nueva"])
+    }
+}

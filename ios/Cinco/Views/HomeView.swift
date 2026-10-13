@@ -170,7 +170,7 @@ struct HomeView: View {
     /// Five tiles in a row, lined up with the five stages above.
     private var menu: some View {
         HStack(spacing: 8) {
-            NavigationLink { ShortcutsGuideView() } label: { MenuTile(title: "Atajos", icon: "bolt.fill", tint: Palette.stage(1)) }
+            NavigationLink { LecturasView() } label: { MenuTile(title: "Lecturas", icon: "book.fill", tint: Palette.stage(1)) }
             NavigationLink { BrowseView() } label: { MenuTile(title: "Explorar", icon: "rectangle.stack.fill", tint: Palette.stage(2)) }
             Button { editing = EditTarget(card: nil, phrase: tab == .phrases) } label: {
                 MenuTile(title: "Añadir", icon: "plus", tint: Palette.stage(3))

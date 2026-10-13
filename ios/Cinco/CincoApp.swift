@@ -15,7 +15,7 @@ struct CincoApp: App {
 @MainActor
 enum Store {
     static let container: ModelContainer = {
-        let schema = Schema([Card.self, DayLog.self])
+        let schema = Schema([Card.self, DayLog.self, Reading.self])
         // .automatic syncs through the iCloud container in the entitlements, and stays local when there is
         // none (an unsigned simulator build) or no one is signed into iCloud.
         do {
@@ -54,8 +54,11 @@ struct RootView: View {
         }
         .preferredColorScheme(scheme)
         .onChange(of: scenePhase, initial: true) { _, p in
-            // Merge anything a second device created with the same id.
-            if p == .active { Deck.dedupe(ctx) }
+            // Merge anything a second device created with the same id, and let old readings go.
+            if p == .active {
+                Deck.dedupe(ctx)
+                Lectura.recycle(ctx)
+            }
         }
         #if DEBUG
         .task {
