@@ -1,0 +1,30 @@
+name = "choca-cinco-tutor"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# Claude Opus 5.5: $4 per million input tokens, $20 per million output (thinking counts as output).
+# "claude-sonnet-5-5" costs half; "claude-haiku-5-5" a fortieth, with weaker feedback.
+MODEL = "claude-opus-5-5"
+# Longest reply, thinking included. A 30-line check writes about 3,000 tokens; a gloss of 20 words about 1,500.
+CHECK_MAX_TOKENS = "12000"
+GLOSS_MAX_TOKENS = "6000"
+# Each call sets aside its whole max_tokens until it's answered, then keeps only what it used.
+# One phone per UTC day: about 25 checks and as many glosses. At most $2.40 a day.
+DEVICE_DAILY_OUTPUT_TOKENS = "120000"
+# Everyone together per UTC day: at most $4.80.
+GLOBAL_DAILY_OUTPUT_TOKENS = "240000"
+# Input: a 30-line check reads about 5,000 tokens. One phone: at most $1.20 a day.
+DEVICE_DAILY_INPUT_TOKENS = "300000"
+# Everyone together: at most $2.40 a day.
+GLOBAL_DAILY_INPUT_TOKENS = "600000"
+
+# One counter for everyone, so the caps hold even when requests arrive at the same moment.
+[[durable_objects.bindings]]
+name = "BUDGET"
+class_name = "Budget"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Budget"]
