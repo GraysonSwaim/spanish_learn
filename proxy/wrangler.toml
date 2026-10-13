@@ -4,20 +4,21 @@ compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-# Claude Sonnet 5.5: $2 per million input tokens, $10 per million output (thinking counts as output).
-# "claude-opus-5-5" costs twice as much; "claude-haiku-5-5" a twentieth, with weaker feedback.
-MODEL = "claude-sonnet-5-5"
+# Claude Haiku 5.5: $0.10 per million input tokens, $0.50 per million output (thinking counts as output).
+# "claude-sonnet-5-5" costs 20 times as much and gives sharper feedback on translations; "claude-opus-5-5" 40 times.
+# Haiku has no server-side fallback: a request it declines comes back as a 422.
+MODEL = "claude-haiku-5-5"
 # Longest reply, thinking included. A 30-line check writes about 3,000 tokens; a gloss of 20 words about 1,500.
 CHECK_MAX_TOKENS = "12000"
 GLOSS_MAX_TOKENS = "6000"
 # Each call sets aside its whole max_tokens until it's answered, then keeps only what it used.
-# One phone per UTC day: about 25 checks and as many glosses. At most $1.20 a day.
+# One phone per UTC day: about 25 checks and as many glosses. At most 6 cents a day.
 DEVICE_DAILY_OUTPUT_TOKENS = "120000"
-# Everyone together per UTC day: at most $2.40.
+# Everyone together per UTC day: at most 12 cents.
 GLOBAL_DAILY_OUTPUT_TOKENS = "240000"
-# Input: a 30-line check reads about 5,000 tokens. One phone: at most $0.60 a day.
+# Input: a 30-line check reads about 5,000 tokens. One phone: at most 3 cents a day.
 DEVICE_DAILY_INPUT_TOKENS = "300000"
-# Everyone together: at most $1.20 a day.
+# Everyone together: at most 6 cents a day.
 GLOBAL_DAILY_INPUT_TOKENS = "600000"
 
 # One counter for everyone, so the caps hold even when requests arrive at the same moment.

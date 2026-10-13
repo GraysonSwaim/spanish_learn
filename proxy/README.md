@@ -10,15 +10,16 @@ the app.
 
 Both take a `device`: a random ID the phone makes once, so each phone's allowance is counted on its own.
 
-The model is `MODEL` in `wrangler.toml` (Claude Sonnet 5.5). Declined requests are handed on to another model with
-server-side fallbacks (`fallbacks: "default"`); a request that's declined anyway comes back as a 422.
+The model is `MODEL` in `wrangler.toml` (Claude Haiku 5.5). With Sonnet or Opus, declined requests are handed on to
+another model with server-side fallbacks (`fallbacks: "default"`); Haiku has none, so a request it declines comes back
+as a 422.
 
 ## Caps
 
 Each call sets aside its whole `max_tokens` (thinking counts as output) and a token per character of its input plus
-2,000, then keeps only what it really used. The daily caps are in `wrangler.toml`: per phone at most about $1.80 a day,
-everyone together about $3.60, if someone found the URL and spent it all. Real use is far below: checking a 30-line
-reading costs about 3 or 4 cents, a gloss of 20 words about 2.
+2,000, then keeps only what it really used. The daily caps are in `wrangler.toml`: per phone at most about 9 cents a day,
+everyone together about 18 cents, if someone found the URL and spent it all. Real use is far below: checking a 30-line
+reading costs about 0.2 cents, a gloss of 20 words about 0.1.
 
 The backstop is the workspace's spend limit in the Anthropic Console.
 
