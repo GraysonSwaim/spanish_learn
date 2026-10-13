@@ -63,6 +63,7 @@ struct ReadingView: View {
         .onAppear(perform: load)
         .alert(Tutor.consentTitle, isPresented: $askConsent) {
             Button("Enviar") { Tutor.consented = true; review() }
+            if Tutor.onDeviceAvailable { Button("Solo en el iPhone") { review(claude: false) } }
             Button("Cancelar", role: .cancel) {}
         } message: { Text(Tutor.consentMessage) }
         .alert("Revisar", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
@@ -201,6 +202,11 @@ struct ReadingView: View {
             }
             .padding(14).frame(maxWidth: .infinity, alignment: .leading).panel(radius: 18, shadow: 2)
         }
+        if c.onDevice == true {
+            Label(backwards ? "Sin Claude: compara tú cada línea con el original."
+                            : "Sin Claude: el iPhone traduce cada línea y tú comparas.", systemImage: "iphone")
+                .font(Typo.text(13)).foregroundStyle(Palette.muted)
+        }
         if !c.notes.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Label("Notas", systemImage: "sparkles").font(Typo.text(15, .heavy)).foregroundStyle(Palette.ink)
@@ -277,8 +283,10 @@ struct ReadingView: View {
         }
     }
 
-    private func review() {
-        guard Tutor.consented else { askConsent = true; return }
+    private func review() { review(claude: true) }
+
+    private func review(claude: Bool) {
+        if claude && Tutor.needsConsent { askConsent = true; return }
         focus = nil
         busy = true
         let back = backwards
@@ -289,7 +297,7 @@ struct ReadingView: View {
         }
         Task {
             do throws(Tutor.Failure) {
-                let c = try await Tutor.check(title: reading.title, lines: lines, enToEs: back)
+                let c = try await Tutor.check(title: reading.title, lines: lines, enToEs: back, claude: claude)
                 if back { reading.backCheck = c } else { reading.check = c }
                 try? ctx.save()
             } catch {
@@ -322,6 +330,18 @@ private struct LineVerdict: View {
     }
 
     var body: some View {
+        if check.verdict == "ref" {
+            if !check.better.isEmpty {
+                (Text("El iPhone: ").font(Typo.text(14, .heavy)) + Text(check.better).font(Typo.italic(15)))
+                    .foregroundStyle(Palette.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        } else {
+            judged
+        }
+    }
+
+    private var judged: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 6) {
                 Circle().fill(color).frame(width: 9, height: 9)

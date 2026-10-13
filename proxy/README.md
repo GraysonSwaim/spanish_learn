@@ -54,8 +54,8 @@ The backstop is the workspace's spend limit in the Anthropic Console.
 | 502 | `too_long`, `bad_reply`, `upstream` | Reply cut off or malformed, or the API call failed |
 | 503 | `busy` | Anthropic rate limit or overload |
 
-When Claude can't answer (any error but a 422, or offline), the app asks Apple's on-device model instead, on phones
-that have Apple Intelligence.
+When Claude can't answer (any error but a 422, or offline), the app falls back to Apple's on-device model, on phones
+that have Apple Intelligence, for translations and meanings only, not grading (see `Tutor.swift`).
 
 ## Not yet
 

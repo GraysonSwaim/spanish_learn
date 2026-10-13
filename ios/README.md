@@ -77,7 +77,9 @@ Claude drafts the dictionary form, the meaning in that sentence and a note, and 
 already in the deck is brought forward for review instead. Readings not opened for 30 days are deleted.
 
 Claude is reached through the Cloudflare Worker in `../proxy`, which holds the API key; the app asks once before
-sending anything.
+sending anything. Without Claude (declined, offline, out for the day), Apple's on-device model takes a smaller job, since
+in testing it graded translations badly: it translates each line for you to compare with, and gives a marked word's
+meaning in its sentence. Al revés without Claude shows the original to compare with yourself.
 
 ## Not yet in the native app
 

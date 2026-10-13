@@ -36,7 +36,7 @@ struct ReadingCardsView: View {
                 Section {
                     HStack(spacing: 12) {
                         ProgressView()
-                        Text("Claude está preparando las tarjetas…").foregroundStyle(Palette.muted)
+                        Text("Preparando las tarjetas…").foregroundStyle(Palette.muted)
                     }
                 }
             } else if drafts.isEmpty {
@@ -47,7 +47,7 @@ struct ReadingCardsView: View {
                 }
                 if Tutor.available, needsGloss {
                     Section {
-                        Button("Pedir a Claude que las rellene", systemImage: "sparkles") { fetch() }
+                        Button(Tutor.base == nil ? "Rellenarlas en el iPhone" : "Pedir a Claude que las rellene", systemImage: "sparkles") { fetch() }
                     } footer: {
                         Text("O escribe tú el significado de cada una.")
                     }
@@ -66,11 +66,12 @@ struct ReadingCardsView: View {
         }
         .alert(Tutor.consentTitle, isPresented: $askConsent) {
             Button("Enviar") { Tutor.consented = true; fetch() }
+            if Tutor.onDeviceAvailable { Button("Solo en el iPhone") { fetch(claude: false) } }
             Button("Cancelar", role: .cancel) {}
         } message: { Text(Tutor.consentMessage) }
         .onAppear {
             build()
-            if Tutor.available, Tutor.consented, needsGloss { fetch() }
+            if Tutor.available, !Tutor.needsConsent, needsGloss { fetch() }
         }
     }
 
@@ -135,8 +136,10 @@ struct ReadingCardsView: View {
         }
     }
 
-    private func fetch() {
-        guard Tutor.consented else { askConsent = true; return }
+    private func fetch() { fetch(claude: true) }
+
+    private func fetch(claude: Bool) {
+        if claude && Tutor.needsConsent { askConsent = true; return }
         let have = reading.glosses
         let want = drafts.filter { $0.existing == nil && have[$0.id] == nil }.map(\.run)
         guard !want.isEmpty else { return }
@@ -150,7 +153,7 @@ struct ReadingCardsView: View {
         error = nil
         Task {
             do throws(Tutor.Failure) {
-                let got = try await Tutor.gloss(items)
+                let got = try await Tutor.gloss(items, claude: claude)
                 var g = reading.glosses
                 for (run, gloss) in zip(want, got) { g[run.id] = gloss }
                 reading.glosses = g
