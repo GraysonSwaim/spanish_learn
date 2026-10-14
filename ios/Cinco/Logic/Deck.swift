@@ -1,14 +1,9 @@
 import Foundation
 import SwiftData
 
+/// New cards added, and how many of the records were verbs with tables.
 struct ImportResult {
-    var added = 0, updated = 0, skipped = 0, verbs = 0
-
-    var summary: String {
-        "Añadidas: \(added). Actualizadas: \(updated)."
-            + (verbs > 0 ? " Verbos con conjugación: \(verbs)." : "")
-            + (skipped > 0 ? " Omitidas: \(skipped)." : "")
-    }
+    var added = 0, verbs = 0
 }
 
 /// Reads and writes the card store.
@@ -31,11 +26,6 @@ enum Deck {
         return log
     }
 
-    static func logsByKey(_ ctx: ModelContext) -> [String: DayLog] {
-        let logs = (try? ctx.fetch(FetchDescriptor<DayLog>())) ?? []
-        return Dictionary(logs.map { ($0.key, $0) }, uniquingKeysWith: { a, _ in a })
-    }
-
     /// Adds new cards and refreshes existing ones (matched by their Spanish) without touching their progress.
     @discardableResult
     static func importRecords(_ recs: [CardRecord], into ctx: ModelContext) -> ImportResult {
@@ -43,7 +33,7 @@ enum Deck {
         var nextOrder = (byID.values.map(\.order).max() ?? 0) + 1
         var r = ImportResult()
         for rec in recs {
-            guard !rec.es.isEmpty, !rec.en.isEmpty else { r.skipped += 1; continue }
+            guard !rec.es.isEmpty, !rec.en.isEmpty else { continue }
             let id = TextMatch.cardID(rec.es)
             let card: Card
             if let c = byID[id] {
@@ -55,7 +45,6 @@ enum Deck {
                 if !rec.frases.isEmpty { c.frases = rec.frases }
                 // Never over a trick the learner wrote.
                 if c.mnemonic.isEmpty { c.mnemonic = rec.mnemonic }
-                r.updated += 1
             } else {
                 card = Card(id: id, es: rec.es, en: rec.en, order: nextOrder)
                 card.ex = rec.ex; card.notes = rec.notes; card.tags = rec.tags; card.frases = rec.frases

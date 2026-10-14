@@ -21,7 +21,6 @@ nonisolated enum Palette {
     static let sea = dyn(0x2A9D99, 0x4CC3BE)
     static let seaSoft = dyn(0xD8F0EE, 0x1D3B3A)
     static let blue = dyn(0x2A62A6, 0x8DB6F0)
-    static let sun = dyn(0xF0A81C, 0xFFC94D)
     static let good = dyn(0x2E9E7B, 0x4CC49C)
     static let onGood = dyn(0xFFFFFF, 0x10231C)
     static let goodSoft = dyn(0xD9F1E6, 0x1C3A2F)

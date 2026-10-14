@@ -67,7 +67,6 @@ final class StudySession {
 
     var isFinished: Bool { current == nil }
     var remaining: Int { queue.count }
-    var canUndo: Bool { undoState != nil }
 
     init(queue: [Card], tab: Tab, label: String = "", ctx: ModelContext, prefs: Prefs = .current) {
         self.queue = queue

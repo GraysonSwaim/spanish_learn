@@ -6,7 +6,7 @@ the app.
 | Route | The app sends | Claude returns |
 |---|---|---|
 | `POST /check` | a reading's lines and the learner's translations, `es-en` or `en-es` (Al revés) | per line a verdict (`good`, `close`, `off`, `blank`), a comment and a better version; words they missed; up to 3 notes on the text |
-| `POST /gloss` | the words and phrases marked while reading, each with its sentence | a card for each: dictionary form, meaning in context, word or phrase, a short note |
+| `POST /gloss` | the words and phrases marked while reading, each with its sentence | a card for each: dictionary form, meaning in context, a short note |
 
 Both take a `device`: a random ID the phone makes once, so each phone's allowance is counted on its own.
 

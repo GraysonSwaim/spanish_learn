@@ -104,7 +104,7 @@ struct StarterTests {
     @Test func starterDeckLoads() throws {
         let ctx = try store()
         let r = try #require(Deck.loadStarter(ctx))
-        #expect(r.added == 40 && r.skipped == 0)
+        #expect(r.added == 40)
         #expect(r.verbs == 10)
         let cards = Deck.allCards(ctx)
         #expect(cards.filter(\.isConj).count == 60)

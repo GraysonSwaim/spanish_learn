@@ -63,7 +63,6 @@ const GlossReply = z.object({
   items: z.array(z.object({
     spanish: z.string(),
     english: z.string(),
-    phrase: z.boolean(),
     note: z.string(),
   })),
 });
@@ -114,8 +113,6 @@ expressions in their base form (echar de menos, tener ganas de). Keep a whole se
 written, minus punctuation that only belongs to the text.
 - english: the meaning it has in this sentence, as short as a flashcard puts it ("to miss (someone)"). Add a second \
 very common sense after a semicolon only when it's likely to be met soon.
-- phrase: true for a whole sentence or conversational formula (¿Qué tal?, me da igual, ¡Qué va!). False for single \
-words and for multi-word verbs or nouns (echar de menos, el fin de semana).
 - note: one short sentence in English when it helps: the form used in the text when it isn't the dictionary form \
 ("fuimos: preterite of ir, nosotros"), a false friend, or a register or regional note. Empty otherwise.`;
 
@@ -267,8 +264,9 @@ function tidyGloss(r: z.infer<typeof GlossReply>, req: z.infer<typeof GlossReque
   return {
     items: req.items.map((it, i) => {
       const got = r.items[i];
+      // `phrase: false` only keeps builds from before 2026-10-14, which still require the key, decoding; Claude isn't asked.
       return got
-        ? { spanish: got.spanish.trim() || it.text, english: got.english.trim(), phrase: got.phrase, note: got.note.trim() }
+        ? { spanish: got.spanish.trim() || it.text, english: got.english.trim(), phrase: false, note: got.note.trim() }
         : { spanish: it.text, english: "", phrase: false, note: "" };
     }),
   };
