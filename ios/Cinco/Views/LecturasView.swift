@@ -68,9 +68,32 @@ struct NewReadingView: View {
 
     @State private var title = ""
     @State private var text = ""
+    @State private var link = ""
+    @State private var fetching = false
+    @State private var fetched: Result<Article, Error>?
 
     var body: some View {
         Form {
+            Section {
+                HStack {
+                    TextField("https://…", text: $link)
+                        .accessibilityLabel("Enlace a un artículo")
+                        .keyboardType(.URL).textContentType(.URL)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                        .submitLabel(.go).onSubmit(fetch)
+                    if fetching {
+                        ProgressView()
+                    } else {
+                        Button("Traer", action: fetch)
+                            .font(Typo.text(16, .heavy)).tint(Palette.accentInk)
+                            .disabled(ArticleText.link(in: link) == nil)
+                    }
+                }
+            } header: {
+                Text("Desde un enlace")
+            } footer: {
+                Text(linkNote)
+            }
             Section {
                 TextField("Título (opcional)", text: $title)
             }
@@ -85,7 +108,14 @@ struct NewReadingView: View {
                     }
                 // The system's own paste button, so iOS doesn't ask permission each time.
                 PasteButton(payloadType: String.self) { strings in
-                    if let s = strings.first { text = s }
+                    guard let s = strings.first else { return }
+                    // A pasted link brings its article.
+                    if let url = ArticleText.link(in: s) {
+                        link = url.absoluteString
+                        fetch()
+                    } else {
+                        text = s
+                    }
                 }
                 .tint(Palette.accentInk)
             } footer: {
@@ -99,6 +129,36 @@ struct NewReadingView: View {
             ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Empezar", action: create).disabled(Lectura.lines(text).isEmpty)
+            }
+        }
+    }
+
+    private var linkNote: String {
+        switch fetched {
+        case nil:
+            return "Trae solo el texto principal de un artículo, sin menús ni anuncios. Lo revisas abajo antes de empezar."
+        case .failure(let e):
+            return (e.localizedDescription) + " Ábrela en Safari, copia el texto y pégalo abajo."
+        case .success(let a):
+            let n = a.paragraphs
+            return "De \(a.site): \(n) \(n == 1 ? "párrafo" : "párrafos"). Borra abajo lo que no quieras leer."
+                + (a.isSpanish ? "" : " Ojo: no parece estar en español.")
+        }
+    }
+
+    private func fetch() {
+        guard !fetching, let url = ArticleText.link(in: link) else { return }
+        fetching = true
+        fetched = nil
+        Task {
+            defer { fetching = false }
+            do {
+                let a = try await ArticleReader.read(url)
+                text = a.text
+                title = a.title
+                fetched = .success(a)
+            } catch {
+                fetched = .failure(error)
             }
         }
     }

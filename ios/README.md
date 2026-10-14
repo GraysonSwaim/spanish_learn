@@ -76,6 +76,15 @@ the Spanish back from the English, then compare with the original. **Tarjetas** 
 Claude drafts the dictionary form, the meaning in that sentence and a note, and the sentence becomes the example. A word
 already in the deck is brought forward for review instead. Readings not opened for 30 days are deleted.
 
+**From a link** (Nueva lectura › Desde un enlace, or paste a link with Pegar): `ArticleReader` loads the page in an
+offscreen `WKWebView`, so sites that turn away a plain download still answer, and runs `Resources/ArticleExtract.js`
+in it. That script returns two candidates: the page's own JSON-LD `articleBody`, and the paragraphs Mozilla's
+Readability (`Resources/Readability.js` 0.6.0, Firefox's Reader View) finds once figures, asides and screen-reader-only
+text are removed. `ArticleText.choose` takes the metadata when it's the whole article in paragraphs, else
+Readability's text, and drops common news labels (PUBLICIDAD, Fuente de la imagen…). No model is involved, so a page
+always gives the same text. It lands in the editor to trim before Empezar; a page that won't load or holds under 200
+characters asks for a copy and paste instead.
+
 Claude is reached through the Cloudflare Worker in `../proxy`, which holds the API key; the app asks once before
 sending anything. Without Claude (declined, offline, out for the day), Apple's on-device model takes a smaller job, since
 in testing it graded translations badly: it translates each line for you to compare with, and gives a marked word's
