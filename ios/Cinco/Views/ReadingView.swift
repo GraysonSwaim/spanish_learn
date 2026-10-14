@@ -1,8 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// One reading, line by line. Español → inglés: tap the words you don't know to mark them, and write your English under
-/// each line. Inglés → español (Al revés): write the Spanish again from the English, then compare. Claude checks either
+/// One reading, set like the article it came from, line by line. Español → inglés: tap a word you don't know (or hold
+/// and slide across a phrase) to mark it and see roughly what it means, and write your English under each line. Inglés → español (Al revés): write the Spanish again from the English, then compare. Claude checks either
 /// way; Tarjetas turns the marked words into cards.
 struct ReadingView: View {
     @Environment(\.modelContext) private var ctx
@@ -16,6 +16,8 @@ struct ReadingView: View {
     @State private var peek = Set<Int>()
     /// es-en lines whose translation from Claude is showing although the learner left them blank.
     @State private var shown = Set<Int>()
+    /// The word or phrase whose meaning is showing.
+    @State private var lookup: Lookup?
     @FocusState private var focus: Int?
     @State private var busy = false
     @State private var error: String?
@@ -35,14 +37,14 @@ struct ReadingView: View {
                 SoftSegmented(options: [(false, "Español → inglés"), (true, "Inglés → español")], selection: $backwards, size: 15)
                 Text(backwards
                      ? "Escribe cada línea en español sin mirar el original. Luego revisa."
-                     : "Toca las palabras que no conoces y escribe tu traducción debajo de cada línea.")
+                     : "Toca una palabra que no conoces, o mantén pulsado y desliza para una frase. Escribe tu traducción debajo de cada línea.")
                     .font(Typo.text(15)).foregroundStyle(Palette.muted)
+                    .padding(.bottom, 8)
 
                 ForEach(reading.lines.indices, id: \.self) { i in
                     Group { if backwards { backRow(i) } else { row(i) } }
-                        .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .panel(radius: 18, shadow: 2)
+                        .padding(.bottom, 14)
                 }
 
                 if let c = current { extras(c) }
@@ -56,10 +58,6 @@ struct ReadingView: View {
         .background(Backdrop())
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) { actions }
-        .environment(\.openURL, OpenURLAction { url in
-            toggle(url)
-            return .handled
-        })
         .onAppear(perform: load)
         .alert(Tutor.consentTitle, isPresented: $askConsent) {
             Button("Enviar") { Tutor.consented = true; review() }
@@ -78,16 +76,16 @@ struct ReadingView: View {
 
     private func row(_ i: Int) -> some View {
         let c = reading.check?.lines[safe: i]
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                spanish(i)
-                Spacer(minLength: 4)
+        return VStack(alignment: .leading, spacing: 8) {
+            spanish(i)
+            HStack(alignment: .center, spacing: 6) {
+                TextField("Tu traducción…", text: lineBinding(i, \.english), axis: .vertical)
+                    .font(Typo.text(17)).foregroundStyle(Palette.en)
+                    .focused($focus, equals: i)
+                    .submitLabel(.next)
                 speakButton(reading.lines[i])
             }
-            TextField("Tu traducción…", text: lineBinding(i, \.english), axis: .vertical)
-                .font(Typo.text(17)).foregroundStyle(Palette.en)
-                .focused($focus, equals: i)
-                .submitLabel(.next)
+            .writingLine(focus == i)
             if let c {
                 if c.verdict == "blank" {
                     if shown.contains(i) {
@@ -105,9 +103,10 @@ struct ReadingView: View {
     private func backRow(_ i: Int) -> some View {
         let c = reading.backCheck?.lines[safe: i]
         let source = reading.source(i)
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: 8) {
             Text(source.isEmpty ? "Traduce esta línea primero en Español → inglés." : source)
-                .font(Typo.text(18, .bold)).foregroundStyle(source.isEmpty ? Palette.muted : Palette.en)
+                .font(Typo.text(ReadingText.size)).foregroundStyle(source.isEmpty ? Palette.muted : Palette.en)
+                .lineSpacing(6)
             if !source.isEmpty {
                 TextField("En español…", text: lineBinding(i, \.back), axis: .vertical)
                     .font(Typo.text(17)).foregroundStyle(Palette.ink)
@@ -116,11 +115,12 @@ struct ReadingView: View {
                     .textInputAutocapitalization(.sentences)
                     // Autocorrect would put in the accents and spellings this is meant to practise.
                     .autocorrectionDisabled()
+                    .writingLine(focus == i)
                 if let c, c.verdict != "blank" {
                     LineVerdict(check: c, betterLabel: "Corregido")
                 }
                 if c != nil || peek.contains(i) {
-                    HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("Original").font(Typo.text(12, .heavy)).foregroundStyle(Palette.muted).textCase(.uppercase)
                         spanish(i)
                     }
@@ -131,38 +131,22 @@ struct ReadingView: View {
         }
     }
 
-    /// The Spanish line, every word a link: tapping marks or unmarks it. Marked words are highlighted (a phrase as one
-    /// band), and words already in the deck are underlined with dots.
+    /// The Spanish line as running text, its marked words highlighted. A tap or a slide marks, and shows the meaning.
     private func spanish(_ i: Int) -> some View {
         let line = reading.lines[i]
-        let ws = words[safe: i] ?? []
-        let on = Lectura.marked(reading.marks, line: i)
-        var out = AttributedString()
-        var cursor = line.startIndex
-        for (w, r) in ws.enumerated() {
-            var gap = AttributedString(String(line[cursor..<r.lowerBound]))
-            if w > 0, on.contains(w), on.contains(w - 1), Lectura.joins(line[cursor..<r.lowerBound]) {
-                gap.backgroundColor = Palette.mark
+        return ReadingText(text: line, words: words[safe: i] ?? [], spans: Lectura.spans(reading.marks, line: i, text: line),
+                           known: known,
+                           onTap: { w, rect in tapped(line: i, word: w, rect: rect) },
+                           onPick: { span, rect in picked(line: i, span: span, rect: rect) })
+            .popover(isPresented: Binding(get: { lookup?.line == i }, set: { if !$0 { lookup = nil } }),
+                     attachmentAnchor: .rect(.rect(lookup?.line == i ? lookup!.rect : .zero))) {
+                if let l = lookup, let text = phrase(l) {
+                    WordLookup(text: text) {
+                        Lectura.unmark(&reading.marks, line: l.line, text: line, word: l.words.lowerBound)
+                        lookup = nil
+                    }
+                }
             }
-            out += gap
-            let word = String(line[r])
-            var a = AttributedString(word)
-            a.link = URL(string: "cinco-word:\(i).\(w)")
-            if on.contains(w) {
-                a.backgroundColor = Palette.mark
-            } else if known.contains(TextMatch.strip(word)) {
-                a.underlineStyle = Text.LineStyle(pattern: .dot, color: Palette.sea)
-            }
-            out += a
-            cursor = r.upperBound
-        }
-        out += AttributedString(String(line[cursor...]))
-        return Text(out)
-            .font(Typo.text(20, .bold))
-            .foregroundStyle(Palette.ink)
-            .tint(Palette.ink)
-            .lineSpacing(4)
-            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func speakButton(_ text: String) -> some View {
@@ -170,7 +154,7 @@ struct ReadingView: View {
             Speaker.shared.speak(text, lang: Prefs.current.voiceLang)
         } label: {
             Image(systemName: "speaker.wave.2.fill").font(.system(size: 15, weight: .bold)).foregroundStyle(Palette.muted)
-                .frame(width: 32, height: 32)
+                .frame(width: 32, height: 26)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Escuchar la línea")
@@ -269,18 +253,33 @@ struct ReadingView: View {
             })
     }
 
-    private func toggle(_ url: URL) {
-        guard url.scheme == "cinco-word" else { return }
-        let key = url.absoluteString.replacingOccurrences(of: "cinco-word:", with: "")
-        if let k = reading.marks.firstIndex(of: key) { reading.marks.remove(at: k) } else { reading.marks.append(key) }
-        UISelectionFeedbackGenerator().selectionChanged()
+    /// A tap on an unmarked word marks it as a card of its own; on a marked one, shows the phrase it's in.
+    private func tapped(line i: Int, word w: Int, rect: CGRect) {
+        if let span = Lectura.spans(reading.marks, line: i, text: reading.lines[i]).first(where: { $0.contains(w) }) {
+            lookup = Lookup(line: i, words: span, rect: rect)
+        } else {
+            Lectura.mark(&reading.marks, line: i, first: w, last: w)
+            UISelectionFeedbackGenerator().selectionChanged()
+            lookup = Lookup(line: i, words: w...w, rect: rect)
+        }
+    }
+
+    /// A slide across words marks them as one phrase, in place of any marks they cross.
+    private func picked(line i: Int, span: ClosedRange<Int>, rect: CGRect) {
+        Lectura.mark(&reading.marks, line: i, first: span.lowerBound, last: span.upperBound)
+        lookup = Lookup(line: i, words: span, rect: rect)
+    }
+
+    /// The words of a lookup as they stand in the line.
+    private func phrase(_ l: Lookup) -> String? {
+        guard let line = reading.lines[safe: l.line], let ws = words[safe: l.line], l.words.upperBound < ws.count else { return nil }
+        return String(line[ws[l.words.lowerBound].lowerBound..<ws[l.words.upperBound].upperBound])
     }
 
     private func mark(_ m: Tutor.Missed) {
-        guard let line = reading.lines[safe: m.line], let ws = Lectura.find(m.text, in: line) else { return }
-        for w in ws where !reading.marks.contains(Lectura.markKey(line: m.line, word: w)) {
-            reading.marks.append(Lectura.markKey(line: m.line, word: w))
-        }
+        guard let line = reading.lines[safe: m.line], let ws = Lectura.find(m.text, in: line), let first = ws.first, let last = ws.last
+        else { return }
+        Lectura.mark(&reading.marks, line: m.line, first: first, last: last)
     }
 
     private func review() { review(claude: true) }
@@ -305,6 +304,23 @@ struct ReadingView: View {
             }
             busy = false
         }
+    }
+}
+
+/// A word or phrase being looked up, and where it is in its line.
+private struct Lookup: Equatable {
+    let line: Int
+    let words: ClosedRange<Int>
+    let rect: CGRect
+}
+
+private extension View {
+    /// The rule under a line you write on, coloured while you're writing.
+    func writingLine(_ on: Bool) -> some View {
+        padding(.vertical, 6)
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(on ? Palette.accent : Palette.edge).frame(height: on ? 2 : 1.5)
+            }
     }
 }
 

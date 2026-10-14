@@ -89,7 +89,7 @@ struct NewReadingView: View {
                 }
                 .tint(Palette.accentInk)
             } footer: {
-                Text("Se separa en frases: cada una es una línea para traducir.")
+                Text("Cada línea del texto, con todas sus frases, se traduce debajo de ella.")
             }
         }
         .font(Typo.text(16))

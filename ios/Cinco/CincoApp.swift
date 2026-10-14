@@ -34,6 +34,9 @@ struct RootView: View {
 
     @State private var session: StudySession?
     @State private var studying = false
+    #if DEBUG
+    @State private var demoReading: Reading?
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -61,6 +64,7 @@ struct RootView: View {
             }
         }
         #if DEBUG
+        .sheet(item: $demoReading) { r in NavigationStack { ReadingView(reading: r) }.preferredColorScheme(scheme) }
         .task {
             Deck.importFromLaunchArguments(ctx)
             startDemo()
@@ -73,6 +77,18 @@ struct RootView: View {
     /// `taps` steps, so each phase can be screenshotted in the simulator.
     private func startDemo() {
         let args = ProcessInfo.processInfo.arguments
+        // `-openReading` opens a sample reading, some of it marked.
+        if args.contains("-openReading") {
+            let r = Reading(title: "En el mercado", lines: Lectura.lines("""
+                Los sábados por la mañana voy al mercado con mi abuela. Ella conoce a todos los vendedores. Siempre compra más de lo que necesita.
+                Hoy el frutero nos ha regalado unas naranjas porque mi abuela le echa de menos cuando no viene.
+                Al final, volvemos a casa cargadas de bolsas y con ganas de cocinar.
+                """))
+            r.marks = ["0.6-6", "1.12-14", "2.7-7"]
+            ctx.insert(r)
+            demoReading = r
+            return
+        }
         // `-studyCard <spanish>` studies that one card.
         if let i = args.firstIndex(of: "-studyCard"), i + 1 < args.count,
            let c = Deck.allCards(ctx).first(where: { !$0.isConj && TextMatch.noArticle($0.es) == TextMatch.noArticle(args[i + 1]) }) {

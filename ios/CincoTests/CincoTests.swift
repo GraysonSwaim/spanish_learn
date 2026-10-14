@@ -334,9 +334,9 @@ struct ExistingCardTests {
 }
 
 struct LecturaTests {
-    @Test func splitsIntoSentencesKeepingLineBreaks() {
-        let text = "Ayer quedamos en el café. ¿Vienes mañana?\nTe echo de menos.\n\n¡Hasta luego!"
-        #expect(Lectura.lines(text) == ["Ayer quedamos en el café.", "¿Vienes mañana?", "Te echo de menos.", "¡Hasta luego!"])
+    @Test func oneLinePerLineOfTheText() {
+        let text = "Ayer quedamos en el café. ¿Vienes mañana?\nTe echo de menos.\n\n  ¡Hasta luego!  "
+        #expect(Lectura.lines(text) == ["Ayer quedamos en el café. ¿Vienes mañana?", "Te echo de menos.", "¡Hasta luego!"])
     }
 
     @Test func wordsSkipPunctuation() {
@@ -344,12 +344,26 @@ struct LecturaTests {
         #expect(Lectura.words(line).map { String(line[$0]) } == ["Vienes", "mañana", "María"])
     }
 
-    @Test func markedNeighboursMakeOnePhrase() {
+    @Test func oldOneWordMarksJoinTheirNeighbours() {
         let lines = ["Te echo de menos, de verdad.", "Quedamos mañana."]
         // echo de menos (1-3) is one run; "de" after the comma (4) stands alone; line 2's "Quedamos" too.
         let runs = Lectura.runs(lines: lines, marks: ["0.1", "0.2", "0.3", "0.4", "1.0"])
         #expect(runs.map(\.text) == ["echo de menos", "de", "Quedamos"])
         #expect(runs.map(\.id) == ["0.1-3", "0.4-4", "1.0-0"])
+    }
+
+    @Test func tappedWordsStayApartAndASlideMakesAPhrase() {
+        let lines = ["Te echo de menos, de verdad."]
+        var marks: [String] = []
+        Lectura.mark(&marks, line: 0, first: 1, last: 1)
+        Lectura.mark(&marks, line: 0, first: 2, last: 2)
+        #expect(Lectura.runs(lines: lines, marks: marks).map(\.text) == ["echo", "de"])
+        // A slide across both, and a word past the comma, takes their place as one phrase.
+        Lectura.mark(&marks, line: 0, first: 1, last: 4)
+        #expect(Lectura.runs(lines: lines, marks: marks).map(\.text) == ["echo de menos, de"])
+        #expect(Lectura.marked(marks, line: 0) == [1, 2, 3, 4])
+        Lectura.unmark(&marks, line: 0, text: lines[0], word: 3)
+        #expect(marks.isEmpty)
     }
 
     @Test func findsMissedWordsIgnoringCaseAndAccents() {

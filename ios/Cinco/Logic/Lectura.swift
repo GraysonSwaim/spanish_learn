@@ -21,21 +21,11 @@ nonisolated enum Lectura {
     /// And never more than this many, the oldest going first.
     static let keepCount = 40
 
-    /// One line per sentence, keeping the text's own line breaks (a poem or lyrics stay as written).
+    /// One line per line of the text, as it was written: a paragraph of an article, or a line of a poem or a song.
     static func lines(_ text: String) -> [String] {
-        var out: [String] = []
-        for para in text.split(whereSeparator: \.isNewline) {
-            let p = String(para)
-            let tok = NLTokenizer(unit: .sentence)
-            tok.string = p
-            tok.setLanguage(.spanish)
-            tok.enumerateTokens(in: p.startIndex..<p.endIndex) { r, _ in
-                let s = p[r].trimmingCharacters(in: .whitespacesAndNewlines)
-                if !s.isEmpty { out.append(s) }
-                return true
-            }
-        }
-        return out
+        text.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 
     /// Where each word is in a line. Punctuation and spaces fall between words.
@@ -51,30 +41,73 @@ nonisolated enum Lectura {
         gap.allSatisfy { $0.isWhitespace || "-'’".contains($0) }
     }
 
-    static func markKey(line: Int, word: Int) -> String { "\(line).\(word)" }
+    /// A mark is a span, "line.first-last": a word tapped (first == last) or a phrase picked by sliding across it. Marks
+    /// from before spans were one word each, "line.word", and neighbours among them still join into one run.
+    static func markKey(line: Int, first: Int, last: Int) -> String { "\(line).\(first)-\(last)" }
+
+    /// The line and word places a mark covers.
+    static func span(_ mark: String) -> (line: Int, words: ClosedRange<Int>)? {
+        let parts = mark.split(separator: ".", maxSplits: 1)
+        guard parts.count == 2, let line = Int(parts[0]) else { return nil }
+        let ends = parts[1].split(separator: "-").compactMap { Int($0) }
+        switch ends.count {
+        case 1: return (line, ends[0]...ends[0])
+        case 2 where ends[0] <= ends[1]: return (line, ends[0]...ends[1])
+        default: return nil
+        }
+    }
 
     /// The marked word places in one line.
     static func marked(_ marks: [String], line: Int) -> Set<Int> {
-        let prefix = "\(line)."
-        return Set(marks.compactMap { $0.hasPrefix(prefix) ? Int($0.dropFirst(prefix.count)) : nil })
+        var out = Set<Int>()
+        for m in marks { if let s = span(m), s.line == line { out.formUnion(s.words) } }
+        return out
+    }
+
+    /// Marks words `first...last` of a line as one span, replacing any mark they overlap.
+    static func mark(_ marks: inout [String], line: Int, first: Int, last: Int) {
+        marks.removeAll { m in span(m).map { $0.line == line && $0.words.overlaps(first...last) } ?? false }
+        marks.append(markKey(line: line, first: first, last: last))
+    }
+
+    /// Removes whatever mark covers a word: the whole phrase it belongs to.
+    static func unmark(_ marks: inout [String], line: Int, text: String, word: Int) {
+        guard let run = spans(marks, line: line, text: text).first(where: { $0.contains(word) }) else { return }
+        marks.removeAll { m in span(m).map { $0.line == line && run.contains($0.words.lowerBound) } ?? false }
     }
 
     /// Every run of marked words, in reading order.
     static func runs(lines: [String], marks: [String]) -> [Run] {
-        var out: [Run] = []
-        for (l, line) in lines.enumerated() {
+        lines.enumerated().flatMap { l, line in
             let ws = words(line)
-            let on = marked(marks, line: l)
+            return spans(marks, line: l, text: line).compactMap { r -> Run? in
+                guard r.upperBound < ws.count else { return nil }
+                let text = String(line[ws[r.lowerBound].lowerBound..<ws[r.upperBound].upperBound])
+                return Run(line: l, first: r.lowerBound, last: r.upperBound, text: text)
+            }
+        }
+    }
+
+    /// One line's runs as word places, in order: each span as it is, and old one-word marks joined with their neighbours.
+    static func spans(_ marks: [String], line: Int, text: String) -> [ClosedRange<Int>] {
+        var out: [ClosedRange<Int>] = []
+        var single = Set<Int>()
+        for m in marks {
+            guard let s = span(m), s.line == line else { continue }
+            if m.contains("-") { out.append(s.words) } else { single.insert(s.words.lowerBound) }
+        }
+        if !single.isEmpty {
+            let ws = words(text)
             var w = 0
             while w < ws.count {
-                guard on.contains(w) else { w += 1; continue }
+                guard single.contains(w) else { w += 1; continue }
                 var end = w
-                while end + 1 < ws.count, on.contains(end + 1), joins(line[ws[end].upperBound..<ws[end + 1].lowerBound]) { end += 1 }
-                out.append(Run(line: l, first: w, last: end, text: String(line[ws[w].lowerBound..<ws[end].upperBound])))
+                while end + 1 < ws.count, single.contains(end + 1), joins(text[ws[end].upperBound..<ws[end + 1].lowerBound]) { end += 1 }
+                out.append(w...end)
                 w = end + 1
             }
         }
-        return out
+        return out.sorted { $0.lowerBound < $1.lowerBound }
     }
 
     /// The word places in `line` that spell out `text` (case and accents aside), the first time they do.
