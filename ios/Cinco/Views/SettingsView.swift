@@ -3,6 +3,8 @@ import SwiftData
 import CloudKit
 
 struct SettingsView: View {
+    @Environment(\.modelContext) private var ctx
+    @Environment(\.dismiss) private var dismiss
     @AppStorage(PrefKey.newPerDay) private var newPerDay = 15
     @AppStorage(PrefKey.autoSpeak) private var autoSpeak = true
     @AppStorage(PrefKey.direction) private var direction = Direction.stage.rawValue
@@ -12,6 +14,7 @@ struct SettingsView: View {
     @AppStorage(PrefKey.askMnemonics) private var askMnemonics = true
 
     @State private var iCloud = "Comprobando…"
+    @State private var confirmErase = false
 
     var body: some View {
         Form {
@@ -70,9 +73,23 @@ struct SettingsView: View {
             Section {
                 NavigationLink("Créditos") { AcknowledgementsView() }
             }
+            Section {
+                Button("Borrar todos los datos", role: .destructive) { confirmErase = true }
+                    .tint(Palette.again)
+            } footer: {
+                Text("Empieza de cero: borra todas las tarjetas, el progreso, la racha y las lecturas, aquí y en tus otros dispositivos con iCloud. Los ajustes se quedan.")
+            }
         }
         .font(Typo.text(16))
         .navigationTitle("Ajustes")
+        .confirmationDialog("¿Borrar todos los datos?", isPresented: $confirmErase, titleVisibility: .visible) {
+            Button("Borrar todo", role: .destructive) {
+                Deck.eraseAll(ctx)
+                dismiss()
+            }
+        } message: {
+            Text("Tarjetas, progreso, racha y lecturas, en todos tus dispositivos. No se puede deshacer.")
+        }
         .task { iCloud = await Self.accountStatus() }
     }
 

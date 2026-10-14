@@ -237,6 +237,53 @@ struct MnemonicTests {
     }
 }
 
+/// Deleting from Explorar, and Ajustes › Borrar todos los datos.
+@MainActor
+struct DeleteTests {
+    private func store() throws -> ModelContext {
+        let schema = Schema([Card.self, DayLog.self, Reading.self])
+        let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+        return ModelContext(c)
+    }
+
+    private func verb(_ ctx: ModelContext) {
+        var r = CardRecord(es: "tener", en: "to have")
+        r.tenses = ["presente": "tengo|tienes|tiene|tenemos|tenéis|tienen", "preterito": "tuve|tuviste|tuvo|tuvimos|tuvisteis|tuvieron"]
+        Deck.importRecords([r, CardRecord(es: "la casa", en: "house")], into: ctx)
+    }
+
+    @Test func aVerbTakesItsTablesWithIt() throws {
+        let ctx = try store()
+        verb(ctx)
+        #expect(Deck.allCards(ctx).count == 4)
+        let tener = try #require(Deck.allCards(ctx).first { $0.es == "tener" && !$0.isConj })
+        Deck.delete([tener], ctx: ctx)
+        #expect(Deck.allCards(ctx).map(\.es) == ["la casa"])
+    }
+
+    @Test func aTableComesOffItsVerb() throws {
+        let ctx = try store()
+        verb(ctx)
+        let pret = try #require(Deck.allCards(ctx).first { $0.isConj && $0.tense == "preterito" })
+        Deck.delete([pret], ctx: ctx)
+        let tener = try #require(Deck.allCards(ctx).first { $0.es == "tener" && !$0.isConj })
+        #expect(tener.tenseList.map(\.key) == ["presente"])
+        #expect(Deck.allCards(ctx).filter(\.isConj).map(\.tense) == ["presente"])
+    }
+
+    @Test func eraseAllLeavesNothing() throws {
+        let ctx = try store()
+        verb(ctx)
+        ctx.insert(Reading(title: "x", lines: ["Hola."]))
+        _ = Deck.today(ctx)
+        try ctx.save()
+        Deck.eraseAll(ctx)
+        #expect(Deck.allCards(ctx).isEmpty)
+        #expect(try ctx.fetch(FetchDescriptor<DayLog>()).isEmpty)
+        #expect(try ctx.fetch(FetchDescriptor<Reading>()).isEmpty)
+    }
+}
+
 /// The JSON a model sends to Añadir tarjetas.
 @MainActor
 struct CardJSONTests {

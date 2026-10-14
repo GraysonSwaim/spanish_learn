@@ -10,6 +10,9 @@ struct BrowseView: View {
 
     @State private var query = ""
     @State private var showDropped = false
+    @State private var selecting = false
+    @State private var selection = Set<String>()
+    @State private var confirmDelete = false
 
     private var list: [Card] {
         let tab = Tab(rawValue: tabRaw) ?? .vocab
@@ -22,7 +25,8 @@ struct BrowseView: View {
 
     var body: some View {
         let list = list
-        List {
+        let picked = list.filter { selection.contains($0.id) }
+        List(selection: $selection) {
             Picker("", selection: $showDropped) {
                 Text("Activas").tag(false)
                 Text("Descartadas").tag(true)
@@ -39,7 +43,10 @@ struct BrowseView: View {
 
             Section {
                 ForEach(list.prefix(500)) { c in
-                    NavigationLink { CardDetailView(card: c) } label: { row(c) }
+                    // While choosing, a plain row: a link would be greyed out.
+                    Group {
+                        if selecting { row(c) } else { NavigationLink { CardDetailView(card: c) } label: { row(c) } }
+                    }
                         .swipeActions {
                             Button(c.isDropped ? "Recuperar" : "Descartar") {
                                 c.dropped = c.isDropped ? nil : .now
@@ -55,10 +62,49 @@ struct BrowseView: View {
             }
             .listRowBackground(Palette.paper)
         }
+        .environment(\.editMode, .constant(selecting ? .active : .inactive))
         .scrollContentBackground(.hidden)
         .background(Backdrop())
         .searchable(text: $query, prompt: "Busca en español, inglés o etiqueta")
-        .navigationTitle("Tarjetas")
+        .navigationTitle(selecting ? (picked.isEmpty ? "Elige tarjetas" : "\(picked.count) elegidas") : "Tarjetas")
+        .navigationBarBackButtonHidden(selecting)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(selecting ? "Listo" : "Elegir") { withAnimation { selecting.toggle(); selection = [] } }
+                    .disabled(!selecting && list.isEmpty)
+            }
+            if selecting {
+                ToolbarItem(placement: .topBarLeading) {
+                    let all = picked.count == min(list.count, 500)
+                    Button(all ? "Ninguna" : "Todas") { selection = all ? [] : Set(list.prefix(500).map(\.id)) }
+                }
+                ToolbarItemGroup(placement: .bottomBar) {
+                    Button(showDropped ? "Recuperar" : "Descartar") {
+                        for c in picked { c.dropped = showDropped ? nil : .now }
+                        try? ctx.save()
+                        selection = []
+                    }
+                    .disabled(picked.isEmpty)
+                    Spacer()
+                    Button("Borrar", role: .destructive) { confirmDelete = true }
+                        .tint(Palette.again)
+                        .disabled(picked.isEmpty)
+                }
+            }
+        }
+        .onChange(of: showDropped) { selection = [] }
+        .confirmationDialog(picked.count == 1 ? "¿Borrar 1 tarjeta?" : "¿Borrar \(picked.count) tarjetas?",
+                            isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Borrar", role: .destructive) {
+                Deck.delete(picked, ctx: ctx)
+                selection = []
+                selecting = false
+            }
+        } message: {
+            Text(picked.first?.isConj == true
+                 ? "Esas tablas se quitan de sus verbos, con su progreso, en todos tus dispositivos. No se puede deshacer."
+                 : "Desaparecen del mazo, con su progreso, en todos tus dispositivos. No se puede deshacer.")
+        }
     }
 
     private func row(_ c: Card) -> some View {
@@ -150,12 +196,7 @@ struct CardDetailView: View {
     }
 
     private func delete() {
-        for t in Tense.all {
-            let id = "\(card.id):\(t.key)"
-            if let d = try? ctx.fetch(FetchDescriptor<Card>(predicate: #Predicate { $0.id == id })).first { ctx.delete(d) }
-        }
-        ctx.delete(card)
-        try? ctx.save()
+        Deck.delete([card], ctx: ctx)
         dismiss()
     }
 }

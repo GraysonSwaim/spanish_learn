@@ -164,6 +164,35 @@ enum Deck {
         return nil
     }
 
+    /// Deletes cards for good. A word or verb takes its conj cards with it; a conj card takes its table off the verb,
+    /// so the next sync doesn't bring it back.
+    static func delete(_ cards: [Card], ctx: ModelContext) {
+        var byID = cardsByID(ctx)
+        var gone = Set<ObjectIdentifier>()
+        func remove(_ c: Card) {
+            guard gone.insert(ObjectIdentifier(c)).inserted else { return }
+            if byID[c.id] === c { byID[c.id] = nil }
+            ctx.delete(c)
+        }
+        for c in cards {
+            if c.isConj {
+                byID[c.verbID]?.tenses[c.tense] = nil
+            } else {
+                for t in Tense.all { if let d = byID["\(c.id):\(t.key)"] { remove(d) } }
+            }
+            remove(c)
+        }
+        try? ctx.save()
+    }
+
+    /// A clean slate: every card, day and reading, here and (through iCloud) on every device. Settings stay.
+    static func eraseAll(_ ctx: ModelContext) {
+        for c in allCards(ctx) { ctx.delete(c) }
+        for l in (try? ctx.fetch(FetchDescriptor<DayLog>())) ?? [] { ctx.delete(l) }
+        for r in (try? ctx.fetch(FetchDescriptor<Reading>())) ?? [] { ctx.delete(r) }
+        try? ctx.save()
+    }
+
     /// CloudKit can't enforce unique ids, so the same card or day can arrive from two devices.
     /// Keeps the copy with the most practice (or the most activity, for days) and deletes the rest.
     static func dedupe(_ ctx: ModelContext) {

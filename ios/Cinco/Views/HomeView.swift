@@ -99,6 +99,8 @@ struct HomeView: View {
             .frame(maxWidth: .infinity)
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { screenHeight = $0 }
+        // Cards deleted (Explorar, or Ajustes › Borrar todos los datos) may be in a session left midway: start over.
+        .onChange(of: cards.count) { old, new in if new < old { session = nil } }
         .background(Backdrop())
         .toolbar(.hidden, for: .navigationBar)
         .fileImporter(isPresented: $importing, allowedContentTypes: [.commaSeparatedText, .tabSeparatedText, .plainText, .text],
@@ -132,16 +134,24 @@ struct HomeView: View {
                 ForEach(1...5, id: \.self) { i in
                     Button { if n.byStage[i] > 0 { startStage(i) } } label: {
                         ZStack(alignment: .bottom) {
-                            Gloss(color: Palette.stage(i), shape: Scalloped())
-                            // How full the stage is, as a lighter band rising from the foot.
+                            // A see-through column, so the solid band in it is what reads.
+                            Scalloped().fill(Palette.stage(i).opacity(0.13))
+                            Scalloped().stroke(Palette.stage(i).opacity(0.35), lineWidth: 1.5)
+                            // How full the stage is, as a solid band rising from the foot.
                             GeometryReader { g in
-                                VStack { Spacer(minLength: 0); Color.white.opacity(0.22).frame(height: g.size.height * CGFloat(n.byStage[i]) / CGFloat(total)) }
+                                let h = g.size.height * CGFloat(n.byStage[i]) / CGFloat(total)
+                                VStack {
+                                    Spacer(minLength: 0)
+                                    Gloss(color: Palette.stage(i), shape: Rectangle(), lift: 0)
+                                        .frame(height: n.byStage[i] > 0 ? max(h, 14) : 0)
+                                }
                             }
                             .clipShape(Scalloped())
+                            // White once the band has risen up behind the number.
+                            let covered = Double(n.byStage[i]) / Double(total) > 0.8
                             VStack(spacing: 8) {
-                                Text("\(n.byStage[i])").font(Typo.display(22)).foregroundStyle(.white)
-                                    .shadow(color: .black.opacity(0.15), radius: 1, y: 1).padding(.top, 10)
-                                Daisy().fill(.white.opacity(0.9)).frame(width: 16, height: 16)
+                                Text("\(n.byStage[i])").font(Typo.display(22)).foregroundStyle(covered ? .white : Palette.ink).padding(.top, 10)
+                                Daisy().fill(covered ? .white.opacity(0.9) : Palette.stage(i)).frame(width: 16, height: 16)
                                 Spacer()
                             }
                         }
