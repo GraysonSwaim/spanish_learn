@@ -112,6 +112,7 @@ final class ArticleReader: NSObject, WKNavigationDelegate {
 
     private let web: WKWebView
     private var loading: CheckedContinuation<Void, Error>?
+    private var attempt = 0
 
     override init() {
         let config = WKWebViewConfiguration()
@@ -125,11 +126,17 @@ final class ArticleReader: NSObject, WKNavigationDelegate {
 
     private func read(_ url: URL) async throws -> Article {
         defer { web.stopLoading() }
-        try await withCheckedThrowingContinuation { c in
-            loading = c
-            web.load(URLRequest(url: url, timeoutInterval: 20))
-            // A page whose ads never finish loading is read as it stands.
-            Task { try? await Task.sleep(for: .seconds(15)); self.loaded(nil) }
+        // An http link is tried over https first. Some sites (larevista.ec) have no https at all, so the plain page is
+        // the fallback: Info.plist lets web views, and only web views, load it.
+        if url.scheme?.lowercased() == "http", var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            parts.scheme = "https"
+            if let secure = parts.url {
+                do { try await load(secure, timeout: 8) } catch { try await load(url) }
+            } else {
+                try await load(url)
+            }
+        } else {
+            try await load(url)
         }
         // Pages that build their text with scripts get a moment, and another try if it isn't there yet.
         for wait in [0.8, 2.5] {
@@ -137,6 +144,17 @@ final class ArticleReader: NSObject, WKNavigationDelegate {
             if let a = try await extract(), !a.text.isEmpty { return a }
         }
         throw Failure.empty
+    }
+
+    private func load(_ url: URL, timeout: TimeInterval = 20) async throws {
+        attempt += 1
+        let this = attempt
+        try await withCheckedThrowingContinuation { c in
+            loading = c
+            web.load(URLRequest(url: url, timeoutInterval: timeout))
+            // A page whose ads never finish loading is read as it stands (unless a later load has begun).
+            Task { try? await Task.sleep(for: .seconds(15)); if self.attempt == this { self.loaded(nil) } }
+        }
     }
 
     private func extract() async throws -> Article? {
