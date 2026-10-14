@@ -65,10 +65,7 @@ struct RootView: View {
         }
         #if DEBUG
         .sheet(item: $demoReading) { r in NavigationStack { ReadingView(reading: r) }.preferredColorScheme(scheme) }
-        .task {
-            Deck.importFromLaunchArguments(ctx)
-            startDemo()
-        }
+        .task { startDemo() }
         #endif
     }
 
@@ -92,7 +89,7 @@ struct RootView: View {
         // `-studyCard <spanish>` studies that one card.
         if let i = args.firstIndex(of: "-studyCard"), i + 1 < args.count,
            let c = Deck.allCards(ctx).first(where: { !$0.isConj && TextMatch.noArticle($0.es) == TextMatch.noArticle(args[i + 1]) }) {
-            session = StudySession(queue: [c], tab: c.isPhrase ? .phrases : .vocab, ctx: ctx)
+            session = StudySession(queue: [c], tab: .vocab, ctx: ctx)
             studying = true
             return
         }

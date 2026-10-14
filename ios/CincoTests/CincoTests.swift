@@ -43,36 +43,6 @@ struct TextMatchTests {
     }
 }
 
-struct CSVTests {
-    @Test func headerAndQuotes() {
-        let csv = """
-        spanish,english,example,tags,presente
-        "hola, amigo",hello,"Dijo ""hola"".",saludos,
-        tener,to have,,verbs,tengo|tienes|tiene|tenemos|tenéis|tienen
-        # a comment
-        """
-        let r = CSVImport.parse(csv)
-        #expect(r.count == 2)
-        #expect(r[0].es == "hola, amigo")
-        #expect(r[0].ex == "Dijo \"hola\".")
-        #expect(r[0].tags == "saludos")
-        #expect(r[1].tenses["presente"] == "tengo|tienes|tiene|tenemos|tenéis|tienen")
-    }
-
-    @Test func headerlessSemicolons() {
-        let r = CSVImport.parse("gato;cat;El gato duerme.\nperro;dog\n")
-        #expect(r.map(\.es) == ["gato", "perro"])
-        #expect(r[0].ex == "El gato duerme.")
-    }
-
-    @Test func starterDeckParses() throws {
-        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../decks/starter.csv")
-        let r = CSVImport.parse(try String(contentsOf: url, encoding: .utf8))
-        #expect(r.count == 20)
-        #expect(r.allSatisfy { !$0.es.isEmpty && !$0.en.isEmpty })
-    }
-}
-
 @MainActor
 struct SchedulerTests {
     private func card(_ stage: Int, due: Date = .distantPast) -> Card {
@@ -121,61 +91,32 @@ struct SchedulerTests {
     }
 }
 
-/// Frases: phrase cards live in their own tab, and come from a type column or the starter deck.
+/// One Vocabulario for words and phrases alike; verbs also get Conjugación.
 @MainActor
-struct PhraseTests {
+struct StarterTests {
     private func store() throws -> ModelContext {
         let schema = Schema([Card.self, DayLog.self])
         let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         return ModelContext(c)
     }
 
-    @Test func rowsSortThemselves() throws {
-        let csv = "spanish,english,type,presente\n¿Dónde está el baño?,Where is the bathroom?,,\nno hay de qué,you're welcome,,\nla conferencia de prensa,press conference,,\nhablar,to speak,,hablo|hablas|habla|hablamos|habláis|hablan\nel gato,cat,word,\n"
-        let recs = CSVImport.parse(csv)
-        #expect(recs.map(\.phrase) == [true, true, false, false, false])
-        let ctx = try store()
-        Deck.importRecords([CardRecord(es: "no hay de qué", en: "old")], into: ctx)
-        Deck.importRecords(recs, into: ctx)
-        #expect(Deck.allCards(ctx).first { $0.es == "no hay de qué" }?.isPhrase == false)
-    }
-
-    @Test func typeColumnMakesPhrases() throws {
-        let recs = CSVImport.parse("spanish,english,type\n¿Qué tal?,How's it going?,phrase\nel gato,cat,\n")
-        #expect(recs.map(\.phrase) == [true, false])
-        let ctx = try store()
-        Deck.importRecords(recs, into: ctx)
-        let cards = Deck.allCards(ctx)
-        #expect(cards.filter { Scheduler.inTab($0, tab: .phrases, tense: "presente") }.map(\.es) == ["¿Qué tal?"])
-        #expect(cards.filter { Scheduler.inTab($0, tab: .vocab, tense: "presente") }.map(\.es) == ["el gato"])
-    }
-
-    @Test func starterPhrasesLoad() throws {
-        let ctx = try store()
-        let r = try #require(Deck.loadStarter(ctx, deck: "frases-inicio"))
-        #expect(r.added == 20)
-        #expect(Deck.allCards(ctx).allSatisfy { $0.isPhrase })
-    }
-
-    /// Twenty words, ten of them verbs with their six core tables for Conjugación.
-    @Test func starterWordsLoad() throws {
+    /// Forty words and phrases, ten of them verbs with their six core tables for Conjugación.
+    @Test func starterDeckLoads() throws {
         let ctx = try store()
         let r = try #require(Deck.loadStarter(ctx))
-        #expect(r.added == 20)
+        #expect(r.added == 40 && r.skipped == 0)
         #expect(r.verbs == 10)
-        let conj = Deck.allCards(ctx).filter(\.isConj)
-        #expect(conj.count == 60)
+        let cards = Deck.allCards(ctx)
+        #expect(cards.filter(\.isConj).count == 60)
+        #expect(cards.filter { Scheduler.inTab($0, tab: .vocab, tense: "presente") }.count == 40)
     }
 
-}
-
-struct IntentTests {
-    /// What a model typically hands back to "Añadir tarjetas".
-    @Test func fencedModelOutput() {
-        let reply = "```csv\nspanish,english,example\nla maleta,suitcase,Mi maleta es azul.\nel vuelo,flight,\n```"
-        let recs = CSVImport.parse(AddCardsIntent.unfence(reply))
-        #expect(recs.map(\.es) == ["la maleta", "el vuelo"])
-        #expect(recs[0].ex == "Mi maleta es azul.")
+    /// Cards saved when phrases had a tab of their own study in Vocabulario.
+    @Test func oldPhraseCardsAreWords() {
+        let c = Card(id: "x", es: "¿Qué tal?", en: "How's it going?", order: 0)
+        c.kindRaw = "phrase"
+        #expect(c.kind == .word && !c.isConj)
+        #expect(Scheduler.inTab(c, tab: .vocab, tense: "presente"))
     }
 }
 
@@ -302,13 +243,12 @@ struct CardJSONTests {
                                     tags: "travel", mnemonic: "A mallet smashing a suitcase")])
     }
 
-    /// A phrase exactly as ChatGPT sent it from the shortcut.
+    /// A phrase exactly as ChatGPT sent it from the shortcut, with the "type" older prompts asked for.
     @Test func aPhraseFromChatGPT() throws {
         let r = try #require(CardJSON.parse("""
             {"type": "phrase", "spanish": "¡Qué meningitis!", "english": "No way! / You're kidding!", "example": "—Me ganaste la lotería. —¡Qué meningitis!",
             "notes": "Casual (tú), México.", "mnemonic": "Think of meningitis as a wild surprise that shocks you.", "tags": "slang, surprise"}
             """)?.first)
-        #expect(r.phrase)
         #expect(r.es == "¡Qué meningitis!" && r.en == "No way! / You're kidding!")
         #expect(r.ex == "—Me ganaste la lotería. —¡Qué meningitis!")
         #expect(r.mnemonic.hasPrefix("Think of meningitis"))
@@ -331,10 +271,10 @@ struct CardJSONTests {
         #expect(r.tenses["imperativo_negativo"] == "|no bailes|no baile|no bailemos|no bailéis|no bailen")
     }
 
-    @Test func aListAndCSVStillWorks() throws {
+    @Test func aListOrWrappedCards() throws {
         #expect(CardJSON.parse(#"[{"es": "uno", "en": "one"}, {"es": "dos", "en": "two"}]"#)?.map(\.es) == ["uno", "dos"])
+        #expect(CardJSON.parse(#"{"cards": [{"spanish": "uno", "english": "one", "mnemonic": "one → uno"}]}"#)?.first?.mnemonic == "one → uno")
         #expect(CardJSON.parse("spanish,english\nuno,one") == nil)
-        #expect(CSVImport.parse("spanish,english,mnemonic\nuno,one,one → uno").first?.mnemonic == "one → uno")
     }
 
     @Test func importKeepsTheLearnersMnemonic() throws {
@@ -421,10 +361,10 @@ struct LecturaTests {
 
     @Test func aGlossMakesTheCardAndTheSentenceIsItsExample() {
         let run = Run(line: 0, first: 1, last: 3, text: "echo de menos")
-        let gloss = Tutor.Gloss(spanish: "echar de menos", english: "to miss (someone)", phrase: false, note: "echo: presente, yo")
+        let gloss = Tutor.Gloss(spanish: "echar de menos", english: "to miss (someone)", note: "echo: presente, yo")
         let rec = Lectura.record(run, gloss: gloss, sentence: "Te echo de menos.")
         #expect(rec.es == "echar de menos" && rec.en == "to miss (someone)" && rec.ex == "Te echo de menos.")
-        #expect(rec.notes == "echo: presente, yo" && rec.tags == "lectura" && !rec.phrase)
+        #expect(rec.notes == "echo: presente, yo" && rec.tags == "lectura")
         // Without a gloss: the words as written, no meaning yet.
         let plain = Lectura.record(run, gloss: nil, sentence: "Te echo de menos.")
         #expect(plain.es == "echo de menos" && plain.en.isEmpty)

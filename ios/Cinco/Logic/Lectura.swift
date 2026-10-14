@@ -133,16 +133,10 @@ nonisolated enum Lectura {
         return out
     }
 
-    /// A card for a run: Claude's draft when there is one, else the words as they stand, sorted the way an import sorts.
+    /// A card for a run: Claude's draft when there is one, else the words as they stand.
     static func record(_ run: Run, gloss: Tutor.Gloss?, sentence: String) -> CardRecord {
-        var rec = CardRecord(es: gloss?.spanish ?? run.text, en: gloss?.english ?? "", ex: sentence,
-                             notes: gloss?.note ?? "", tags: "lectura")
-        if let gloss {
-            rec.phrase = gloss.phrase
-        } else {
-            rec.sort(type: "")
-        }
-        return rec
+        CardRecord(es: gloss?.spanish ?? run.text, en: gloss?.english ?? "", ex: sentence,
+                   notes: gloss?.note ?? "", tags: "lectura")
     }
 }
 

@@ -16,7 +16,7 @@ struct ShortcutsGuideView: View {
                 step(3, "Otro **Translate Text** con la misma entrada: de *Detectar idioma* a **Inglés**. Renómbralo «Inglés».")
                 step(4, "**Use Model** (Usar modelo): elige **ChatGPT**. Pega el prompt de abajo y cambia cada [ENTRADA], [ESPAÑOL] e [INGLÉS] por la variable del paso 1, 2 y 3.")
                 step(5, "**Añadir tarjetas** (de Choca Cinco): en Texto pon la *Respuesta* del paso 4.")
-                Text("Ponle nombre y ya puedes decir «Oye Siri, Añadir a Cinco» o lanzarlo desde la hoja de compartir. La tarjeta aparece en Vocabulario (o en Frases), y los tiempos de un verbo en Conjugación.")
+                Text("Ponle nombre y ya puedes decir «Oye Siri, Añadir a Cinco» o lanzarlo desde la hoja de compartir. La tarjeta aparece en Vocabulario, y los tiempos de un verbo en Conjugación.")
                     .foregroundStyle(Palette.muted)
                 Text("Si la palabra ya está en tus tarjetas (con o sin artículo), no se duplica: Cinco te dice qué traería de nuevo (un ejemplo, una mnemotecnia, tiempos que faltan, otro significado) y solo lo cambia si dices que sí. Si no hay nada nuevo, te lo dice y no toca nada.")
                     .foregroundStyle(Palette.muted)
@@ -26,20 +26,19 @@ struct ShortcutsGuideView: View {
                 promptBox
 
                 heading("Lo que puede llevar una tarjeta")
-                Text("Solo el español y el inglés son obligatorios; todo lo demás es opcional y se aprovecha si llega. Añadir tarjetas acepta JSON (lo que pide el prompt) o CSV.")
+                Text("Solo el español y el inglés son obligatorios; todo lo demás es opcional y se aprovecha si llega. Añadir tarjetas acepta el JSON que pide el prompt.")
                 field("spanish", "Obligatorio", "La palabra, con artículo si es sustantivo: *la maleta*.")
                 field("english", "Obligatorio", "El significado corto: *suitcase*; verbos con *to*.")
                 field("example", "Opcional", "Una frase de ejemplo en español.")
                 field("notes", "Opcional", "Género y plural, femenino de un adjetivo, irregularidades de un verbo.")
                 field("mnemonic", "Opcional", "Un truco para recordarla. No sustituye uno que ya hayas escrito.")
                 field("tags", "Opcional", "Temas: *viaje*, *comida*.")
-                field("type", "Opcional", "*phrase* manda la tarjeta a Frases.")
                 field("frases", "Opcional", "Más frases con un verbo, en una lista.")
                 field("tenses", "Solo verbos", "Cada tiempo con sus seis formas (yo, tú, él, nosotros, vosotros, ellos). Cada tiempo es una tarjeta en Conjugación.")
 
                 heading("Las acciones de Choca Cinco")
-                action("Añadir tarjetas", "Texto (obligatorio): JSON o CSV, una tarjeta o muchas. Etiquetas (opcional): para las que no traigan. Una palabra nueva entra directa; si ya la tienes, te pregunta antes de cambiarla y nunca pierde su progreso.")
-                action("Añadir una tarjeta", "Español e Inglés (obligatorios), Ejemplo y Frase (opcionales). Tal cual, sin rellenar nada. Siri: «Añadir una tarjeta a Choca Cinco».")
+                action("Añadir tarjetas", "Texto (obligatorio): JSON, una tarjeta o muchas. Etiquetas (opcional): para las que no traigan. Una palabra nueva entra directa; si ya la tienes, te pregunta antes de cambiarla y nunca pierde su progreso.")
+                action("Añadir una tarjeta", "Español e Inglés (obligatorios), Ejemplo (opcional). Tal cual, sin rellenar nada. Siri: «Añadir una tarjeta a Choca Cinco».")
                 action("Palabras del mazo", "Sin entradas. Devuelve el español de todas tus tarjetas, para pedirle a un modelo palabras que aún no tengas.")
                 action("Tarjetas pendientes", "Sin entradas. Cuántos repasos te esperan. Siri: «¿Cuántas tarjetas tengo en Choca Cinco?».")
             }
@@ -117,7 +116,6 @@ struct ShortcutsGuideView: View {
     Reply with only one JSON object: no other text, no code fences. Keys:
     "spanish": the Spanish. A noun with its article (el/la; el/la for both genders), an adjective in the masculine singular, a verb in the infinitive.
     "english": a short meaning; a verb starts with "to". Two meanings: "suitcase / bag".
-    "type": "phrase" if it is several words or an expression, otherwise "word".
     "example": one short, natural Spanish sentence using it.
     "notes": a noun: its gender and plural, like "Femenino. Plural: las maletas". An adjective: its feminine, like "Femenino: bonita". A verb: its irregularity, like "o → ue" or "yo: tengo"; "" if regular. A phrase: its register or region only if it matters, like "Casual, México" or "Formal: ¿Cómo está?". Otherwise "". One short line.
     "mnemonic": a short, vivid memory trick in English linking the Spanish sound to the meaning.

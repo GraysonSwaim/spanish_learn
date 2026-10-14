@@ -21,7 +21,7 @@ struct MnemonicSheet: View {
                     .font(Typo.display(24)).foregroundStyle(Palette.ink)
                     .padding(.top, 26)
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(card.es).font(Typo.display(card.isPhrase ? 20 : 24)).foregroundStyle(Palette.ink)
+                    Text(card.es).font(Typo.display(card.es.count > 16 ? 20 : 24)).foregroundStyle(Palette.ink)
                     if let tense {
                         Text(tense.name).font(Typo.text(13, .heavy)).foregroundStyle(Palette.mood(tense.mood))
                             .padding(.horizontal, 10).padding(.vertical, 4)

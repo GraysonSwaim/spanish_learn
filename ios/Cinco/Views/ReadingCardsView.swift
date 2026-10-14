@@ -103,7 +103,6 @@ struct ReadingCardsView: View {
                 TextField("Significado", text: d.rec.en).labeledRow("Inglés")
                     .foregroundStyle(Palette.en)
                 TextField("Nota", text: d.rec.notes, axis: .vertical).labeledRow("Nota")
-                Toggle("Es una frase (pestaña Frases)", isOn: d.rec.phrase).font(Typo.text(14))
             }
         } footer: {
             if draft.include, draft.existing == nil {
@@ -123,8 +122,7 @@ struct ReadingCardsView: View {
         drafts = pending.map { run in
             let sentence = reading.lines[safe: run.line] ?? ""
             let rec = Lectura.record(run, gloss: glosses[run.id], sentence: sentence)
-            var surface = CardRecord(es: run.text)
-            surface.sort(type: "")
+            let surface = CardRecord(es: run.text)
             let existing = Deck.existing(rec, in: cards) ?? Deck.existing(surface, in: cards)
             if var d = old[run.id] {
                 // A fresh gloss fills a draft the learner hasn't written a meaning for yet.

@@ -13,7 +13,7 @@ final class StudySession {
         case recite, grid
     }
 
-    /// How much of the card is showing. Vocabulary and phrases: prompt → answer.
+    /// How much of the card is showing. Vocabulary: prompt → answer.
     /// Conjugación: word (the verb alone) → prompt (its meaning, and the typing boxes) → answer.
     enum Phase { case intro, word, prompt, answer }
 
@@ -23,7 +23,7 @@ final class StudySession {
         let card: Card
         let state: CardState
         let queue: [Card]
-        let day: (reviewed: Int, correct: Int, newVocab: Int, newConj: Int, newPhrase: Int)
+        let day: (reviewed: Int, correct: Int, newVocab: Int, newConj: Int)
         let done: Int, right: Int
         let missed: [Card]
     }
@@ -188,7 +188,7 @@ final class StudySession {
     private func snapshot(_ c: Card) {
         let d = Deck.today(ctx)
         undoState = Undo(card: c, state: CardState(c), queue: queue,
-                         day: (d.reviewed, d.correct, d.newVocab, d.newConj, d.newPhrase), done: done, right: right, missed: missed)
+                         day: (d.reviewed, d.correct, d.newVocab, d.newConj), done: done, right: right, missed: missed)
     }
 
     /// Put a new card at stage 1 and ask it again a few cards later.
@@ -199,7 +199,6 @@ final class StudySession {
         let d = Deck.today(ctx)
         switch tab {
         case .conj: d.newConj += 1
-        case .phrases: d.newPhrase += 1
         case .vocab: d.newVocab += 1
         }
         queue.removeFirst()
@@ -241,7 +240,7 @@ final class StudySession {
         guard let u = undoState else { return }
         u.state.restore(u.card)
         let d = Deck.today(ctx)
-        (d.reviewed, d.correct, d.newVocab, d.newConj, d.newPhrase) = u.day
+        (d.reviewed, d.correct, d.newVocab, d.newConj) = u.day
         queue = u.queue
         done = u.done
         right = u.right

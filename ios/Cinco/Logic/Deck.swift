@@ -48,7 +48,6 @@ enum Deck {
             let card: Card
             if let c = byID[id] {
                 card = c
-                if rec.phrase && !rec.phraseGuessed && c.kind == .word { c.kind = .phrase }
                 c.en = rec.en
                 if !rec.ex.isEmpty { c.ex = rec.ex }
                 if !rec.notes.isEmpty { c.notes = rec.notes }
@@ -58,7 +57,7 @@ enum Deck {
                 if c.mnemonic.isEmpty { c.mnemonic = rec.mnemonic }
                 r.updated += 1
             } else {
-                card = Card(id: id, kind: rec.phrase ? .phrase : .word, es: rec.es, en: rec.en, order: nextOrder)
+                card = Card(id: id, es: rec.es, en: rec.en, order: nextOrder)
                 card.ex = rec.ex; card.notes = rec.notes; card.tags = rec.tags; card.frases = rec.frases
                 card.mnemonic = rec.mnemonic
                 nextOrder += 1
@@ -66,7 +65,7 @@ enum Deck {
                 byID[id] = card
                 r.added += 1
             }
-            if !rec.tenses.isEmpty && !card.isPhrase {
+            if !rec.tenses.isEmpty {
                 card.tenses.merge(rec.tenses) { _, new in new }
                 syncConj(card, byID: &byID, ctx: ctx)
                 r.verbs += 1
@@ -76,7 +75,7 @@ enum Deck {
         return r
     }
 
-    /// The word or phrase card a record is about: same id, or the same word once articles are set aside
+    /// The card a record is about: same id, or the same word once articles are set aside
     /// (a model's "maleta" is the deck's "la maleta").
     static func existing(_ rec: CardRecord, in cards: [Card]) -> Card? {
         let id = TextMatch.cardID(rec.es), bare = TextMatch.noArticle(TextMatch.strip(rec.es))
@@ -99,13 +98,10 @@ enum Deck {
         field(rec.tags, c.tags, added: "etiquetas", replaced: "etiquetas: «\(c.tags)» → «\(rec.tags)»")
         field(rec.frases, c.frases, added: "frases", replaced: "otras frases")
         if c.mnemonic.isEmpty && !rec.mnemonic.isEmpty { out.append("mnemotecnia") }
-        if rec.phrase && !rec.phraseGuessed && c.kind == .word { out.append("pasa a Frases") }
-        if !c.isPhrase && !(rec.phrase && !rec.phraseGuessed) {
-            let added = rec.tenses.keys.filter { (c.tenses[$0] ?? "").isEmpty }.count
-            let fixed = rec.tenses.filter { k, v in !(c.tenses[k] ?? "").isEmpty && c.tenses[k] != v }.count
-            if added > 0 { out.append("\(added) \(added == 1 ? "tiempo nuevo" : "tiempos nuevos") en Conjugación") }
-            if fixed > 0 { out.append("\(fixed) \(fixed == 1 ? "tabla distinta" : "tablas distintas")") }
-        }
+        let added = rec.tenses.keys.filter { (c.tenses[$0] ?? "").isEmpty }.count
+        let fixed = rec.tenses.filter { k, v in !(c.tenses[k] ?? "").isEmpty && c.tenses[k] != v }.count
+        if added > 0 { out.append("\(added) \(added == 1 ? "tiempo nuevo" : "tiempos nuevos") en Conjugación") }
+        if fixed > 0 { out.append("\(fixed) \(fixed == 1 ? "tabla distinta" : "tablas distintas")") }
         return out
     }
 
@@ -154,9 +150,9 @@ enum Deck {
             card = Card(id: id, es: rec.es, en: rec.en, order: (byID.values.map(\.order).max() ?? 0) + 1)
             ctx.insert(card)
         }
-        card.kind = rec.phrase ? .phrase : .word
+        card.kind = .word
         card.es = rec.es; card.en = rec.en; card.ex = rec.ex; card.notes = rec.notes
-        card.tags = rec.tags; card.frases = rec.frases; card.tenses = rec.phrase ? [:] : rec.tenses
+        card.tags = rec.tags; card.frases = rec.frases; card.tenses = rec.tenses
         if old != nil { card.mnemonic = rec.mnemonic }
         byID[id] = card
         syncConj(card, byID: &byID, ctx: ctx)
@@ -212,7 +208,6 @@ enum Deck {
             for l in group.dropFirst() {
                 keep.reviewed = max(keep.reviewed, l.reviewed); keep.correct = max(keep.correct, l.correct)
                 keep.newVocab = max(keep.newVocab, l.newVocab); keep.newConj = max(keep.newConj, l.newConj)
-                keep.newPhrase = max(keep.newPhrase, l.newPhrase)
                 ctx.delete(l)
             }
             changed = true
@@ -220,20 +215,11 @@ enum Deck {
         if changed { try? ctx.save() }
     }
 
-    /// A deck bundled with the app: "starter" (words and verbs) or "frases-inicio" (phrases).
-    static func loadStarter(_ ctx: ModelContext, deck: String = "starter") -> ImportResult? {
-        guard let url = Bundle.main.url(forResource: deck, withExtension: "csv"),
-              let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
-        return importRecords(CSVImport.parse(text), into: ctx)
+    /// The deck bundled with the app: 40 everyday words and phrases, 10 of them verbs with their core tables.
+    static func loadStarter(_ ctx: ModelContext) -> ImportResult? {
+        guard let url = Bundle.main.url(forResource: "starter", withExtension: "json"),
+              let text = try? String(contentsOf: url, encoding: .utf8),
+              let recs = CardJSON.parse(text) else { return nil }
+        return importRecords(recs, into: ctx)
     }
-
-    #if DEBUG
-    /// Development: `-importCSV <path>` loads a deck from the Mac at launch (the simulator can read it).
-    static func importFromLaunchArguments(_ ctx: ModelContext) {
-        let args = ProcessInfo.processInfo.arguments
-        for (i, a) in args.enumerated() where a == "-importCSV" && i + 1 < args.count {
-            if let text = try? String(contentsOfFile: args[i + 1], encoding: .utf8) { importRecords(CSVImport.parse(text), into: ctx) }
-        }
-    }
-    #endif
 }

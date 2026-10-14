@@ -3,15 +3,14 @@
 On the App Store and the home screen it is **Choca Cinco** ("high five"): plain "Cinco" was taken.
 
 SwiftUI with SwiftData, syncing cards and progress through iCloud (CloudKit).
-`../decks/starter.csv` is bundled straight from the repo.
 
 ```
 Cinco/Model/Card.swift        Card and DayLog, the SwiftData models (CloudKit-safe: defaults, no unique, no relationships)
 Cinco/Logic/Scheduler.swift   the five-stage schedule, pure functions
 Cinco/Logic/StudySession.swift one sitting: queue, reveal steps, grading, undo
 Cinco/Logic/TextMatch.swift   answer checking, and the hash(strip()) card ids
-Cinco/Logic/CSVImport.swift   deck parsing
-Cinco/Logic/Deck.swift        import, verb tables -> conj cards, merging iCloud duplicates
+Cinco/Logic/CardRecord.swift  a card as it comes in, and CardJSON (Shortcuts, the starter deck)
+Cinco/Logic/Deck.swift        adding cards, verb tables -> conj cards, merging iCloud duplicates
 Cinco/Model/Reading.swift     Reading, a pasted text for Lecturas (same CloudKit rules)
 Cinco/Logic/Lectura.swift     lines, words and marked runs of a reading; recycling old readings
 Cinco/Logic/Tutor.swift       Claude through the proxy in ../proxy: checking translations, drafting cards
@@ -34,14 +33,14 @@ Before shipping to the App Store, deploy the CloudKit schema to Production in th
 
 ## Shortcuts and Siri
 
-`Cinco/Logic/Intents.swift` gives the Shortcuts app four actions: **Añadir tarjetas** (JSON or CSV text; ``` fences
+`Cinco/Logic/Intents.swift` gives the Shortcuts app four actions: **Añadir tarjetas** (JSON text; ``` fences
 from a model are ignored), **Añadir una tarjeta** (Siri: "Add a card to Choca Cinco"; "Cinco" works too), **Palabras del mazo** (the deck's
 Spanish, to tell a model what to skip) and **Tarjetas pendientes**.
 
 Atajos on the home screen (`ShortcutsGuideView`, also in Ajustes) walks through a one-word shortcut, with no API key: Ask for Input →
 Translate Text to Spanish and to English → Use Model (ChatGPT) with the prompt the screen copies → Añadir tarjetas.
 The prompt asks for one JSON card (`CardJSON`): noun fields for a noun, all fifteen tables for a verb. Only
-`spanish` and `english` are required, and an import never replaces a mnemonic the learner wrote. A word already in the deck (matched with or without its article) isn't
+`spanish` and `english` are required, and adding never replaces a mnemonic the learner wrote. A word already in the deck (matched with or without its article) isn't
 duplicated: the action lists what would change (`Deck.changes`) and asks before updating it.
 
 ## Development
@@ -50,7 +49,6 @@ Tests: `xcodebuild test -project Cinco.xcodeproj -scheme 'Choca Cinco' -destinat
 
 Debug builds take launch arguments for the simulator:
 
-- `-importCSV <path>` loads a deck file from the Mac at launch.
 - `-demo vocab|conj <steps> [stage]` opens a verb card at a stage and advances it that many reveal steps.
 - `-openTenses` opens the Conjugación tense picker.
 - `-tutorDemo` gives Lecturas canned answers instead of Claude; `-tutorURL http://localhost:8787` uses a proxy running on the Mac.
@@ -58,12 +56,11 @@ Debug builds take launch arguments for the simulator:
 
 ## Tabs
 
-Vocabulario (words, verbs included, as word ↔ meaning), Conjugación (one card per verb tense) and Frases
-(whole expressions). After an answer, «En una frase» shows the card's own example and sentences.
-The starter deck (`decks/starter.csv`: 20 words, 10 of them verbs with their core tables, and
-`decks/frases-inicio.csv`: 20 phrases) loads with one button on an empty deck. After that, cards come from Añadir,
-the Shortcuts actions, or an import. An imported card goes to Frases when its `type` column is `phrase`, or when
-the file is imported while the Frases tab is open.
+Vocabulario (every word and phrase, verbs included, as Spanish ↔ meaning) and Conjugación (one card per verb tense).
+There is no separate kind for phrases: a card is a verb only because it has tables. After an answer, «En una frase»
+shows the card's own example and sentences. The starter deck (`Cinco/Resources/starter.json`: 40 words and phrases,
+10 of them verbs with their core tables) loads with one button on an empty deck. After that, cards come from Añadir,
+the Shortcuts actions, or Lecturas.
 
 ## Lecturas
 

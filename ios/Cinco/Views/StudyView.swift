@@ -268,21 +268,21 @@ struct StudyView: View {
 
     // MARK: vocabulary
 
-    /// Vocabulario and Frases: the Spanish and its meaning, nothing else unless asked for.
+    /// Vocabulario: the Spanish and its meaning, nothing else unless asked for.
     @ViewBuilder
     private func vocabContent(_ c: Card) -> some View {
         let revealed = session.phase != .prompt
         switch session.mode {
         case .intro:
-            kicker(c.isPhrase ? "Frase nueva" : "Palabra nueva")
-            word(c.es, phrase: c.isPhrase)
+            kicker("Tarjeta nueva")
+            word(c.es)
             english(c.en).padding(.top, 10)
             notesIfAny(c)
             speakButton()
             moreAbout(c)
         case .esEn:
-            kicker(c.isPhrase ? "¿Qué quiere decir?" : "¿Qué significa?")
-            word(c.es, phrase: c.isPhrase)
+            kicker("¿Qué significa?")
+            word(c.es)
             speakButton()
             if revealed {
                 answerBlock {
@@ -296,7 +296,7 @@ struct StudyView: View {
             english(c.en)
             if revealed {
                 answerBlock {
-                    word(c.es, phrase: c.isPhrase)
+                    word(c.es)
                     notesIfAny(c)
                     speakButton()
                     moreAbout(c)
@@ -307,7 +307,7 @@ struct StudyView: View {
             english(c.en)
             if revealed {
                 answerBlock {
-                    word(c.es, phrase: c.isPhrase)
+                    word(c.es)
                     VerdictTag(verdict: session.verdict ?? .skip, typed: session.typed)
                     notesIfAny(c)
                     speakButton()
@@ -512,8 +512,9 @@ struct StudyView: View {
         Text(s).font(Typo.text(14, .heavy)).foregroundStyle(Palette.muted).padding(.bottom, 14)
     }
 
-    private func word(_ s: String, phrase: Bool = false) -> some View {
-        Text(s).font(Typo.display(phrase ? 32 : 40)).foregroundStyle(Palette.ink)
+    /// Long Spanish, like a whole phrase, a size smaller.
+    private func word(_ s: String) -> some View {
+        Text(s).font(Typo.display(s.count > 16 ? 32 : 40)).foregroundStyle(Palette.ink)
     }
 
     private func english(_ s: String) -> some View {

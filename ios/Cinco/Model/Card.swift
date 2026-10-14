@@ -1,17 +1,16 @@
 import Foundation
 import SwiftData
 
-/// One flashcard. A word card holds a Spanish term and its meaning; a verb is a word card that also
-/// carries conjugation tables (`tenses`). Each tense a verb has becomes a conj card of its own
-/// (id "<verb id>:<tense>"), studied in the Conjugación tab with its own stages. A phrase card is
-/// studied like a word, in its own tab (Frases).
+/// One flashcard. A word card holds Spanish (a word or a whole phrase) and its meaning; a verb is a word card
+/// that also carries conjugation tables (`tenses`). Each tense a verb has becomes a conj card of its own
+/// (id "<verb id>:<tense>"), studied in the Conjugación tab with its own stages.
 ///
 /// CloudKit rules shape this model: every property has a default, nothing is `.unique`, and there are
 /// no relationships (conj cards point at their verb by `verbID`). Because CloudKit can't enforce unique
 /// ids, two devices can create the same card; `Deck.dedupe` merges them.
 @Model
 final class Card {
-    /// Same id scheme as the web app, so its backups map card for card.
+    /// `TextMatch.cardID` of the Spanish.
     var id: String = ""
     var kindRaw: String = Kind.word.rawValue
     var es: String = ""
@@ -44,7 +43,8 @@ final class Card {
     /// Deck order: new cards are introduced in this order.
     var order: Double = 0
 
-    enum Kind: String { case word, conj, phrase }
+    /// Cards saved as "phrase", from when phrases had their own tab, read as words.
+    enum Kind: String { case word, conj }
 
     var kind: Kind {
         get { Kind(rawValue: kindRaw) ?? .word }
@@ -52,7 +52,6 @@ final class Card {
     }
 
     var isConj: Bool { kind == .conj }
-    var isPhrase: Bool { kind == .phrase }
     var isDropped: Bool { dropped != nil }
     /// A word card with at least one conjugation table.
     var isVerb: Bool { kind == .word && tenses.values.contains { !$0.isEmpty } }
@@ -81,7 +80,6 @@ final class DayLog {
     /// New cards introduced, counted per tab: each has its own daily allowance.
     var newVocab: Int = 0
     var newConj: Int = 0
-    var newPhrase: Int = 0
 
     init(key: String) { self.key = key }
 

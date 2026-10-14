@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import UniformTypeIdentifiers
 
 struct HomeView: View {
     @Environment(\.modelContext) private var ctx
@@ -13,7 +12,6 @@ struct HomeView: View {
 
     @Binding var session: StudySession?
     @Binding var studying: Bool
-    @State private var importing = false
     @State private var message: String?
     @State private var editing: EditTarget?
     @State private var screenHeight: CGFloat = 0
@@ -26,7 +24,6 @@ struct HomeView: View {
         let used = switch tab {
         case .vocab: todayLog?.newVocab ?? 0
         case .conj: todayLog?.newConj ?? 0
-        case .phrases: todayLog?.newPhrase ?? 0
         }
         return max(0, newPerDay - used)
     }
@@ -57,13 +54,9 @@ struct HomeView: View {
                 }
                 if cards.isEmpty {
                     Button("Cargar el mazo de inicio") {
-                        let words = Deck.loadStarter(ctx), phrases = Deck.loadStarter(ctx, deck: "frases-inicio")
-                        message = "Vocabulario: \(words?.added ?? 0), con \(words?.verbs ?? 0) verbos en Conjugación. Frases: \(phrases?.added ?? 0)."
+                        let r = Deck.loadStarter(ctx)
+                        message = "Vocabulario: \(r?.added ?? 0), con \(r?.verbs ?? 0) verbos en Conjugación."
                     }
-                        .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, size: 19))
-                        .padding(.bottom, 22)
-                } else if tab == .phrases && tabCards.isEmpty {
-                    Button("Cargar las frases de inicio") { message = Deck.loadStarter(ctx, deck: "frases-inicio")?.summary }
                         .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, size: 19))
                         .padding(.bottom, 22)
                 }
@@ -103,15 +96,11 @@ struct HomeView: View {
         .onChange(of: cards.count) { old, new in if new < old { session = nil } }
         .background(Backdrop())
         .toolbar(.hidden, for: .navigationBar)
-        .fileImporter(isPresented: $importing, allowedContentTypes: [.commaSeparatedText, .tabSeparatedText, .plainText, .text],
-                      allowsMultipleSelection: true) { result in
-            importFiles(result)
-        }
-        .alert("Importar", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
+        .alert("Mazo de inicio", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
             Button("OK") { message = nil }
         } message: { Text(message ?? "") }
         .sheet(item: $editing) { t in
-            NavigationStack { EditCardView(card: t.card, draft: t.phrase ? CardRecord(phrase: true) : nil) }
+            NavigationStack { EditCardView(card: t.card) }
         }
     }
 
@@ -122,9 +111,8 @@ struct HomeView: View {
     }
 
     private static let emptyLede: [Tab: String] = [
-        .conj: "Aún no hay verbos con conjugación. Importa un CSV con columnas de tiempos (presente, preterito…) o añádelas al editar un verbo.",
-        .phrases: "Frases hechas para armar conversaciones: saludos, pedir en un restaurante, preguntar direcciones… Carga las de inicio, añade las tuyas o impórtalas.",
-        .vocab: "Empieza con el mazo de inicio. Después añade tus palabras a mano, con un atajo o importando un CSV.",
+        .conj: "Aún no hay verbos con conjugación. Añade los tiempos al editar un verbo, o deja que un atajo los traiga.",
+        .vocab: "Empieza con el mazo de inicio. Después añade palabras y frases a mano, con un atajo o desde Lecturas.",
     ]
 
     private func ladder(_ n: DeckCounts) -> some View {
@@ -177,17 +165,16 @@ struct HomeView: View {
         }
     }
 
-    /// Five tiles in a row, lined up with the five stages above.
+    /// The ways off Home, as tiles in a row.
     private var menu: some View {
         HStack(spacing: 8) {
             NavigationLink { LecturasView() } label: { MenuTile(title: "Lecturas", icon: "book.fill", tint: Palette.stage(1)) }
             NavigationLink { BrowseView() } label: { MenuTile(title: "Explorar", icon: "rectangle.stack.fill", tint: Palette.stage(2)) }
-            Button { editing = EditTarget(card: nil, phrase: tab == .phrases) } label: {
+            Button { editing = EditTarget(card: nil) } label: {
                 MenuTile(title: "Añadir", icon: "plus", tint: Palette.stage(3))
             }
-            .accessibilityLabel(tab == .phrases ? "Añadir una frase" : "Añadir una tarjeta")
+            .accessibilityLabel("Añadir una tarjeta")
             NavigationLink { SettingsView() } label: { MenuTile(title: "Ajustes", icon: "gearshape.fill", tint: Palette.stage(4)) }
-            Button { importing = true } label: { MenuTile(title: "Importar", icon: "square.and.arrow.down.fill", tint: Palette.stage(5)) }
         }
         .buttonStyle(TileStyle())
         .fixedSize(horizontal: false, vertical: true)
@@ -216,26 +203,10 @@ struct HomeView: View {
         session = StudySession(queue: q, tab: tab, label: "Nuevas", ctx: ctx)
         studying = true
     }
-
-    private func importFiles(_ result: Result<[URL], Error>) {
-        guard case .success(let urls) = result else { return }
-        var total = ImportResult()
-        for url in urls {
-            let ok = url.startAccessingSecurityScopedResource()
-            defer { if ok { url.stopAccessingSecurityScopedResource() } }
-            guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
-            // Each row sorts itself: a type column, else tense tables (verb), else how the Spanish reads.
-            let r = Deck.importRecords(CSVImport.parse(text), into: ctx)
-            total.added += r.added; total.updated += r.updated; total.skipped += r.skipped; total.verbs += r.verbs
-        }
-        message = total.summary
-    }
 }
 
 struct EditTarget: Identifiable {
     let card: Card?
-    /// A new card starts as a phrase (added from the Frases tab).
-    var phrase = false
     var id: String { card?.id ?? "new" }
 }
 

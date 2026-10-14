@@ -35,15 +35,14 @@ and each stage asks a little more of you than the last.
 Get it right and a card moves up and comes back later. Miss it and it drops one stage and returns a few cards
 later in the same session.
 
-THREE WAYS TO PRACTICE
-• Vocabulario: words and their meanings.
+TWO WAYS TO PRACTICE
+• Vocabulario: words and whole expressions, like ¿Dónde está el baño? and Me da igual, with their meanings.
 • Conjugación: one card per verb per tense. Study the table, say it aloud, then type every form.
-• Frases: whole expressions for real conversations, like ¿Dónde está el baño? and Me da igual.
 
 YOUR WORDS, ADDED FAST
-Start with 20 everyday words, 10 core verbs and 20 useful phrases, then build your own deck:
+Start with 40 everyday words and phrases, 10 of them core verbs, then build your own deck:
 • Type a card by hand.
-• Import a CSV file from the Files app.
+• Read a Spanish article or text and tap the words you don't know.
 • Use the built-in Shortcuts actions. The included guide sets up a shortcut that takes one word and fills in the
   meaning, an example, notes and, for verbs, every tense.
 • Ask Siri: "Add a card to Choca Cinco".
@@ -71,5 +70,5 @@ Required: 6.9" iPhone (1320 × 2868) and 13" iPad (2064 × 2752), since the app 
 1. Home screen with the five stage columns ("Five steps to every word")
 2. A card at Producir with a typed answer ("Type it to own it")
 3. A Conjugación table ("Every tense, one card at a time")
-4. Frases ("Real phrases for real conversations")
+4. Lecturas ("Learn the words you meet")
 5. The Shortcuts guide ("Add any word in seconds")

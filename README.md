@@ -6,8 +6,6 @@ and every card climbs five stages of mastery, each harder and further apart than
 ```
 ios/       the app (SwiftUI + SwiftData, synced through iCloud); see ios/README.md
 proxy/     the Cloudflare Worker that reaches Claude for Lecturas
-decks/     the starter decks bundled into the app
-skills/    the cinco-cards skill that writes decks
 ```
 
 ## The five stages

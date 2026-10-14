@@ -6,8 +6,6 @@ struct EditCardView: View {
     @Environment(\.modelContext) private var ctx
     @Environment(\.dismiss) private var dismiss
     let card: Card?
-    /// A new card's starting text.
-    var draft: CardRecord?
 
     @State private var rec = CardRecord()
     /// Tense key -> six forms, while editing.
@@ -17,9 +15,8 @@ struct EditCardView: View {
     var body: some View {
         Form {
             Section {
-                TextField(rec.phrase ? "¿Dónde está el baño?" : "el coche", text: $rec.es,
-                          prompt: Text(rec.phrase ? "¿Dónde está el baño?" : "el coche")).labeled("Español")
-                TextField(rec.phrase ? "Where is the bathroom?" : "car", text: $rec.en).labeled("Inglés")
+                TextField("el coche", text: $rec.es).labeled("Español")
+                TextField("car", text: $rec.en).labeled("Inglés")
                 TextField("Mi coche es rojo.", text: $rec.ex, axis: .vertical).labeled("Ejemplo")
                 TextField("En España, coche; en México, carro", text: $rec.notes, axis: .vertical).labeled("Notas")
                 TextField("transporte", text: $rec.tags).labeled("Etiquetas")
@@ -27,17 +24,11 @@ struct EditCardView: View {
                 if card != nil {
                     TextField("Coche suena a «coach»: un autobús", text: $rec.mnemonic, axis: .vertical).labeled("Mnemotecnia")
                 }
-                Toggle(isOn: $rec.phrase) {
-                    VStack(alignment: .leading) {
-                        Text("Es una frase")
-                        Text("Va a la pestaña Frases, no a Vocabulario").font(Typo.text(13)).foregroundStyle(Palette.muted)
-                    }
-                }
             }
-            if !rec.phrase { verbSections }
+            verbSections
         }
         .font(Typo.text(16))
-        .navigationTitle(card == nil ? (rec.phrase ? "Nueva frase" : "Nueva tarjeta") : (rec.phrase ? "Editar frase" : "Editar tarjeta"))
+        .navigationTitle(card == nil ? "Nueva tarjeta" : "Editar tarjeta")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
@@ -49,7 +40,7 @@ struct EditCardView: View {
         .onAppear(perform: load)
     }
 
-    /// A verb's extra sentences and its conjugation tables; phrases have neither.
+    /// A verb's extra sentences and its conjugation tables.
     @ViewBuilder
     private var verbSections: some View {
         Section {
@@ -90,12 +81,9 @@ struct EditCardView: View {
     }
 
     private func load() {
-        guard let c = card else {
-            if let draft, rec.es.isEmpty { rec = draft }
-            return
-        }
+        guard let c = card else { return }
         rec = CardRecord(es: c.es, en: c.en, ex: c.ex, notes: c.notes, tags: c.tags,
-                         frases: c.frases.split(separator: "|").joined(separator: "\n"), tenses: c.tenses, phrase: c.isPhrase, mnemonic: c.mnemonic)
+                         frases: c.frases.split(separator: "|").joined(separator: "\n"), tenses: c.tenses, mnemonic: c.mnemonic)
         forms = c.tenses.mapValues { TextMatch.splitForms($0) }
     }
 
@@ -107,7 +95,7 @@ struct EditCardView: View {
         r.mnemonic = r.mnemonic.trimmingCharacters(in: .whitespacesAndNewlines)
         r.frases = r.frases.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.joined(separator: "|")
         guard !r.es.isEmpty, !r.en.isEmpty else { error = "Hacen falta el español y el inglés."; return }
-        r.tenses = r.phrase ? [:] : forms.compactMapValues { f in
+        r.tenses = forms.compactMapValues { f in
             let t = f.map { $0.trimmingCharacters(in: .whitespaces) }
             return t.contains { !$0.isEmpty } ? t.joined(separator: "|") : nil
         }

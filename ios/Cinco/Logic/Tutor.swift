@@ -70,7 +70,6 @@ enum Tutor {
     nonisolated struct Gloss: Codable, Equatable {
         var spanish: String
         var english: String
-        var phrase: Bool
         var note: String
     }
 
@@ -160,7 +159,7 @@ enum Tutor {
     static func gloss(_ items: [GlossInput], claude: Bool = true) async throws(Failure) -> [Gloss] {
         if demo && claude {
             try? await Task.sleep(for: .milliseconds(700))
-            return items.map { Gloss(spanish: $0.text.lowercased(), english: "(demo) \($0.text)", phrase: false, note: "") }
+            return items.map { Gloss(spanish: $0.text.lowercased(), english: "(demo) \($0.text)", note: "") }
         }
         var failure = claude && base != nil && consented ? Failure.other : .onDevice
         if claude && base != nil && consented {
@@ -283,9 +282,7 @@ extension Tutor {
             } catch {
                 log.error("On-device meaning failed: \(String(describing: error), privacy: .public)")
             }
-            var rec = CardRecord(es: it.text)
-            rec.sort(type: "")
-            out.append(Gloss(spanish: it.text, english: english, phrase: rec.phrase, note: ""))
+            out.append(Gloss(spanish: it.text, english: english, note: ""))
         }
         return answered > 0 ? out : nil
         #else

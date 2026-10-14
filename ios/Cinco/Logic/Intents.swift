@@ -5,13 +5,13 @@ import SwiftData
 // on-device or ChatGPT) for a card as JSON and hands the answer to "Añadir tarjetas". Atajos in Ajustes
 // (ShortcutsGuideView) walks through building it and copies the prompt.
 
-/// Takes cards as text: JSON (CardJSON), or the same CSV the Importar screen reads, with or without a header.
+/// Takes cards as JSON text (CardJSON).
 struct AddCardsIntent: AppIntent {
     static let title: LocalizedStringResource = "Añadir tarjetas"
     static let description = IntentDescription(
-        "Adds cards from JSON or CSV text. JSON: {\"spanish\", \"english\", \"example\", \"notes\", \"tags\", \"type\", \"mnemonic\", \"frases\", \"tenses\": {\"presente\": [six forms], …}}, one object or a list. CSV: spanish,english[,example,notes,tags], one card per line. Only spanish and english are required; cards already in the deck are updated without losing their progress.")
+        "Adds cards from JSON text: {\"spanish\", \"english\", \"example\", \"notes\", \"tags\", \"mnemonic\", \"frases\", \"tenses\": {\"presente\": [six forms], …}}, one object or a list. Only spanish and english are required; cards already in the deck are updated without losing their progress.")
 
-    @Parameter(title: "Texto", description: "JSON or CSV.", inputOptions: String.IntentInputOptions(multiline: true))
+    @Parameter(title: "Texto", description: "JSON.", inputOptions: String.IntentInputOptions(multiline: true))
     var text: String
 
     @Parameter(title: "Tags", description: "Added to cards that don't have tags of their own.")
@@ -23,12 +23,12 @@ struct AddCardsIntent: AppIntent {
 
     @MainActor func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
         let body = Self.unfence(text)
-        var recs = CardJSON.parse(body) ?? CSVImport.parse(body)
+        var recs = CardJSON.parse(body) ?? []
         if let tags, !tags.isEmpty {
             for i in recs.indices where recs[i].tags.isEmpty { recs[i].tags = tags }
         }
         guard recs.contains(where: { !$0.es.isEmpty && !$0.en.isEmpty }) else {
-            throw $text.needsValueError("No encontré tarjetas. Cada línea necesita español y inglés, separados por coma.")
+            throw $text.needsValueError("No encontré tarjetas. Cada una necesita \"spanish\" y \"english\".")
         }
         recs = recs.filter { !$0.es.isEmpty && !$0.en.isEmpty }
         let ctx = Store.container.mainContext
@@ -46,11 +46,10 @@ struct AddCardsIntent: AppIntent {
             let r = Deck.importRecords(fresh, into: ctx)
             if fresh.count == 1, let c = fresh.first {
                 let tables = c.tenses.count
-                lines.append("Añadida en \(c.phrase ? "Frases" : "Vocabulario"): \(c.es), \(c.en)."
+                lines.append("Añadida: \(c.es), \(c.en)."
                     + (tables > 0 ? " Con \(tables) \(tables == 1 ? "tiempo" : "tiempos") en Conjugación." : ""))
             } else {
-                let p = fresh.filter(\.phrase).count
-                lines.append("Añadidas: \(r.added)" + (p == 0 ? " en Vocabulario." : p == fresh.count ? " en Frases." : " (\(p) en Frases)."))
+                lines.append("Añadidas: \(r.added).")
             }
         }
         if !updates.isEmpty {
@@ -79,7 +78,7 @@ struct AddCardsIntent: AppIntent {
         return .result(value: msg, dialog: "\(msg)")
     }
 
-    /// Models like to wrap CSV in ``` fences; drop those lines.
+    /// Models like to wrap JSON in ``` fences; drop those lines.
     static func unfence(_ s: String) -> String {
         s.split(separator: "\n", omittingEmptySubsequences: false)
             .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("```") }
@@ -95,16 +94,14 @@ struct AddCardIntent: AppIntent {
     @Parameter(title: "Español", requestValueDialog: "¿En español?") var es: String
     @Parameter(title: "Inglés", requestValueDialog: "¿Y en inglés?") var en: String
     @Parameter(title: "Ejemplo") var ex: String?
-    @Parameter(title: "Frase", description: "Study it in Frases rather than Vocabulario.", default: false)
-    var phrase: Bool
 
     static var parameterSummary: some ParameterSummary {
-        Summary("Añadir \(\.$es) (\(\.$en))") { \.$ex; \.$phrase }
+        Summary("Añadir \(\.$es) (\(\.$en))") { \.$ex }
     }
 
     @MainActor func perform() async throws -> some IntentResult & ProvidesDialog {
         let rec = CardRecord(es: es.trimmingCharacters(in: .whitespaces), en: en.trimmingCharacters(in: .whitespaces),
-                             ex: ex ?? "", phrase: phrase)
+                             ex: ex ?? "")
         if let clash = Deck.save(rec, editing: nil, ctx: Store.container.mainContext) {
             return .result(dialog: "\(clash)")
         }
@@ -115,7 +112,7 @@ struct AddCardIntent: AppIntent {
 /// The deck's Spanish, so a shortcut can tell a model which words to leave out.
 struct ListWordsIntent: AppIntent {
     static let title: LocalizedStringResource = "Palabras del mazo"
-    static let description = IntentDescription("Returns the Spanish of every word and phrase card, one per item.")
+    static let description = IntentDescription("Returns the Spanish of every card (not the conjugation tables), one per item.")
 
     @MainActor func perform() async throws -> some IntentResult & ReturnsValue<[String]> {
         let words = Deck.allCards(Store.container.mainContext).filter { !$0.isConj && !$0.isDropped }.map(\.es)
@@ -123,7 +120,7 @@ struct ListWordsIntent: AppIntent {
     }
 }
 
-/// How many reviews are waiting, across all three tabs.
+/// How many reviews are waiting, across both tabs.
 struct CardsDueIntent: AppIntent {
     static let title: LocalizedStringResource = "Tarjetas pendientes"
     static let description = IntentDescription("Returns how many cards are due for review now.")

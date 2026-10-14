@@ -1,13 +1,12 @@
 import Foundation
 
 enum Tab: String, CaseIterable {
-    case vocab, conj, phrases
+    case vocab, conj
 
     var name: String {
         switch self {
         case .vocab: "Vocabulario"
         case .conj: "Conjugación"
-        case .phrases: "Frases"
         }
     }
 }
@@ -70,7 +69,6 @@ enum Scheduler {
         switch tab {
         case .vocab: c.kind == .word
         case .conj: c.isConj && (tense == Tense.random || c.tense == tense)
-        case .phrases: c.isPhrase
         }
     }
 
