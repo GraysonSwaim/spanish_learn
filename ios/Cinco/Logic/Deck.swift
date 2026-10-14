@@ -220,7 +220,6 @@ enum Deck {
         if changed { try? ctx.save() }
     }
 
-    /// The 62 high-frequency words the web app ships with.
     /// A deck bundled with the app: "starter" (words and verbs) or "frases-inicio" (phrases).
     static func loadStarter(_ ctx: ModelContext, deck: String = "starter") -> ImportResult? {
         guard let url = Bundle.main.url(forResource: deck, withExtension: "csv"),

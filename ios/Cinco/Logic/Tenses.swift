@@ -13,7 +13,7 @@ nonisolated enum Mood: String, CaseIterable {
 }
 
 /// One tense a verb can carry. `key` is the CSV column name, and the order of `Tense.all`
-/// is the column order of a headerless file, same as the web app.
+/// is the column order of a headerless file.
 nonisolated struct Tense: Identifiable, Hashable {
     let key: String
     let name: String

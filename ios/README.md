@@ -2,22 +2,21 @@
 
 On the App Store and the home screen it is **Choca Cinco** ("high five"): plain "Cinco" was taken.
 
-The native version of Cinco: SwiftUI with SwiftData, syncing cards and progress through iCloud (CloudKit).
-It follows the same rules as the web app: the same five stages, CSV format and card ids.
+SwiftUI with SwiftData, syncing cards and progress through iCloud (CloudKit).
 `../decks/starter.csv` is bundled straight from the repo.
 
 ```
 Cinco/Model/Card.swift        Card and DayLog, the SwiftData models (CloudKit-safe: defaults, no unique, no relationships)
 Cinco/Logic/Scheduler.swift   the five-stage schedule, pure functions
 Cinco/Logic/StudySession.swift one sitting: queue, reveal steps, grading, undo
-Cinco/Logic/TextMatch.swift   answer checking, and hash(strip()) ids that match the web app
-Cinco/Logic/CSVImport.swift   deck parsing (same columns and aliases as the web app)
+Cinco/Logic/TextMatch.swift   answer checking, and the hash(strip()) card ids
+Cinco/Logic/CSVImport.swift   deck parsing
 Cinco/Logic/Deck.swift        import, verb tables -> conj cards, merging iCloud duplicates
 Cinco/Model/Reading.swift     Reading, a pasted text for Lecturas (same CloudKit rules)
 Cinco/Logic/Lectura.swift     lines, words and marked runs of a reading; recycling old readings
 Cinco/Logic/Tutor.swift       Claude through the proxy in ../proxy: checking translations, drafting cards
 Cinco/Views/                  the screens
-CincoTests/                   parity tests against values from the web app
+CincoTests/                   tests
 ```
 
 ## Run it
@@ -90,6 +89,3 @@ sending anything. Without Claude (declined, offline, out for the day), Apple's o
 in testing it graded translations badly: it translates each line for you to compare with, and gives a marked word's
 meaning in its sentence. Al revés without Claude shows the original to compare with yourself.
 
-## Not yet in the native app
-
-Frase (fill-in-the-sentence) conjugation mode, importing a backup from the web app, CSV export.

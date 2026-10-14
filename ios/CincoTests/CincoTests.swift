@@ -3,7 +3,7 @@ import Foundation
 import SwiftData
 @testable import Cinco
 
-/// Expected values come from running the web app's own functions in node, so the two apps stay in step.
+/// Expected values are fixed: they were taken from the original web app, and card ids must never drift from them.
 struct TextMatchTests {
     @Test(arguments: [
         ("el coche / el carro", "el coche / el carro", "1gnmjdb"),

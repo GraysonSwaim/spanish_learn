@@ -30,7 +30,7 @@ nonisolated extension CardRecord {
     }
 }
 
-/// Reads the CSV decks the web app reads: comma, semicolon or tab separated, quoted fields, "#" comments,
+/// Reads CSV decks: comma, semicolon or tab separated, quoted fields, "#" comments,
 /// with or without a header (Anki exports have none).
 nonisolated enum CSVImport {
     static func parse(_ text: String) -> [CardRecord] { records(rows(text)) }

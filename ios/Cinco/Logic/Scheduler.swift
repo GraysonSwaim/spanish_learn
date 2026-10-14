@@ -56,7 +56,7 @@ struct DeckCounts {
     var byStage = [0, 0, 0, 0, 0, 0]
 }
 
-/// The five-stage schedule, the same rules as the web app. Pure functions over cards, so they're testable.
+/// The five-stage schedule. Pure functions over cards, so they're testable.
 enum Scheduler {
     /// Cards between a miss and its retry.
     static let relearnGap = 5

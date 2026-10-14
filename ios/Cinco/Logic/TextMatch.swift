@@ -7,8 +7,8 @@ nonisolated enum Verdict: String {
     var isNear: Bool { self == .accent || self == .article }
 }
 
-/// Text rules shared with the web app. `strip` and `hash` must match it exactly: card ids
-/// are `hash(strip(text))`, so backups line up across both apps.
+/// Text rules for checking answers and naming cards. Card ids are `hash(strip(text))`, so `strip` and `hash`
+/// must never change, or cards already in the deck would stop matching their re-imports.
 nonisolated enum TextMatch {
     private static let punctuation = Set("¿?¡!.,;:\"“”…")
 
@@ -57,7 +57,7 @@ nonisolated enum TextMatch {
         s.replacing(/^\S+\s+/, with: "")
     }
 
-    /// djb2 over UTF-16 code units in 32-bit arithmetic, printed in base 36, exactly like the web app's hash().
+    /// djb2 over UTF-16 code units in 32-bit arithmetic, printed in base 36, the same on every device.
     static func hash(_ s: String) -> String {
         var h: Int32 = 5381
         for unit in s.utf16 { h = (h &<< 5) &+ h &+ Int32(unit) }
