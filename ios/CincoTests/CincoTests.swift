@@ -444,3 +444,46 @@ struct LecturaTests {
         #expect(left == ["nueva"])
     }
 }
+
+/// Reading an article from a link (Nueva lectura › Desde un enlace).
+struct ArticleTextTests {
+    private let para = String(repeating: "El mercado abre temprano los sábados. ", count: 4)
+
+    @Test func findsTheLinkInAShortPaste() {
+        #expect(ArticleText.link(in: "https://elpais.com/a.html")?.host() == "elpais.com")
+        #expect(ArticleText.link(in: "Mira esto: https://www.bbc.com/mundo/articles/x")?.host() == "www.bbc.com")
+        #expect(ArticleText.link(in: "elpais.com/opinion")?.absoluteString == "https://elpais.com/opinion")
+        #expect(ArticleText.link(in: "hola") == nil)
+        #expect(ArticleText.link(in: "mailto:a@b.com") == nil)
+        #expect(ArticleText.link(in: "https://a.com https://b.com") == nil)
+        // A pasted text that happens to hold a link is a text.
+        #expect(ArticleText.link(in: String(repeating: "Un texto largo. ", count: 40) + "https://a.com") == nil)
+    }
+
+    @Test func prefersTheWholeArticleInTheMetadata() {
+        let meta = [para, para + "Y más."].joined(separator: "\n")
+        let r = ArticleText.choose(paragraphs: [para], metadata: meta)
+        #expect(r.fromMetadata && r.lines.count == 2)
+    }
+
+    @Test func aTeaserInTheMetadataLosesToTheArticle() {
+        let r = ArticleText.choose(paragraphs: [para, para + "Dos.", para + "Tres."], metadata: "Resumen.\nCorto.")
+        #expect(!r.fromMetadata && r.lines.count == 3)
+    }
+
+    @Test func oneLongMetadataBlockIsSplitIntoSentences() {
+        let block = (1...12).map { "Esta es la frase número \($0) del artículo, con bastante texto para que pese." }.joined(separator: " ")
+        let r = ArticleText.choose(paragraphs: [], metadata: block)
+        #expect(r.fromMetadata && r.lines.count == 4)
+    }
+
+    @Test func tooLittleTextIsNoArticle() {
+        #expect(ArticleText.choose(paragraphs: ["Example Domain", "More information..."], metadata: "").lines.isEmpty)
+    }
+
+    @Test func labelsAndRepeatsAreDropped() {
+        let lines = ArticleText.clean(["PUBLICIDAD", "Fuente de la imagen, Getty Images", "Autor, Cecilia Barría",
+                                       "Autoridades cubanas anunciaron cambios.", "Más leídas", "  Dos   espacios ", "Dos espacios", "—"])
+        #expect(lines == ["Autoridades cubanas anunciaron cambios.", "Dos espacios"])
+    }
+}
