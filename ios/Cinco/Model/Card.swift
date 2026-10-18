@@ -16,6 +16,10 @@ final class Card {
     var es: String = ""
     var en: String = ""
     var ex: String = ""
+    /// `ex` in English.
+    var exEn: String = ""
+    /// The words of `ex` that are this card, as written there ("tengo" for tener), to pick them out or blank them.
+    var exWord: String = ""
     var notes: String = ""
     var tags: String = ""
     /// A memory trick, written when the card is missed (Ajustes › Pedir mnemotecnias).

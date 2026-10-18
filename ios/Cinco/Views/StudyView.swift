@@ -291,12 +291,14 @@ struct StudyView: View {
             kicker("Tarjeta nueva")
             word(c.es)
             english(c.en).padding(.top, 10)
+            example(c, blank: false, english: true)
             notesIfAny(c)
             speakButton()
             moreAbout(c)
         case .esEn:
             kicker("¿Qué significa?")
             word(c.es)
+            example(c, blank: false, english: revealed)
             speakButton()
             if revealed {
                 answerBlock {
@@ -308,6 +310,7 @@ struct StudyView: View {
         case .enEs:
             kicker("Dilo en español")
             english(c.en)
+            example(c, blank: !revealed, english: true)
             if revealed {
                 answerBlock {
                     word(c.es)
@@ -319,6 +322,7 @@ struct StudyView: View {
         default: // type
             kicker("Escríbelo en español")
             english(c.en)
+            example(c, blank: !revealed, english: true)
             if revealed {
                 answerBlock {
                     word(c.es)
@@ -350,10 +354,34 @@ struct StudyView: View {
 
     // MARK: in a sentence
 
-    /// The card's own example and sentences.
+    /// The card's example, under the word: the card's words in bold, or blanked while the Spanish is what's asked
+    /// (then only the English shows if they can't be found in it). A tap reads it aloud once nothing is hidden.
+    @ViewBuilder
+    private func example(_ c: Card, blank: Bool, english: Bool) -> some View {
+        let canBlank = Examples.range(in: c) != nil
+        VStack(spacing: 4) {
+            if !c.ex.isEmpty && (!blank || canBlank) {
+                Button { session.speak(c.ex) } label: {
+                    // The custom italic has no bold, so the card's words stand out in colour, upright and heavy.
+                    Text(Examples.marked(c, blank: blank) { $0.font = Typo.text(19, .heavy); $0.foregroundColor = Palette.sea })
+                        .font(Typo.italic(19)).foregroundStyle(Palette.ink)
+                }
+                .buttonStyle(.plain)
+                // Not read aloud while it would give the answer away; not dimmed either, as .disabled would.
+                .allowsHitTesting(!blank)
+                .accessibilityHint(blank ? "" : "Toca para escucharla")
+            }
+            if english && !c.exEn.isEmpty {
+                Text(c.exEn).font(Typo.text(15)).foregroundStyle(Palette.muted)
+            }
+        }
+        .padding(.top, 16)
+    }
+
+    /// More sentences, beyond the example on the card.
     private func sentences(_ c: Card) -> [String] {
-        var seen = Set<String>()
-        return ([c.ex] + c.frases.split(separator: "|").map(String.init))
+        var seen: Set<String> = [TextMatch.strip(c.ex)]
+        return c.frases.split(separator: "|").map(String.init)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty && seen.insert(TextMatch.strip($0)).inserted }
             .prefix(3).map { $0 }
@@ -364,7 +392,7 @@ struct StudyView: View {
     private func moreAbout(_ c: Card) -> some View {
         let list = sentences(c)
         if !list.isEmpty {
-            moreChip("En una frase", icon: "text.bubble.fill")
+            moreChip("Más frases", icon: "text.bubble.fill")
                 .padding(.top, 18)
             if showSentences {
                 VStack(alignment: .leading, spacing: 12) {

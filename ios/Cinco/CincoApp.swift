@@ -75,6 +75,8 @@ struct RootView: View {
     /// `taps` steps, so each phase can be screenshotted in the simulator.
     private func startDemo() {
         let args = ProcessInfo.processInfo.arguments
+        // `-loadStarter` fills an empty deck with the starter cards, for the flags below.
+        if args.contains("-loadStarter") && Deck.allCards(ctx).isEmpty { Deck.loadStarter(ctx) }
         // `-openReading` opens a sample reading, some of it marked.
         if args.contains("-openReading") {
             let r = Reading(title: "En el mercado", lines: Lectura.lines("""

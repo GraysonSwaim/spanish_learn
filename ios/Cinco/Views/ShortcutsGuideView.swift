@@ -29,7 +29,9 @@ struct ShortcutsGuideView: View {
                 Text("Solo el español y el inglés son obligatorios; todo lo demás es opcional y se aprovecha si llega. Añadir tarjetas acepta el JSON que pide el prompt.")
                 field("spanish", "Obligatorio", "La palabra, con artículo si es sustantivo: *la maleta*.")
                 field("english", "Obligatorio", "El significado corto: *suitcase*; verbos con *to*.")
-                field("example", "Opcional", "Una frase de ejemplo en español.")
+                field("example", "Opcional", "Una frase de ejemplo en español. Si falta, Claude la escribe.")
+                field("example_english", "Opcional", "La frase de ejemplo en inglés.")
+                field("example_word", "Opcional", "Las palabras de la frase que son la tarjeta, tal como aparecen: *tengo* para *tener*. Se resaltan, o se tapan cuando tienes que decirla tú.")
                 field("notes", "Opcional", "Género y plural, femenino de un adjetivo, irregularidades de un verbo.")
                 field("mnemonic", "Opcional", "Un truco para recordarla. No sustituye uno que ya hayas escrito.")
                 field("tags", "Opcional", "Temas: *viaje*, *comida*.")
@@ -117,6 +119,8 @@ struct ShortcutsGuideView: View {
     "spanish": the Spanish. A noun with its article (el/la; el/la for both genders), an adjective in the masculine singular, a verb in the infinitive.
     "english": a short meaning; a verb starts with "to". Two meanings: "suitcase / bag".
     "example": one short, natural Spanish sentence using it.
+    "example_english": that sentence in English.
+    "example_word": the words of the example that are this card, copied exactly as they appear in it ("tengo" for tener, "maletas" for la maleta).
     "notes": a noun: its gender and plural, like "Femenino. Plural: las maletas". An adjective: its feminine, like "Femenino: bonita". A verb: its irregularity, like "o → ue" or "yo: tengo"; "" if regular. A phrase: its register or region only if it matters, like "Casual, México" or "Formal: ¿Cómo está?". Otherwise "". One short line.
     "mnemonic": a short, vivid memory trick in English linking the Spanish sound to the meaning.
     "tags": one or two lowercase English words separated by a space, like "travel" or "slang food".

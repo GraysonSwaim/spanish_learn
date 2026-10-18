@@ -182,6 +182,47 @@ enum Tutor {
         return reply.items
     }
 
+    nonisolated struct ExampleInput: Encodable {
+        var spanish: String
+        var english: String
+        /// The card's own sentence, or "" for Claude to write one.
+        var sentence: String
+    }
+
+    nonisolated struct Example: Codable, Equatable {
+        var sentence: String
+        var english: String
+        /// The card's words as they appear in the sentence, or "".
+        var word: String
+    }
+
+    /// An example sentence for each card, its English, and the card's words in it. Claude writes the missing sentences;
+    /// when Claude can't answer, the on-device model only translates sentences cards already have.
+    static func examples(_ items: [ExampleInput]) async throws(Failure) -> [Example] {
+        if demo {
+            try? await Task.sleep(for: .milliseconds(500))
+            return items.map { Example(sentence: $0.sentence.isEmpty ? "(demo) Uso \($0.spanish) cada día." : $0.sentence,
+                                       english: "(demo) English for the sentence.", word: $0.sentence.isEmpty ? $0.spanish : "") }
+        }
+        var failure = Failure.other
+        if base != nil {
+            struct Body: Encodable { let device: String; let items: [ExampleInput] }
+            struct Reply: Decodable { let items: [Example] }
+            let body = Body(device: device, items: items.prefix(40).map {
+                ExampleInput(spanish: String($0.spanish.prefix(120)), english: String($0.english.prefix(200)), sentence: String($0.sentence.prefix(600)))
+            })
+            do {
+                let reply: Reply = try await post("examples", body, timeout: 60)
+                return reply.items
+            } catch {
+                failure = error
+                if failure == .refused || failure == .allowance { throw failure }
+            }
+        }
+        if let e = await onDeviceExamples(items) { return e }
+        throw failure
+    }
+
     private static func post<B: Encodable, R: Decodable>(_ path: String, _ body: B, timeout: TimeInterval) async throws(Failure) -> R {
         guard let base else { throw .other }
         var request = URLRequest(url: base.appending(path: path), timeoutInterval: timeout)
@@ -262,6 +303,27 @@ extension Tutor {
             }
         }
         return answered > 0 ? out : nil
+        #else
+        return nil
+        #endif
+    }
+
+    /// Only the English of sentences the cards already have: the on-device model doesn't write Spanish.
+    private static func onDeviceExamples(_ items: [ExampleInput]) async -> [Example]? {
+        #if canImport(FoundationModels)
+        guard #available(iOS 26.0, *), SystemLanguageModel.default.isAvailable,
+              items.contains(where: { !$0.sentence.trimmed.isEmpty }) else { return nil }
+        var out: [Example] = []
+        for it in items {
+            var english = ""
+            if !it.sentence.trimmed.isEmpty {
+                english = (try? await LanguageModelSession(instructions: translateInstructions)
+                    .respond(to: it.sentence, generating: OnDeviceTranslation.self, options: GenerationOptions(maximumResponseTokens: 200)))?
+                    .content.english.trimmed ?? ""
+            }
+            out.append(Example(sentence: it.sentence, english: english, word: ""))
+        }
+        return out.contains { !$0.english.isEmpty } ? out : nil
         #else
         return nil
         #endif

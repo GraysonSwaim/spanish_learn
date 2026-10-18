@@ -170,6 +170,46 @@ struct PipelineSessionTests {
     }
 }
 
+/// The example sentence on a card: its words picked out, and what Claude's reply fills in.
+@MainActor
+struct ExampleTests {
+    private func card(_ es: String, ex: String, word: String = "") -> Card {
+        let c = Card(id: es, es: es, en: "x", order: 0)
+        c.ex = ex
+        c.exWord = word
+        return c
+    }
+
+    @Test func findsTheCardInItsSentence() {
+        let tener = card("tener", ex: "Tengo dos hermanos.", word: "Tengo")
+        #expect(String(Examples.marked(tener, blank: true).characters) == "＿＿＿ dos hermanos.")
+        // No word given: the Spanish itself, without its article, as a whole word whatever the accents.
+        let casa = card("la casa", ex: "Mi casa está cerca del parque.")
+        #expect(Examples.range(in: casa).map { String(casa.ex[$0]) } == "casa")
+        let dia = card("el dia", ex: "Hoy es un buen día.")
+        #expect(Examples.range(in: dia).map { String(dia.ex[$0]) } == "día")
+        // "sé" isn't in "sé" inside "pasé".
+        #expect(Examples.range(in: card("sé", ex: "Ayer pasé por aquí.")) == nil)
+    }
+
+    @Test func aReplyFillsOnlyWhatsMissing() {
+        let c = card("tener", ex: "")
+        Examples.apply(Tutor.Example(sentence: "Tengo frío.", english: "I'm cold.", word: "Tengo"), to: c, asked: "")
+        #expect(c.ex == "Tengo frío." && c.exEn == "I'm cold." && c.exWord == "Tengo")
+        // The sentence was edited while Claude was answering: the reply is for another sentence.
+        let d = card("comer", ex: "Vamos a comer.")
+        Examples.apply(Tutor.Example(sentence: "Como pan.", english: "I eat bread.", word: "Como"), to: d, asked: "Como pan.")
+        #expect(d.exEn.isEmpty)
+    }
+
+    @Test func jsonCarriesTheExampleEnglishAndWord() throws {
+        let r = try #require(CardJSON.parse("""
+            {"spanish": "tener", "english": "to have", "example": "Tengo dos hermanos.", "example_english": "I have two brothers.", "example_word": "Tengo"}
+            """)?.first)
+        #expect(r.exEn == "I have two brothers." && r.exWord == "Tengo")
+    }
+}
+
 /// One Vocabulario for words and phrases alike; verbs also get Conjugación.
 @MainActor
 struct StarterTests {

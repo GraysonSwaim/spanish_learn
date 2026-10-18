@@ -9,7 +9,7 @@ import SwiftData
 struct AddCardsIntent: AppIntent {
     static let title: LocalizedStringResource = "Añadir tarjetas"
     static let description = IntentDescription(
-        "Adds cards from JSON text: {\"spanish\", \"english\", \"example\", \"notes\", \"tags\", \"mnemonic\", \"frases\", \"tenses\": {\"presente\": [six forms], …}}, one object or a list. Only spanish and english are required; cards already in the deck are updated without losing their progress.")
+        "Adds cards from JSON text: {\"spanish\", \"english\", \"example\", \"example_english\", \"example_word\", \"notes\", \"tags\", \"mnemonic\", \"frases\", \"tenses\": {\"presente\": [six forms], …}}, one object or a list. Only spanish and english are required; cards already in the deck are updated without losing their progress.")
 
     @Parameter(title: "Texto", description: "JSON.", inputOptions: String.IntentInputOptions(multiline: true))
     var text: String

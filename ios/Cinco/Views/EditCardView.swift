@@ -18,6 +18,7 @@ struct EditCardView: View {
                 TextField("el coche", text: $rec.es).labeled("Español")
                 TextField("car", text: $rec.en).labeled("Inglés")
                 TextField("Mi coche es rojo.", text: $rec.ex, axis: .vertical).labeled("Ejemplo")
+                TextField("My car is red.", text: $rec.exEn, axis: .vertical).labeled("Ejemplo en inglés")
                 TextField("En España, coche; en México, carro", text: $rec.notes, axis: .vertical).labeled("Notas")
                 TextField("transporte", text: $rec.tags).labeled("Etiquetas")
                     .textInputAutocapitalization(.never)
@@ -82,7 +83,7 @@ struct EditCardView: View {
 
     private func load() {
         guard let c = card else { return }
-        rec = CardRecord(es: c.es, en: c.en, ex: c.ex, notes: c.notes, tags: c.tags,
+        rec = CardRecord(es: c.es, en: c.en, ex: c.ex, exEn: c.exEn, exWord: c.exWord, notes: c.notes, tags: c.tags,
                          frases: c.frases.split(separator: "|").joined(separator: "\n"), tenses: c.tenses, mnemonic: c.mnemonic)
         forms = c.tenses.mapValues { TextMatch.splitForms($0) }
     }

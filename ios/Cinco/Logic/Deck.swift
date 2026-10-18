@@ -39,7 +39,8 @@ enum Deck {
             if let c = byID[id] {
                 card = c
                 c.en = rec.en
-                if !rec.ex.isEmpty { c.ex = rec.ex }
+                // A new example brings its own English and word, or none, to be filled in again (`Examples`).
+                if !rec.ex.isEmpty && rec.ex != c.ex { c.ex = rec.ex; c.exEn = rec.exEn; c.exWord = rec.exWord }
                 if !rec.notes.isEmpty { c.notes = rec.notes }
                 if !rec.tags.isEmpty { c.tags = rec.tags }
                 if !rec.frases.isEmpty { c.frases = rec.frases }
@@ -47,7 +48,8 @@ enum Deck {
                 if c.mnemonic.isEmpty { c.mnemonic = rec.mnemonic }
             } else {
                 card = Card(id: id, es: rec.es, en: rec.en, order: nextOrder)
-                card.ex = rec.ex; card.notes = rec.notes; card.tags = rec.tags; card.frases = rec.frases
+                card.ex = rec.ex; card.exEn = rec.exEn; card.exWord = rec.exWord
+                card.notes = rec.notes; card.tags = rec.tags; card.frases = rec.frases
                 card.mnemonic = rec.mnemonic
                 nextOrder += 1
                 ctx.insert(card)
@@ -140,6 +142,11 @@ enum Deck {
             ctx.insert(card)
         }
         card.kind = .word
+        // A rewritten example loses the English and word of the old one (unless the English was rewritten too),
+        // so they're filled in again (`Examples`).
+        let newExample = old.map { $0.ex != rec.ex } ?? false
+        card.exEn = newExample && rec.exEn == old?.exEn ? "" : rec.exEn
+        card.exWord = newExample ? "" : rec.exWord
         card.es = rec.es; card.en = rec.en; card.ex = rec.ex; card.notes = rec.notes
         card.tags = rec.tags; card.frases = rec.frases; card.tenses = rec.tenses
         if old != nil { card.mnemonic = rec.mnemonic }

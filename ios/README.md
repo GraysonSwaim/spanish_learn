@@ -49,6 +49,7 @@ Tests: `xcodebuild test -project Cinco.xcodeproj -scheme 'Choca Cinco' -destinat
 
 Debug builds take launch arguments for the simulator:
 
+- `-loadStarter` loads the starter deck into an empty store, for the flags here.
 - `-demo vocab|conj <steps> [stage]` opens a verb card at a stage and advances it that many reveal steps.
 - `-openTenses` opens the Conjugación tense picker.
 - `-tutorDemo` gives Lecturas canned answers instead of Claude; `-tutorURL http://localhost:8787` uses a proxy running on the Mac.

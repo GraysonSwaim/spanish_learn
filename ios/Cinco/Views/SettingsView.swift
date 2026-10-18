@@ -12,6 +12,7 @@ struct SettingsView: View {
     @AppStorage(PrefKey.voiceLang) private var voiceLang = "es-MX"
     @AppStorage(PrefKey.theme) private var theme = "auto"
     @AppStorage(PrefKey.askMnemonics) private var askMnemonics = true
+    @AppStorage(PrefKey.examples) private var examples = Tutor.consented
 
     @State private var iCloud = "Comprobando…"
     @State private var confirmErase = false
@@ -46,6 +47,13 @@ struct SettingsView: View {
                         Text("Al fallar una tarjeta, un truco para recordarla").font(Typo.text(13)).foregroundStyle(Palette.muted)
                     }
                 }
+                Toggle(isOn: $examples) {
+                    VStack(alignment: .leading) {
+                        Text("Frases de ejemplo")
+                        Text("Claude escribe una frase con cada palabra que no la tenga, y la traduce. Para eso se le envían el español y el inglés de tus tarjetas.").font(Typo.text(13)).foregroundStyle(Palette.muted)
+                    }
+                }
+                .onChange(of: examples) { _, on in if on { Task { await Examples.fill(ctx) } } }
             }
             Section {
                 Picker("Acento", selection: $voiceLang) {
@@ -127,7 +135,7 @@ struct HowView: View {
                         }
                     }
                 }
-                Text("En Vocabulario solo ves la palabra o la expresión (¿Dónde está el baño?, Me da igual) y su significado, también en los verbos. Tras la respuesta puedes tocar «En una frase» para verla en uso.")
+                Text("En Vocabulario ves la palabra o la expresión (¿Dónde está el baño?, Me da igual), su significado y una frase de ejemplo: con la palabra resaltada cuando la ves en español, y con un hueco cuando eres tú quien la dice o la escribe. Si a una tarjeta le falta la frase, Claude la escribe (Ajustes › Frases de ejemplo).")
                 Text("En Conjugación cada tiempo de cada verbo es una tarjeta: primero ves el verbo, luego su significado y después conjugas la tabla. Primero la estudias, luego la dices en voz alta y te calificas, y desde la etapa 4 escribes las formas. El pronombre es opcional.")
                 Text("Las tarjetas llegan de tres sitios: Añadir, un atajo (Ajustes › Atajos) y Lecturas. Si una ya está en el mazo, se actualiza sin perder su progreso.")
                 Text("Si fallas una tarjeta, puedes escribir en ese momento una mnemotecnia: un truco para recordarla. Aparece con la respuesta la próxima vez. Se puede desactivar en Ajustes.")

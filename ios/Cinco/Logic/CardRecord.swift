@@ -2,7 +2,7 @@ import Foundation
 
 /// A card as it comes in: from a shortcut, the Añadir screen or a reading.
 nonisolated struct CardRecord: Equatable, Hashable, Identifiable {
-    var es = "", en = "", ex = "", notes = "", tags = "", frases = ""
+    var es = "", en = "", ex = "", exEn = "", exWord = "", notes = "", tags = "", frases = ""
     var tenses: [String: String] = [:]
     /// From a mnemonic key, or Editar tarjeta. Adding only fills it on a card that has none.
     var mnemonic = ""
@@ -19,6 +19,8 @@ nonisolated enum CardJSON {
             "es": ["spanish", "es", "español", "espanol", "front", "word", "term", "palabra"],
             "en": ["english", "en", "back", "meaning", "definition", "translation", "inglés", "ingles"],
             "ex": ["example", "ex", "sentence", "ejemplo", "context"],
+            "exEn": ["example english", "example en", "ex en", "example translation", "ejemplo en ingles", "ejemplo ingles"],
+            "exWord": ["example word", "example form", "ex word", "ejemplo palabra"],
             "notes": ["notes", "note", "hint", "notas"],
             "tags": ["tags", "tag", "category", "topic"],
             "frases": ["frases", "oraciones", "sentences"],
@@ -75,6 +77,8 @@ nonisolated enum CardJSON {
             case "es": r.es = text(v)
             case "en": r.en = text(v)
             case "ex": r.ex = text(v)
+            case "exEn": r.exEn = text(v)
+            case "exWord": r.exWord = text(v)
             case "notes": r.notes = text(v)
             // Tags are space-separated; models also write "slang, surprise" or a list.
             case "tags": r.tags = ((v as? [Any]).map { $0.map { text($0) }.joined(separator: " ") } ?? text(v))

@@ -87,6 +87,8 @@ struct HomeView: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { screenHeight = $0 }
         // Cards deleted (Explorar, or Ajustes › Borrar todos los datos) may be in a session left midway: start over.
         .onChange(of: cards.count) { old, new in if new < old { session = nil } }
+        // New cards get their example sentences in the background.
+        .task(id: cards.count) { await Examples.fill(ctx) }
         .background(Backdrop())
         .toolbar(.hidden, for: .navigationBar)
         .alert("Mazo de inicio", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {

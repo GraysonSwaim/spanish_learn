@@ -1,12 +1,13 @@
 # Choca Cinco tutor proxy
 
-A Cloudflare Worker between the app and Claude, for Lecturas (pasted readings). The API key lives only here, never in
+A Cloudflare Worker between the app and Claude, for Lecturas (pasted readings) and example sentences on cards. The API key lives only here, never in
 the app.
 
 | Route | The app sends | Claude returns |
 |---|---|---|
 | `POST /check` | a reading's lines and the learner's translations, `es-en` or `en-es` (Al revés) | per line a verdict (`good`, `close`, `off`, `blank`), a comment and a better version; words they missed; up to 3 notes on the text |
 | `POST /gloss` | the words and phrases marked while reading, each with its sentence | a card for each: dictionary form, meaning in context, a short note |
+| `POST /examples` | flashcards (Spanish, meaning, and their sentence when they have one) | for each, a short example sentence (their own, untouched, when they have one), its English, and the card's words as they appear in it |
 
 Both take a `device`: a random ID the phone makes once, so each phone's allowance is counted on its own.
 
@@ -49,7 +50,7 @@ The backstop is the workspace's spend limit in the Anthropic Console.
 
 | Status | Body | Meaning |
 |---|---|---|
-| 400 | `bad_request` | Over the request limits (80 lines of 600 characters, 40 marked words) |
+| 400 | `bad_request` | Over the request limits (80 lines of 600 characters, 40 marked words or cards) |
 | 429 | `budget` | This phone, or everyone, is out for today |
 | 422 | `refused` | Claude declined |
 | 502 | `too_long`, `bad_reply`, `upstream` | Reply cut off or malformed, or the API call failed |

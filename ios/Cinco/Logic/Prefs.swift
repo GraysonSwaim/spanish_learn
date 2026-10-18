@@ -14,6 +14,8 @@ enum PrefKey {
     static let tense = "tense"
     static let theme = "theme"
     static let askMnemonics = "askMnemonics"
+    /// Example sentences from Claude (`Examples`).
+    static let examples = "exampleSentences"
 }
 
 struct Prefs {

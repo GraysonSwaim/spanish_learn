@@ -135,7 +135,7 @@ nonisolated enum Lectura {
 
     /// A card for a run: Claude's draft when there is one, else the words as they stand.
     static func record(_ run: Run, gloss: Tutor.Gloss?, sentence: String) -> CardRecord {
-        CardRecord(es: gloss?.spanish ?? run.text, en: gloss?.english ?? "", ex: sentence,
+        CardRecord(es: gloss?.spanish ?? run.text, en: gloss?.english ?? "", ex: sentence, exWord: run.text,
                    notes: gloss?.note ?? "", tags: "lectura")
     }
 }
