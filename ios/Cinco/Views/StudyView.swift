@@ -25,9 +25,18 @@ struct StudyView: View {
         VStack(spacing: 0) {
             topBar
             if let c = session.current {
-                StageTiles(stage: c.stage)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 8)
+                HStack(spacing: 8) {
+                    StageTiles(stage: c.stage)
+                    if c.ready && c.stage < 5 {
+                        Text("Lista")
+                            .font(Typo.text(13, .heavy)).foregroundStyle(Palette.good)
+                            .padding(.horizontal, 10).padding(.vertical, 3)
+                            .background(Palette.goodSoft, in: .capsule)
+                            .accessibilityLabel("Lista: sube cuando haya sitio en la etapa \(c.stage + 1)")
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 8)
                 card(c)
                 if !onCard { actions(c).padding(.top, 18) }
             }
@@ -76,7 +85,9 @@ struct StudyView: View {
     private var topBar: some View {
         // The count stays centred with nothing on the right to balance "Inicio".
         ZStack {
-            Text((session.label.isEmpty ? "" : session.label + " · ") + (session.remaining == 1 ? "Queda 1" : "Quedan \(session.remaining)"))
+            // The daily session has no end to count down to: it counts what's been done.
+            let count = session.continuous ? "Hechas: \(session.answered)" : session.remaining == 1 ? "Queda 1" : "Quedan \(session.remaining)"
+            Text((session.label.isEmpty ? "" : session.label + " · ") + count)
                 .font(Typo.display(20)).foregroundStyle(Palette.ink)
                 .padding(.horizontal, 80)
             Button("‹ Inicio", action: onExit)
@@ -176,17 +187,20 @@ struct StudyView: View {
     /// leans on the one it's heading for: that one grows, the other fades.
     private var gradeTabs: some View {
         let toward = min(1, abs(dragX) / 110)
+        let stage = session.current?.stage ?? 1
+        let miss = stage == 1 ? "vuelve luego" : "baja una etapa"
+        let hit = stage == 5 ? "sigue dominada" : session.passMovesUp ? "sube una etapa" : "lista, sube con sitio"
         return HStack(spacing: 10) {
-            Button { grade(false) } label: { BigLabel("Otra vez", "baja una etapa").padding(.leading, 12) }
+            Button { grade(false) } label: { BigLabel("Otra vez", miss).padding(.leading, 12) }
                 .buttonStyle(GradeTabStyle(color: Palette.again, text: .white, right: false))
                 .scaleEffect(dragX < 0 ? 1 + 0.06 * toward : 1)
                 .opacity(dragX > 0 ? 1 - 0.6 * toward : 1)
-                .accessibilityLabel("Otra vez, baja una etapa")
-            Button { grade(true) } label: { BigLabel("¡La sé!", "sube una etapa").padding(.trailing, 12) }
+                .accessibilityLabel("Otra vez, \(miss)")
+            Button { grade(true) } label: { BigLabel("¡La sé!", hit).padding(.trailing, 12) }
                 .buttonStyle(GradeTabStyle(color: Palette.good, text: Palette.onGood, right: true))
                 .scaleEffect(dragX > 0 ? 1 + 0.06 * toward : 1)
                 .opacity(dragX < 0 ? 1 - 0.6 * toward : 1)
-                .accessibilityLabel("La sé, sube una etapa")
+                .accessibilityLabel("La sé, \(hit)")
         }
         .padding(.horizontal, 12).padding(.bottom, 12)
     }

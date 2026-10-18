@@ -52,42 +52,121 @@ struct SchedulerTests {
         return c
     }
 
-    @Test func passClimbsAndSpacesOut() {
-        let now = Date()
-        let c = card(1)
-        Scheduler.pass(c, now: now)
-        #expect(c.stage == 2 && c.interval == 1)
-        #expect(c.due == Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now)))
-        c.stage = 5; c.interval = 21
-        Scheduler.pass(c, now: now)
-        #expect(c.stage == 5 && c.interval == 42)
-        c.interval = 100
-        Scheduler.pass(c, now: now)
-        #expect(c.interval == Scheduler.maxInterval)
+    private func stages(_ cards: [Card]) -> [Int] { cards.map(\.stage) }
+
+    @Test func passMovesUpOnlyIntoRoom() {
+        let (a, b, x, y) = (card(1), card(1), card(2), card(2))
+        let pool = [a, b, x, y]
+        Scheduler.pass(a, in: pool, cap: 3)
+        #expect(a.stage == 2 && !a.ready)
+        // Stage 2 is full now: b waits, ready.
+        Scheduler.pass(b, in: pool, cap: 3)
+        #expect(b.stage == 1 && b.ready)
+    }
+
+    /// A card mastered at the top lets each ready card behind it move up, all the way back to stage 1.
+    @Test func aPlaceAtTheTopRipplesBack() {
+        let (a, b, c, d) = (card(1), card(2), card(3), card(4))
+        for x in [a, b, c] { x.ready = true }
+        Scheduler.pass(d, in: [a, b, c, d], cap: 1)
+        #expect(stages([a, b, c, d]) == [2, 3, 4, 5])
+        #expect([a, b, c, d].allSatisfy { !$0.ready })
+        #expect(Scheduler.room([a, b, c, d], cap: 1) == 1)
+    }
+
+    /// A stage 3 miss overfills stage 2, so nothing behind it moves until a stage 2 card is right again.
+    @Test func aMissHoldsUpTheCardsBehindIt() {
+        let (a, b, c, d) = (card(1), card(2), card(3), card(4))
+        let pool = [a, b, c, d]
+        Scheduler.fail(c, in: pool, cap: 1)
+        #expect(stages(pool) == [1, 2, 2, 4] && c.lapses == 1)
+        Scheduler.pass(a, in: pool, cap: 1)
+        #expect(a.stage == 1 && a.ready)
+        Scheduler.pass(b, in: pool, cap: 1)
+        #expect(stages(pool) == [1, 3, 2, 4])
+        #expect(Scheduler.room(pool, cap: 1) == 0)
     }
 
     @Test func failDropsOneStageNotBelowOne() {
         let c = card(3)
-        Scheduler.fail(c)
-        #expect(c.stage == 2 && c.lapses == 1 && c.interval == 0)
+        Scheduler.fail(c, in: [], cap: 5)
+        #expect(c.stage == 2 && c.lapses == 1)
         let d = card(1)
-        Scheduler.fail(d)
-        #expect(d.stage == 1)
+        d.ready = true
+        Scheduler.fail(d, in: [], cap: 5)
+        #expect(d.stage == 1 && !d.ready)
     }
 
-    @Test func reviewsComeBeforeNewCards() {
+    /// A week, then twice as long each time it's right once the wait is up. Early reviews don't stretch it.
+    @Test func dominadaDoublesFromAWeek() {
+        let now = Date()
+        let day = { (n: Int) in Calendar.current.date(byAdding: .day, value: n, to: Calendar.current.startOfDay(for: now))! }
+        let c = card(4)
+        Scheduler.pass(c, in: [c], cap: 5, now: now)
+        #expect(c.stage == 5 && c.interval == 7 && c.due == day(7))
+        Scheduler.pass(c, in: [c], cap: 5, now: now)
+        #expect(c.interval == 7 && c.due == day(7))
+        let later = day(7).addingTimeInterval(3600)
+        Scheduler.pass(c, in: [c], cap: 5, now: later)
+        #expect(c.interval == 14)
+        Scheduler.pass(c, in: [c], cap: 5, now: c.due)
+        #expect(c.interval == 28)
+    }
+
+    /// A Dominada miss goes back to Producir, even when it's full.
+    @Test func aDominadaMissOverfillsProducir() {
+        let full = (0..<2).map { _ in card(4) }
+        let c = card(5)
+        c.interval = 28
+        Scheduler.fail(c, in: full + [c], cap: 2)
+        #expect(c.stage == 4 && c.interval == 0)
+        #expect(Scheduler.counts(full + [c]).byStage[4] == 3)
+    }
+
+    @Test func dailyQueueIsStagesOneToFourAndDueDominadas() {
         let now = Date()
         let fresh = card(0)
-        let late = card(2, due: now.addingTimeInterval(-3600))
-        let later = card(3, due: now.addingTimeInterval(-7200))
-        let future = card(4, due: now.addingTimeInterval(86400))
-        let q = Scheduler.dailyQueue([fresh, late, later, future], newRoom: 5, staggerTenses: false, verbs: [], now: now)
-        #expect(q.map(\.id) == [later.id, late.id, fresh.id])
+        let w1 = card(2), w2 = card(4)
+        w1.lastReviewed = now.addingTimeInterval(-60)
+        w2.lastReviewed = now.addingTimeInterval(-600)
+        let due = card(5, due: now.addingTimeInterval(-3600))
+        let notYet = card(5, due: now.addingTimeInterval(86400))
+        let q = Scheduler.dailyQueue([fresh, w1, w2, due, notYet], now: now)
+        #expect(q.map(\.id) == [w2.id, due.id, w1.id])
+        #expect(Scheduler.counts([fresh, w1, w2, due, notYet], now: now).due == 3)
     }
 
-    @Test func newRoomCapsNewCards() {
-        let q = Scheduler.dailyQueue((0..<10).map { _ in card(0) }, newRoom: 3, staggerTenses: false, verbs: [])
-        #expect(q.count == 3)
+    /// Stages 1 and 2 keep the cards known best; the rest go back to the front of the new cards.
+    @Test func trimSendsTheOverflowBackToNew() {
+        let ones = (0..<4).map { i in let c = card(1); c.order = Double(10 + i); c.reps = i; return c }
+        let new = card(0)
+        new.order = 1
+        let threes = (0..<4).map { _ in card(3) }
+        Scheduler.trim(ones + [new] + threes, cap: 2)
+        #expect(stages(ones) == [0, 0, 1, 1])
+        #expect(ones[0].order < new.order && ones[1].order < new.order)
+        #expect(stages(threes) == [3, 3, 3, 3])
+    }
+}
+
+/// The daily session: new cards fill stage 1 to the cap, and it keeps going round.
+@MainActor
+struct PipelineSessionTests {
+    @Test func newCardsFillStageOneToTheCap() throws {
+        let schema = Schema([Card.self, DayLog.self])
+        let ctx = ModelContext(try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)))
+        let cards = (0..<7).map { i in let c = Card(id: "\(i)", es: "w\(i)", en: "e\(i)", order: Double(i)); ctx.insert(c); return c }
+        var prefs = Prefs(); prefs.autoSpeak = false; prefs.direction = .esEn; prefs.stageCap = 3
+        let s = StudySession(queue: [], tab: .vocab, pool: cards, fresh: cards, continuous: true, ctx: ctx, prefs: prefs)
+        #expect(s.queue.map(\.es) == ["w0", "w1", "w2"])
+        s.introDone()
+        #expect(s.queue.count == 3 && cards[0].stage == 1)
+        // Introduced, w0 is asked again later and moves up; stage 1 has room, so w3 comes in.
+        while s.current !== cards[0] { s.introDone() }
+        s.reveal(); s.grade(true)
+        #expect(cards[0].stage == 2)
+        #expect(s.queue.contains { $0 === cards[3] } && s.queue.contains { $0 === cards[0] })
+        #expect(!s.queue.contains { $0 === cards[4] })
     }
 }
 

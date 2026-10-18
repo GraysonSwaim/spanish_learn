@@ -189,7 +189,7 @@ struct CardDetailView: View {
     private var facts: some View {
         let f = Date.FormatStyle(date: .long, time: .omitted).locale(Locale(identifier: "es-MX"))
         var parts: [String] = []
-        if card.stage > 0 { parts.append("Próximo repaso: \(card.due.formatted(f))") }
+        if card.stage == 5 { parts.append("Próximo repaso: \(card.due.formatted(f))") }
         parts.append("Repasos: \(card.reps) · Fallos: \(card.lapses)")
         if !card.tags.isEmpty { parts.append("Etiquetas: \(card.tags)") }
         return Text(parts.joined(separator: "\n")).font(Typo.text(13)).foregroundStyle(Palette.muted)

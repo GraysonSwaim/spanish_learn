@@ -20,31 +20,35 @@ final class StudySession {
     struct CellResult { var verdict: Verdict; var typed: String }
 
     private struct Undo {
-        let card: Card
-        let state: CardState
+        /// The card graded and every card a grade could move up behind it.
+        let states: [(Card, CardState)]
         let queue: [Card]
+        let fresh: [Card]
         let day: (reviewed: Int, correct: Int, newVocab: Int, newConj: Int)
-        let done: Int, right: Int
+        let done: Int, right: Int, answered: Int
         let missed: [Card]
     }
 
     private struct CardState {
-        let stage: Int, due: Date, interval: Int, reps: Int, lapses: Int
+        let stage: Int, ready: Bool, due: Date, interval: Int, reps: Int, lapses: Int
         let seen: Date?, lastReviewed: Date?, dropped: Date?
 
         init(_ c: Card) {
-            (stage, due, interval, reps, lapses) = (c.stage, c.due, c.interval, c.reps, c.lapses)
+            (stage, ready, due, interval, reps, lapses) = (c.stage, c.ready, c.due, c.interval, c.reps, c.lapses)
             (seen, lastReviewed, dropped) = (c.seen, c.lastReviewed, c.dropped)
         }
 
         func restore(_ c: Card) {
-            (c.stage, c.due, c.interval, c.reps, c.lapses) = (stage, due, interval, reps, lapses)
+            (c.stage, c.ready, c.due, c.interval, c.reps, c.lapses) = (stage, ready, due, interval, reps, lapses)
             (c.seen, c.lastReviewed, c.dropped) = (seen, lastReviewed, dropped)
         }
     }
 
     let tab: Tab
     let label: String
+    /// The daily session: it keeps going round stages 1–4, and new cards join as stage 1 makes room. A session for one
+    /// stage's column asks each card once (a miss comes back a few cards later).
+    let continuous: Bool
     private(set) var queue: [Card]
     private(set) var current: Card?
     private(set) var mode = Mode.intro
@@ -54,6 +58,8 @@ final class StudySession {
     private(set) var cells: [Int: CellResult] = [:]
     private(set) var done = 0
     private(set) var right = 0
+    /// Cards graded, right or wrong.
+    private(set) var answered = 0
     /// Cards missed this session, once each in the order they were missed: a mnemonic is asked for only the first time.
     private(set) var missed: [Card] = []
     private var undoState: Undo?
@@ -63,19 +69,36 @@ final class StudySession {
 
     private let ctx: ModelContext
     private let verbs: [String: Card]
+    /// Every card in the tab: the stages whose room decides what moves up.
+    private let pool: [Card]
+    /// New cards in the order they're introduced, for the daily session.
+    private var fresh: [Card]
     let prefs: Prefs
 
     var isFinished: Bool { current == nil }
     var remaining: Int { queue.count }
 
-    init(queue: [Card], tab: Tab, label: String = "", ctx: ModelContext, prefs: Prefs = .current) {
+    /// `pool` is everything in the tab (the queue's cards when nil); `fresh` the new cards the daily session may bring in.
+    init(queue: [Card], tab: Tab, label: String = "", pool: [Card]? = nil, fresh: [Card] = [], continuous: Bool = false,
+         ctx: ModelContext, prefs: Prefs = .current) {
         self.queue = queue
         self.tab = tab
         self.label = label
+        self.pool = pool ?? queue
+        self.fresh = fresh
+        self.continuous = continuous
         self.ctx = ctx
         self.prefs = prefs
         self.verbs = Dictionary(Deck.allCards(ctx).filter { !$0.isConj }.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        if continuous { admit() }
         next()
+    }
+
+    /// Whether getting the card on screen right moves it up now, rather than leaving it ready for a place to open.
+    var passMovesUp: Bool {
+        guard let c = current else { return false }
+        if c.stage >= 4 { return true }
+        return pool.filter { !$0.isDropped && $0.stage == c.stage + 1 }.count < prefs.stageCap
     }
 
     // MARK: what's on the card
@@ -186,8 +209,9 @@ final class StudySession {
 
     private func snapshot(_ c: Card) {
         let d = Deck.today(ctx)
-        undoState = Undo(card: c, state: CardState(c), queue: queue,
-                         day: (d.reviewed, d.correct, d.newVocab, d.newConj), done: done, right: right, missed: missed)
+        let moved = [c] + pool.filter { $0 !== c && $0.stage > 0 && $0.stage < 5 }
+        undoState = Undo(states: moved.map { ($0, CardState($0)) }, queue: queue, fresh: fresh,
+                         day: (d.reviewed, d.correct, d.newVocab, d.newConj), done: done, right: right, answered: answered, missed: missed)
     }
 
     /// Put a new card at stage 1 and ask it again a few cards later.
@@ -212,18 +236,39 @@ final class StudySession {
         let d = Deck.today(ctx)
         d.reviewed += 1
         queue.removeFirst()
+        answered += 1
         if pass {
-            Scheduler.pass(c)
+            Scheduler.pass(c, in: pool, cap: prefs.stageCap)
             d.correct += 1
             right += 1
             done += 1
+            // Round again, behind everything else, until it's mastered.
+            if continuous && c.stage < 5 { queue.append(c) }
         } else {
-            Scheduler.fail(c)
+            let wasMastered = c.stage == 5
+            Scheduler.fail(c, in: pool, cap: prefs.stageCap)
             if !missed.contains(where: { $0 === c }) { missed.append(c) }
-            requeue(c)
+            // Reviewing Dominada, a miss goes back to Producir to be mastered again there, not straight back here.
+            if continuous || !wasMastered { requeue(c) }
         }
+        if continuous { admit() }
         try? ctx.save()
         next()
+    }
+
+    /// New cards fill stage 1 while it has room, counting those already waiting to be introduced. They go to the
+    /// front, so a place that opens is filled straight away.
+    private func admit() {
+        fresh.removeAll { $0.stage != 0 || $0.isDropped || $0.modelContext == nil }
+        let waiting = queue.filter { $0.stage == 0 }
+        var room = Scheduler.room(pool, cap: prefs.stageCap) - waiting.count
+        var incoming: [Card] = []
+        while room > 0, let c = fresh.first(where: { f in !waiting.contains { $0 === f } }) {
+            fresh.removeAll { $0 === c }
+            incoming.append(c)
+            room -= 1
+        }
+        queue.insert(contentsOf: incoming, at: 0)
     }
 
     func drop() {
@@ -231,18 +276,23 @@ final class StudySession {
         snapshot(c)
         c.dropped = .now
         queue.removeAll { $0 === c }
+        // Its place can go to a ready card below, or a new one.
+        Scheduler.settle(pool, cap: prefs.stageCap)
+        if continuous { admit() }
         try? ctx.save()
         next()
     }
 
     func undo() {
         guard let u = undoState else { return }
-        u.state.restore(u.card)
+        for (c, state) in u.states { state.restore(c) }
         let d = Deck.today(ctx)
         (d.reviewed, d.correct, d.newVocab, d.newConj) = u.day
         queue = u.queue
+        fresh = u.fresh
         done = u.done
         right = u.right
+        answered = u.answered
         missed = u.missed
         undoState = nil
         try? ctx.save()

@@ -5,7 +5,7 @@ import CloudKit
 struct SettingsView: View {
     @Environment(\.modelContext) private var ctx
     @Environment(\.dismiss) private var dismiss
-    @AppStorage(PrefKey.newPerDay) private var newPerDay = 15
+    @AppStorage(PrefKey.stageCap) private var stageCap = Scheduler.defaultCap
     @AppStorage(PrefKey.autoSpeak) private var autoSpeak = true
     @AppStorage(PrefKey.direction) private var direction = Direction.stage.rawValue
     @AppStorage(PrefKey.vosotros) private var vosotros = false
@@ -19,7 +19,12 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Estudio") {
-                Stepper("Nuevas al día: \(newPerDay)", value: $newPerDay, in: 0...100, step: 5)
+                Stepper(value: $stageCap, in: 1...20) {
+                    VStack(alignment: .leading) {
+                        Text("Tarjetas por etapa: \(stageCap)")
+                        Text("Cuántas caben en cada etapa de la 1 a la 4. Una nueva entra cuando hay sitio en la 1.").font(Typo.text(13)).foregroundStyle(Palette.muted)
+                    }
+                }
                 Toggle("Pronunciar en voz alta", isOn: $autoSpeak)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Dirección")
@@ -109,7 +114,9 @@ struct HowView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Cada tarjeta sube cinco etapas. Cada etapa es más difícil que la anterior y tarda más en volver. Si aciertas, la tarjeta sube (toca ¡La sé! o desliza a la derecha). Si fallas (toca Otra vez o desliza a la izquierda), baja una etapa y vuelve unas tarjetas después en la misma sesión.")
+                Text("Cada tarjeta sube cinco etapas, cada una más difícil que la anterior. Si aciertas, sube (toca ¡La sé! o desliza a la derecha). Si fallas (toca Otra vez o desliza a la izquierda), baja una etapa y vuelve unas tarjetas después.")
+                Text("De la 1 a la 4 caben pocas tarjetas a la vez: 5 en cada etapa, o las que digas en Ajustes. Así estudias pocas y las aprendes bien. Una tarjeta solo sube si en la siguiente etapa hay sitio; si no, queda lista y sube en cuanto lo hay. Una nueva entra cuando hay sitio en la 1. Un fallo baja la tarjeta aunque la etapa de abajo esté llena, y no entra ninguna nueva hasta que un acierto vuelve a hacer sitio.")
+                Text("La sesión no se acaba sola: repasas las etapas 1 a 4 sin esperas, tanto como quieras, y las nuevas van entrando. Las dominadas no tienen límite: vuelven a la semana y, si las aciertas, a las 2 semanas, a las 4, a las 8… Toca la columna Dominada para repasarlas cuando quieras.")
                 ForEach(1...5, id: \.self) { i in
                     HStack(alignment: .top, spacing: 10) {
                         Text("\(i)").font(Typo.display(18)).foregroundStyle(.white)
@@ -124,7 +131,7 @@ struct HowView: View {
                 Text("En Conjugación cada tiempo de cada verbo es una tarjeta: primero ves el verbo, luego su significado y después conjugas la tabla. Primero la estudias, luego la dices en voz alta y te calificas, y desde la etapa 4 escribes las formas. El pronombre es opcional.")
                 Text("Las tarjetas llegan de tres sitios: Añadir, un atajo (Ajustes › Atajos) y Lecturas. Si una ya está en el mazo, se actualiza sin perder su progreso.")
                 Text("Si fallas una tarjeta, puedes escribir en ese momento una mnemotecnia: un truco para recordarla. Aparece con la respuesta la próxima vez. Se puede desactivar en Ajustes.")
-                Text("Tus tarjetas y tu progreso se guardan en iCloud y se sincronizan entre todos tus dispositivos con la misma cuenta. Los ajustes, como las nuevas al día, se quedan en cada dispositivo.")
+                Text("Tus tarjetas y tu progreso se guardan en iCloud y se sincronizan entre todos tus dispositivos con la misma cuenta. Los ajustes, como las tarjetas por etapa, se quedan en cada dispositivo.")
             }
             .font(Typo.text(16))
             .foregroundStyle(Palette.ink)

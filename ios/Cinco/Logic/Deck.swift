@@ -204,6 +204,18 @@ enum Deck {
         if changed { try? ctx.save() }
     }
 
+    /// Once per device: stages 1 and 2 trimmed to the cap (`Scheduler.trim`), in Vocabulario and in each tense of
+    /// Conjugación, the pipelines Home shows.
+    static func trimOnce(_ ctx: ModelContext, prefs: Prefs = .current) {
+        let d = UserDefaults.standard
+        guard !d.bool(forKey: PrefKey.trimmed) else { return }
+        let all = allCards(ctx)
+        Scheduler.trim(all.filter { Scheduler.inTab($0, tab: .vocab, tense: "") }, cap: prefs.stageCap)
+        for (_, tables) in Dictionary(grouping: all.filter(\.isConj), by: \.tense) { Scheduler.trim(tables, cap: prefs.stageCap) }
+        try? ctx.save()
+        d.set(true, forKey: PrefKey.trimmed)
+    }
+
     /// The deck bundled with the app: 40 everyday words and phrases, 10 of them verbs with their core tables.
     static func loadStarter(_ ctx: ModelContext) -> ImportResult? {
         guard let url = Bundle.main.url(forResource: "starter", withExtension: "json"),

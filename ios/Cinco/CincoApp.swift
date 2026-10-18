@@ -60,6 +60,7 @@ struct RootView: View {
             // Merge anything a second device created with the same id, and let old readings go.
             if p == .active {
                 Deck.dedupe(ctx)
+                Deck.trimOnce(ctx)
                 Lectura.recycle(ctx)
             }
         }
@@ -140,7 +141,7 @@ struct DoneView: View {
             Text("¡Listo!").font(Typo.display(52)).foregroundStyle(Palette.accent)
             Text(done == 0 ? "Sesión terminada." : "Repasaste \(done) \(done == 1 ? "tarjeta" : "tarjetas").")
                 .font(Typo.text(19, .bold)).foregroundStyle(Palette.ink)
-            Text("Vuelve mañana para lo siguiente.").font(Typo.text(16)).foregroundStyle(Palette.muted)
+            Text("No queda nada por repasar ahora.").font(Typo.text(16)).foregroundStyle(Palette.muted)
             Spacer()
             Button("Volver al inicio", action: onClose)
                 .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))

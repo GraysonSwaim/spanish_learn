@@ -8,7 +8,7 @@ struct HomeView: View {
 
     @AppStorage(PrefKey.tab) private var tabRaw = Tab.vocab.rawValue
     @AppStorage(PrefKey.tense) private var tense = "presente"
-    @AppStorage(PrefKey.newPerDay) private var newPerDay = 15
+    @AppStorage(PrefKey.stageCap) private var stageCap = Scheduler.defaultCap
 
     @Binding var session: StudySession?
     @Binding var studying: Bool
@@ -19,21 +19,13 @@ struct HomeView: View {
     private var tab: Tab { Tab(rawValue: tabRaw) ?? .vocab }
     private var tabCards: [Card] { cards.filter { Scheduler.inTab($0, tab: tab, tense: tense) } }
     private var verbs: [Card] { cards.filter { !$0.isConj && $0.isVerb } }
-    private var todayLog: DayLog? { logs.first { $0.key == DayLog.key() } }
-    private var newRoom: Int {
-        let used = switch tab {
-        case .vocab: todayLog?.newVocab ?? 0
-        case .conj: todayLog?.newConj ?? 0
-        }
-        return max(0, newPerDay - used)
-    }
     /// A session left midway in this tab picks up where it stopped.
     private var resumable: Bool { session.map { !$0.isFinished && $0.tab == tab } ?? false }
     private var stagger: Bool { tab == .conj && tense == Tense.random }
 
     var body: some View {
         let n = Scheduler.counts(tabCards)
-        let newToday = min(newRoom, n.unseen)
+        let newNow = min(Scheduler.room(tabCards, cap: stageCap), n.unseen)
         let streak = Scheduler.streak(Dictionary(logs.map { ($0.key, $0) }, uniquingKeysWith: { a, _ in a }))
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
@@ -61,14 +53,15 @@ struct HomeView: View {
                         .padding(.bottom, 22)
                 }
                 ladder(n).layoutPriority(1)
-                Button("\(n.unseen) nuevas esperando") { startFresh() }
-                    .font(Typo.text(15, .heavy)).tint(Palette.accentInk).disabled(n.unseen == 0)
+                Text(n.unseen == 1 ? "1 nueva esperando" : "\(n.unseen) nuevas esperando")
+                    .font(Typo.text(15, .heavy)).foregroundStyle(Palette.muted)
+                    .frame(maxWidth: .infinity)
                     .padding(.top, 12).padding(.bottom, 20)
 
-                Button(resumable ? "Seguir la sesión" : "¡Vamos!") { startDaily(newToday: newToday) }
+                Button(resumable ? "Seguir la sesión" : "¡Vamos!") { startDaily() }
                 .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
-                .disabled(n.due + newToday == 0 && !resumable)
-                .opacity(n.due + newToday == 0 && !resumable ? 0.5 : 1)
+                .disabled(n.due + newNow == 0 && !resumable)
+                .opacity(n.due + newNow == 0 && !resumable ? 0.5 : 1)
                 .padding(.bottom, 22)
 
                 menu
@@ -125,9 +118,11 @@ struct HomeView: View {
                             // A see-through column, so the solid band in it is what reads.
                             Scalloped().fill(Palette.stage(i).opacity(0.13))
                             Scalloped().stroke(Palette.stage(i).opacity(0.35), lineWidth: 1.5)
-                            // How full the stage is, as a solid band rising from the foot.
+                            // How full the stage is, as a solid band rising from the foot: stages 1–4 against
+                            // their cap, Dominada against the whole deck.
+                            let full = min(1, CGFloat(n.byStage[i]) / CGFloat(i < 5 ? max(1, stageCap) : total))
                             GeometryReader { g in
-                                let h = g.size.height * CGFloat(n.byStage[i]) / CGFloat(total)
+                                let h = g.size.height * full
                                 VStack {
                                     Spacer(minLength: 0)
                                     Gloss(color: Palette.stage(i), shape: Rectangle(), lift: 0)
@@ -136,9 +131,12 @@ struct HomeView: View {
                             }
                             .clipShape(Scalloped())
                             // White once the band has risen up behind the number.
-                            let covered = Double(n.byStage[i]) / Double(total) > 0.8
+                            let covered = full > 0.8
                             VStack(spacing: 8) {
-                                Text("\(n.byStage[i])").font(Typo.display(22)).foregroundStyle(covered ? .white : Palette.ink).padding(.top, 10)
+                                // Stages 1–4 against their cap; Dominada has none.
+                                (Text("\(n.byStage[i])") + Text(i < 5 ? "/\(stageCap)" : "").font(Typo.display(14)))
+                                    .font(Typo.display(22)).foregroundStyle(covered ? .white : Palette.ink).padding(.top, 10)
+                                    .lineLimit(1).minimumScaleFactor(0.7)
                                 Daisy().fill(covered ? .white.opacity(0.9) : Palette.stage(i)).frame(width: 16, height: 16)
                                 Spacer()
                             }
@@ -182,25 +180,20 @@ struct HomeView: View {
 
     // MARK: starting sessions
 
-    private func startDaily(newToday: Int) {
+    private func startDaily() {
         if resumable { studying = true; return }
-        let q = Scheduler.dailyQueue(tabCards, newRoom: newRoom, staggerTenses: stagger, verbs: verbs)
-        guard !q.isEmpty else { return }
-        session = StudySession(queue: q, tab: tab, ctx: ctx)
+        let pool = tabCards
+        let s = StudySession(queue: Scheduler.dailyQueue(pool), tab: tab, pool: pool,
+                             fresh: Scheduler.unseen(pool, staggerTenses: stagger, verbs: verbs), continuous: true, ctx: ctx)
+        guard !s.isFinished else { return }
+        session = s
         studying = true
     }
 
     private func startStage(_ i: Int) {
         let q = Scheduler.stageQueue(tabCards, stage: i)
         guard !q.isEmpty else { return }
-        session = StudySession(queue: q, tab: tab, label: "Etapa \(i)", ctx: ctx)
-        studying = true
-    }
-
-    private func startFresh() {
-        let q = Array(Scheduler.unseen(tabCards, staggerTenses: stagger, verbs: verbs).prefix(newPerDay))
-        guard !q.isEmpty else { return }
-        session = StudySession(queue: q, tab: tab, label: "Nuevas", ctx: ctx)
+        session = StudySession(queue: q, tab: tab, label: "Etapa \(i)", pool: tabCards, ctx: ctx)
         studying = true
     }
 }

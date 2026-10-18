@@ -3,7 +3,9 @@ import Foundation
 /// UserDefaults keys for the settings. Views bind to them with @AppStorage; logic reads a `Prefs` snapshot.
 /// Settings stay per device (a phone and an iPad can study differently); the cards and progress sync.
 enum PrefKey {
-    static let newPerDay = "newPerDay"
+    static let stageCap = "stageCap"
+    /// Set once stages 1 and 2 have been trimmed to the cap (`Scheduler.trim`).
+    static let trimmed = "pipelineTrimmed"
     static let autoSpeak = "autoSpeak"
     static let direction = "direction"
     static let vosotros = "vosotros"
@@ -15,7 +17,7 @@ enum PrefKey {
 }
 
 struct Prefs {
-    var newPerDay = 15
+    var stageCap = Scheduler.defaultCap
     var autoSpeak = true
     var direction = Direction.stage
     var vosotros = false
@@ -25,7 +27,7 @@ struct Prefs {
     static var current: Prefs {
         let d = UserDefaults.standard
         var p = Prefs()
-        if d.object(forKey: PrefKey.newPerDay) != nil { p.newPerDay = d.integer(forKey: PrefKey.newPerDay) }
+        if d.object(forKey: PrefKey.stageCap) != nil { p.stageCap = max(1, d.integer(forKey: PrefKey.stageCap)) }
         if d.object(forKey: PrefKey.autoSpeak) != nil { p.autoSpeak = d.bool(forKey: PrefKey.autoSpeak) }
         p.direction = Direction(rawValue: d.string(forKey: PrefKey.direction) ?? "") ?? .stage
         p.vosotros = d.bool(forKey: PrefKey.vosotros)
