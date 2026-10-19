@@ -11,7 +11,7 @@ struct CincoApp: App {
     }
 }
 
-/// The one card store, shared by the app and its Shortcuts actions (Intents.swift).
+/// The one card store, shared by the app and its Siri actions (Intents.swift).
 @MainActor
 enum Store {
     static let container: ModelContainer = {
@@ -75,8 +75,8 @@ struct RootView: View {
     /// `taps` steps, so each phase can be screenshotted in the simulator.
     private func startDemo() {
         let args = ProcessInfo.processInfo.arguments
-        // `-loadStarter` fills an empty deck with the starter cards, for the flags below.
-        if args.contains("-loadStarter") && Deck.allCards(ctx).isEmpty { Deck.loadStarter(ctx) }
+        // `-loadSample` fills an empty deck with the sample cards, for the flags below.
+        if args.contains("-loadSample") && Deck.allCards(ctx).isEmpty { Deck.loadSample(ctx) }
         // `-openReading` opens a sample reading, some of it marked.
         if args.contains("-openReading") {
             let r = Reading(title: "En el mercado", lines: Lectura.lines("""

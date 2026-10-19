@@ -66,11 +66,6 @@ struct SettingsView: View {
             } footer: {
                 Text("Habla la mejor voz de iOS instalada. Para que suene mucho mejor, descarga una voz Mejorada o Premium en Ajustes › Accesibilidad › Contenido leído › Voces › Español.")
             }
-            Section {
-                NavigationLink("Atajos y Siri") { ShortcutsGuideView() }
-            } footer: {
-                Text("Añade una palabra desde Atajos: se traduce, ChatGPT rellena el resto y va directa a tus tarjetas.")
-            }
             Section("Aspecto") {
                 Picker("Tema", selection: $theme) {
                     Text("Automático").tag("auto")
@@ -137,7 +132,7 @@ struct HowView: View {
                 }
                 Text("En Vocabulario ves la palabra o la expresión (¿Dónde está el baño?, Me da igual), su significado y una frase de ejemplo: con la palabra resaltada cuando la ves en español, y con un hueco cuando eres tú quien la dice o la escribe. Si a una tarjeta le falta la frase, Claude la escribe (Ajustes › Frases de ejemplo).")
                 Text("En Conjugación cada tiempo de cada verbo es una tarjeta: primero ves el verbo, luego su significado y después conjugas la tabla. Primero la estudias, luego la dices en voz alta y te calificas, y desde la etapa 4 escribes las formas. El pronombre es opcional.")
-                Text("Las tarjetas llegan de tres sitios: Añadir, un atajo (Ajustes › Atajos) y Lecturas. Si una ya está en el mazo, se actualiza sin perder su progreso.")
+                Text("Las tarjetas llegan de dos sitios: Añadir, una palabra cada vez, y Lecturas, donde marcas las que no conoces. Si una ya está en el mazo, no se repite.")
                 Text("Si fallas una tarjeta, puedes escribir en ese momento una mnemotecnia: un truco para recordarla. Aparece con la respuesta la próxima vez. Se puede desactivar en Ajustes.")
                 Text("Tus tarjetas y tu progreso se guardan en iCloud y se sincronizan entre todos tus dispositivos con la misma cuenta. Los ajustes, como las tarjetas por etapa, se quedan en cada dispositivo.")
             }

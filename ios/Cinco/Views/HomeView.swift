@@ -12,7 +12,6 @@ struct HomeView: View {
 
     @Binding var session: StudySession?
     @Binding var studying: Bool
-    @State private var message: String?
     @State private var editing: EditTarget?
     @State private var screenHeight: CGFloat = 0
 
@@ -43,14 +42,6 @@ struct HomeView: View {
                     Text(Self.emptyLede[tab] ?? "").font(Typo.text(17)).foregroundStyle(Palette.muted).padding(.bottom, 18)
                 } else {
                     Spacer().frame(height: 18)
-                }
-                if cards.isEmpty {
-                    Button("Cargar el mazo de inicio") {
-                        let r = Deck.loadStarter(ctx)
-                        message = "Vocabulario: \(r?.added ?? 0), con \(r?.verbs ?? 0) verbos en Conjugación."
-                    }
-                        .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, size: 19))
-                        .padding(.bottom, 22)
                 }
                 ladder(n).layoutPriority(1)
                 Text(n.unseen == 1 ? "1 nueva esperando" : "\(n.unseen) nuevas esperando")
@@ -91,9 +82,6 @@ struct HomeView: View {
         .task(id: cards.count) { await Examples.fill(ctx) }
         .background(Backdrop())
         .toolbar(.hidden, for: .navigationBar)
-        .alert("Mazo de inicio", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
-            Button("OK") { message = nil }
-        } message: { Text(message ?? "") }
         .sheet(item: $editing) { t in
             NavigationStack { EditCardView(card: t.card) }
         }
@@ -106,8 +94,8 @@ struct HomeView: View {
     }
 
     private static let emptyLede: [Tab: String] = [
-        .conj: "Aún no hay verbos con conjugación. Añade los tiempos al editar un verbo, o deja que un atajo los traiga.",
-        .vocab: "Empieza con el mazo de inicio. Después añade palabras y frases a mano, con un atajo o desde Lecturas.",
+        .conj: "Aún no hay verbos con conjugación. Añade los tiempos al editar un verbo.",
+        .vocab: "Añade palabras una a una, o márcalas mientras lees en Lecturas.",
     ]
 
     private func ladder(_ n: DeckCounts) -> some View {

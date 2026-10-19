@@ -223,11 +223,14 @@ enum Deck {
         d.set(true, forKey: PrefKey.trimmed)
     }
 
-    /// The deck bundled with the app: 40 everyday words and phrases, 10 of them verbs with their core tables.
-    static func loadStarter(_ ctx: ModelContext) -> ImportResult? {
-        guard let url = Bundle.main.url(forResource: "starter", withExtension: "json"),
-              let text = try? String(contentsOf: url, encoding: .utf8),
-              let recs = CardJSON.parse(text) else { return nil }
+    #if DEBUG
+    /// A sample deck for the simulator and tests, read from the repo (`ios/samples/deck.json`) rather than shipped:
+    /// 40 everyday words and phrases, 10 of them verbs with their core tables.
+    static func loadSample(_ ctx: ModelContext) -> ImportResult? {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appending(path: "../../samples/deck.json").standardized
+        guard let text = try? String(contentsOf: url, encoding: .utf8), let recs = CardJSON.parse(text) else { return nil }
         return importRecords(recs, into: ctx)
     }
+    #endif
 }

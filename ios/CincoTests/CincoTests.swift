@@ -212,7 +212,7 @@ struct ExampleTests {
 
 /// One Vocabulario for words and phrases alike; verbs also get Conjugación.
 @MainActor
-struct StarterTests {
+struct SampleDeckTests {
     private func store() throws -> ModelContext {
         let schema = Schema([Card.self, DayLog.self])
         let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
@@ -220,9 +220,9 @@ struct StarterTests {
     }
 
     /// Forty words and phrases, ten of them verbs with their six core tables for Conjugación.
-    @Test func starterDeckLoads() throws {
+    @Test func sampleDeckLoads() throws {
         let ctx = try store()
-        let r = try #require(Deck.loadStarter(ctx))
+        let r = try #require(Deck.loadSample(ctx))
         #expect(r.added == 40)
         #expect(r.verbs == 10)
         let cards = Deck.allCards(ctx)
@@ -344,7 +344,7 @@ struct DeleteTests {
     }
 }
 
-/// The JSON a model sends to Añadir tarjetas.
+/// The JSON the sample deck is written in.
 @MainActor
 struct CardJSONTests {
     private func store() throws -> ModelContext {
@@ -374,16 +374,14 @@ struct CardJSONTests {
         #expect(r.tags == "slang surprise")
     }
 
-    @Test func aVerbInFencesWithEveryTense() throws {
-        let text = AddCardsIntent.unfence("""
-            ```json
+    @Test func aVerbWithEveryTense() throws {
+        let text = """
             {"spanish": "bailar", "english": "to dance", "tenses": {
               "presente": ["bailo", "bailas", "baila", "bailamos", "bailáis", "bailan"],
               "imperativo_negativo": ["", "no bailes", "no baile", "no bailemos", "no bailéis", "no bailen"],
               "subj_imperfecto": "bailara / bailase|bailaras / bailases|bailara / bailase|bailáramos / bailásemos|bailarais / bailaseis|bailaran / bailasen",
               "made_up": ["x"]}}
-            ```
-            """)
+            """
         let r = try #require(CardJSON.parse(text)?.first)
         #expect(r.es == "bailar")
         #expect(Set(r.tenses.keys) == ["presente", "imperativo_negativo", "subj_imperfecto"])

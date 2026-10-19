@@ -12,7 +12,7 @@ Spanish flashcards in 5 steps
 
 ## Promotional text [170]
 
-Five steps from new word to never forgetting it. Add any word in seconds with a Shortcut, and let iCloud keep every device in sync.
+Five steps from new word to never forgetting it. Build your deck from what you read, and let iCloud keep every device in sync.
 
 ## Keywords [100, comma-separated, no spaces]
 
@@ -40,12 +40,9 @@ TWO WAYS TO PRACTICE
 • Conjugación: one card per verb per tense. Study the table, say it aloud, then type every form.
 
 YOUR WORDS, ADDED FAST
-Start with 40 everyday words and phrases, 10 of them core verbs, then build your own deck:
-• Type a card by hand.
+Build your own dictionary from the Spanish you actually meet:
 • Read a Spanish article or text and tap the words you don't know.
-• Use the built-in Shortcuts actions. The included guide sets up a shortcut that takes one word and fills in the
-  meaning, an example, notes and, for verbs, every tense.
-• Ask Siri: "Add a card to Choca Cinco".
+• Add a single word by hand, or ask Siri: "Add a card to Choca Cinco".
 
 MADE TO STICK
 • Miss a card and write a quick memory trick. It shows with the answer next time.
@@ -60,8 +57,7 @@ offline.
 
 - Category: Education (secondary: Reference)
 - Age rating: 4+
-- Privacy: Data Not Collected. The optional Shortcut sends the word you type to ChatGPT through Apple's Shortcuts
-  app, under OpenAI's terms; Cinco itself sends nothing.
+- Privacy: Data Not Collected.
 - Support URL and privacy policy URL: still needed.
 
 ## Screenshots
@@ -71,4 +67,3 @@ Required: 6.9" iPhone (1320 × 2868) and 13" iPad (2064 × 2752), since the app 
 2. A card at Producir with a typed answer ("Type it to own it")
 3. A Conjugación table ("Every tense, one card at a time")
 4. Lecturas ("Learn the words you meet")
-5. The Shortcuts guide ("Add any word in seconds")

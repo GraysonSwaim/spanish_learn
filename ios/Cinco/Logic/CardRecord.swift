@@ -1,6 +1,6 @@
 import Foundation
 
-/// A card as it comes in: from a shortcut, the Añadir screen or a reading.
+/// A card as it comes in: from the Añadir screen or a reading.
 nonisolated struct CardRecord: Equatable, Hashable, Identifiable {
     var es = "", en = "", ex = "", exEn = "", exWord = "", notes = "", tags = "", frases = ""
     var tenses: [String: String] = [:]
@@ -9,7 +9,7 @@ nonisolated struct CardRecord: Equatable, Hashable, Identifiable {
     var id: String { es }
 }
 
-/// Cards as JSON, from a shortcut or the bundled starter deck: one object, an array of them, or {"cards": [...]}.
+/// Cards as JSON, for the sample deck in debug builds and tests: one object, an array of them, or {"cards": [...]}.
 /// Keys answer to the names in `aliases`; "tenses" (or "conjugations") maps a tense key or name to its six forms,
 /// as a list or "a|b|c|d|e|f"; "frases" is a list. Anything else, like an old "type", is ignored.
 nonisolated enum CardJSON {
