@@ -177,11 +177,12 @@ enum Deck {
         try? ctx.save()
     }
 
-    /// A clean slate: every card, day and reading, here and (through iCloud) on every device. Settings stay.
+    /// A clean slate: every card, day, reading and theme, here and (through iCloud) on every device. Settings stay.
     static func eraseAll(_ ctx: ModelContext) {
         for c in allCards(ctx) { ctx.delete(c) }
         for l in (try? ctx.fetch(FetchDescriptor<DayLog>())) ?? [] { ctx.delete(l) }
         for r in (try? ctx.fetch(FetchDescriptor<Reading>())) ?? [] { ctx.delete(r) }
+        for c in Chunks.all(ctx) { ctx.delete(c) }
         try? ctx.save()
     }
 

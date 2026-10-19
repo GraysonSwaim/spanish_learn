@@ -153,7 +153,7 @@ struct SchedulerTests {
 @MainActor
 struct PipelineSessionTests {
     @Test func newCardsFillStageOneToTheCap() throws {
-        let schema = Schema([Card.self, DayLog.self])
+        let schema = Schema([Card.self, DayLog.self, Chunk.self])
         let ctx = ModelContext(try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)))
         let cards = (0..<7).map { i in let c = Card(id: "\(i)", es: "w\(i)", en: "e\(i)", order: Double(i)); ctx.insert(c); return c }
         var prefs = Prefs(); prefs.autoSpeak = false; prefs.direction = .esEn; prefs.stageCap = 3
@@ -214,7 +214,7 @@ struct ExampleTests {
 @MainActor
 struct SampleDeckTests {
     private func store() throws -> ModelContext {
-        let schema = Schema([Card.self, DayLog.self])
+        let schema = Schema([Card.self, DayLog.self, Chunk.self])
         let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         return ModelContext(c)
     }
@@ -243,7 +243,7 @@ struct SampleDeckTests {
 @MainActor
 struct MnemonicTests {
     private func store() throws -> ModelContext {
-        let schema = Schema([Card.self, DayLog.self])
+        let schema = Schema([Card.self, DayLog.self, Chunk.self])
         let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         return ModelContext(c)
     }
@@ -301,7 +301,7 @@ struct MnemonicTests {
 @MainActor
 struct DeleteTests {
     private func store() throws -> ModelContext {
-        let schema = Schema([Card.self, DayLog.self, Reading.self])
+        let schema = Schema([Card.self, DayLog.self, Reading.self, Chunk.self])
         let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         return ModelContext(c)
     }
@@ -335,12 +335,14 @@ struct DeleteTests {
         let ctx = try store()
         verb(ctx)
         ctx.insert(Reading(title: "x", lines: ["Hola."]))
+        Chunks.create("Tema", ctx: ctx)
         _ = Deck.today(ctx)
         try ctx.save()
         Deck.eraseAll(ctx)
         #expect(Deck.allCards(ctx).isEmpty)
         #expect(try ctx.fetch(FetchDescriptor<DayLog>()).isEmpty)
         #expect(try ctx.fetch(FetchDescriptor<Reading>()).isEmpty)
+        #expect(Chunks.all(ctx).isEmpty)
     }
 }
 
@@ -348,7 +350,7 @@ struct DeleteTests {
 @MainActor
 struct CardJSONTests {
     private func store() throws -> ModelContext {
-        let schema = Schema([Card.self, DayLog.self])
+        let schema = Schema([Card.self, DayLog.self, Chunk.self])
         let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         return ModelContext(c)
     }
@@ -410,7 +412,7 @@ struct CardJSONTests {
 @MainActor
 struct ExistingCardTests {
     private func store() throws -> ModelContext {
-        let schema = Schema([Card.self, DayLog.self])
+        let schema = Schema([Card.self, DayLog.self, Chunk.self])
         let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         return ModelContext(c)
     }
@@ -488,7 +490,7 @@ struct LecturaTests {
     }
 
     @Test @MainActor func oldReadingsAreRecycled() throws {
-        let schema = Schema([Card.self, DayLog.self, Reading.self])
+        let schema = Schema([Card.self, DayLog.self, Reading.self, Chunk.self])
         let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         let ctx = c.mainContext
         let now = Date.now
@@ -542,5 +544,110 @@ struct ArticleTextTests {
         let lines = ArticleText.clean(["PUBLICIDAD", "Fuente de la imagen, Getty Images", "Autor, Cecilia Barría",
                                        "Autoridades cubanas anunciaron cambios.", "Más leídas", "  Dos   espacios ", "Dos espacios", "—"])
         #expect(lines == ["Autoridades cubanas anunciaron cambios.", "Dos espacios"])
+    }
+}
+
+/// Themes: words filed in chunks, chunks merged into bigger ones, and readings that become themes and sources.
+@MainActor
+struct ChunkTests {
+    private func store() throws -> ModelContext {
+        let schema = Schema([Card.self, DayLog.self, Reading.self, Chunk.self])
+        let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+        return ModelContext(c)
+    }
+
+    private func words(_ es: [String], ctx: ModelContext) -> [Card] {
+        Deck.importRecords(es.map { CardRecord(es: $0, en: $0 + " (en)") }, into: ctx)
+        let byID = Deck.cardsByID(ctx)
+        return es.map { byID[TextMatch.cardID($0)]! }
+    }
+
+    @Test func aMergedThemeHoldsBothAndItsWords() throws {
+        let ctx = try store()
+        let w = words(["el andén", "la maleta", "la llave", "la habitación", "harto"], ctx: ctx)
+        let station = Chunks.create("Estación", ctx: ctx)
+        let hotel = Chunks.create("Hotel", ctx: ctx)
+        Chunks.file(Array(w[0...1]), in: station, ctx: ctx)
+        Chunks.file(Array(w[2...3]), in: hotel, ctx: ctx)
+        let trip = try #require(Chunks.merge(station, hotel, name: "Viaje", ctx: ctx))
+        let all = Chunks.all(ctx)
+        #expect(Chunks.top(all).map(\.name) == ["Viaje"])
+        #expect(Set(Chunks.children(of: trip.id, in: all).map(\.name)) == ["Estación", "Hotel"])
+        #expect(Chunks.words(in: trip.id, cards: w, chunks: all).count == 4)
+        #expect(Chunks.words(in: hotel.id, cards: w, chunks: all).map(\.es).sorted() == ["la habitación", "la llave"])
+        #expect(Chunks.loose(w, chunks: all).map(\.es) == ["harto"])
+        #expect(Chunks.path(hotel, in: all) == "Viaje › Hotel")
+        // Merged again, as many times as you like.
+        let feelings = Chunks.create("Sentirse", ctx: ctx)
+        Chunks.file([w[4]], in: feelings, ctx: ctx)
+        let big = try #require(Chunks.merge(feelings, trip, name: "Mi vida", ctx: ctx))
+        #expect(Chunks.words(in: big.id, cards: w, chunks: Chunks.all(ctx)).count == 5)
+    }
+
+    @Test func aThemeCantGoInsideItself() throws {
+        let ctx = try store()
+        let a = Chunks.create("A", ctx: ctx)
+        let b = Chunks.create("B", ctx: ctx)
+        #expect(Chunks.nest(b, in: a, ctx: ctx))
+        #expect(!Chunks.nest(a, in: b, ctx: ctx))
+        #expect(Chunks.merge(a, b, name: "C", ctx: ctx) == nil)
+        Chunks.lift(b, ctx: ctx)
+        #expect(b.parentID.isEmpty)
+    }
+
+    @Test func undoingAThemeMovesEverythingUpALevel() throws {
+        let ctx = try store()
+        let w = words(["uno", "dos", "tres"], ctx: ctx)
+        let a = Chunks.create("A", ctx: ctx)
+        let b = Chunks.create("B", ctx: ctx)
+        Chunks.file([w[0]], in: a, ctx: ctx)
+        Chunks.file([w[1]], in: b, ctx: ctx)
+        let ab = try #require(Chunks.merge(a, b, name: "AB", ctx: ctx))
+        Chunks.file([w[2]], in: ab, ctx: ctx)
+        Chunks.dissolve(ab, ctx: ctx)
+        let all = Chunks.all(ctx)
+        #expect(Set(Chunks.top(all).map(\.name)) == ["A", "B"])
+        #expect(Chunks.loose(w, chunks: all).map(\.es) == ["tres"])
+        Chunks.dissolve(a, ctx: ctx)
+        #expect(Set(Chunks.loose(w, chunks: Chunks.all(ctx)).map(\.es)) == ["uno", "tres"])
+    }
+
+    @Test func coloursGoRoundBeforeRepeating() throws {
+        let ctx = try store()
+        var colours: [Int] = []
+        for i in 0..<Palette.chunkCount { colours.append(Chunks.create("\(i)", ctx: ctx).color) }
+        #expect(Set(colours).count == Palette.chunkCount)
+    }
+
+    @Test func aReadingMakesItsThemeAndEveryWordKeepsItsSources() throws {
+        let ctx = try store()
+        let old = words(["la abuela"], ctx: ctx)[0]
+        let home = Chunks.create("Familia", ctx: ctx)
+        Chunks.file([old], in: home, ctx: ctx)
+
+        let r = Reading(title: "En el mercado", lines: ["Voy al mercado con mi abuela. Ella conoce a todos."])
+        ctx.insert(r)
+        Lectura.save(r, new: [(CardRecord(es: "el mercado", en: "market"), "Voy al mercado con mi abuela.")],
+                     existing: [(old, "Voy al mercado con mi abuela.")], ctx: ctx)
+        let market = try #require(Deck.cardsByID(ctx)[TextMatch.cardID("el mercado")])
+        let theme = try #require(Chunks.all(ctx).first { $0.readingID == r.id })
+        #expect(theme.name == "En el mercado" && market.chunkID == theme.id)
+        #expect(market.sourceList == [Source(title: "En el mercado", sentence: "Voy al mercado con mi abuela.")])
+        // A word already in the deck stays in its theme and gains this reading.
+        #expect(old.chunkID == home.id)
+        #expect(old.sourceList.map(\.title) == ["En el mercado"])
+
+        // A second reading: the same words gain a second source, and the first theme is reused for the first reading.
+        let r2 = Reading(title: "La visita", lines: ["Mi abuela llega el lunes."])
+        ctx.insert(r2)
+        Lectura.save(r2, new: [], existing: [(old, "Mi abuela llega el lunes.")], ctx: ctx)
+        #expect(old.sourceList.map(\.title) == ["En el mercado", "La visita"])
+        #expect(Chunks.forReading(r, ctx: ctx) === theme)
+    }
+
+    @Test func aMarkedWordKeepsJustItsSentence() {
+        let line = "Los sábados voy al mercado. Mi abuela conoce a todos los vendedores. Siempre compra más."
+        let run = Run(line: 0, first: 11, last: 11, text: "vendedores")
+        #expect(Lectura.sentence(of: run, in: line) == "Mi abuela conoce a todos los vendedores.")
     }
 }

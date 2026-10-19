@@ -66,6 +66,9 @@ struct SettingsView: View {
             } footer: {
                 Text("Habla la mejor voz de iOS instalada. Para que suene mucho mejor, descarga una voz Mejorada o Premium en Ajustes › Accesibilidad › Contenido leído › Voces › Español.")
             }
+            Section {
+                NavigationLink("Cómo funciona") { HowView() }
+            }
             Section("Aspecto") {
                 Picker("Tema", selection: $theme) {
                     Text("Automático").tag("auto")
@@ -117,9 +120,11 @@ struct HowView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Cada tarjeta sube cinco etapas, cada una más difícil que la anterior. Si aciertas, sube (toca ¡La sé! o desliza a la derecha). Si fallas (toca Otra vez o desliza a la izquierda), baja una etapa y vuelve unas tarjetas después.")
-                Text("De la 1 a la 4 caben pocas tarjetas a la vez: 5 en cada etapa, o las que digas en Ajustes. Así estudias pocas y las aprendes bien. Una tarjeta solo sube si en la siguiente etapa hay sitio; si no, queda lista y sube en cuanto lo hay. Una nueva entra cuando hay sitio en la 1. Un fallo baja la tarjeta aunque la etapa de abajo esté llena, y no entra ninguna nueva hasta que un acierto vuelve a hacer sitio.")
-                Text("La sesión no se acaba sola: repasas las etapas 1 a 4 sin esperas, tanto como quieras, y las nuevas van entrando. Las dominadas no tienen límite: vuelven a la semana y, si las aciertas, a las 2 semanas, a las 4, a las 8… Toca la columna Dominada para repasarlas cuando quieras.")
+                Text("Tu diccionario lo haces tú: las palabras llegan de Añadir, una a una, y de Lecturas, donde marcas las que no conoces. Las de una lectura entran juntas en un tema con su nombre; si marcas una que ya tenías, guarda también esa lectura y su frase, para que la recuerdes por más sitios.")
+                Text("Las que añades a mano esperan en Sueltas hasta que las juntas en un tema. Junta las que pasan en el mismo sitio (en la estación: el andén, la maleta, el retraso) más que las del mismo tipo (frutas, colores): se recuerdan mejor juntas. En Inicio, arrastra un tema sobre otro para hacer uno más grande; los dos siguen dentro y puedes estudiar uno solo o todo junto.")
+                Text("Toca un tema para estudiarlo. Cada tarjeta sube cinco etapas, cada una más difícil que la anterior. Si aciertas, sube (toca ¡La sé! o desliza a la derecha). Si fallas (toca Otra vez o desliza a la izquierda), baja una etapa y vuelve unas tarjetas después.")
+                Text("En cada tema, de la 1 a la 4 caben pocas tarjetas a la vez: 5 en cada etapa, o las que digas en Ajustes. Así estudias pocas y las aprendes bien. Una tarjeta solo sube si en la siguiente etapa hay sitio; si no, queda lista y sube en cuanto lo hay. Una nueva entra cuando hay sitio en la 1. Un fallo baja la tarjeta aunque la etapa de abajo esté llena, y no entra ninguna nueva hasta que un acierto vuelve a hacer sitio.")
+                Text("La sesión no se acaba sola: repasas las etapas 1 a 4 del tema sin esperas, tanto como quieras, y sus nuevas van entrando. Las dominadas no tienen límite: vuelven a la semana y, si las aciertas, a las 2 semanas, a las 4, a las 8… Un tema con dominadas por repasar lo dice en su tarjeta.")
                 ForEach(1...5, id: \.self) { i in
                     HStack(alignment: .top, spacing: 10) {
                         Text("\(i)").font(Typo.display(18)).foregroundStyle(.white)

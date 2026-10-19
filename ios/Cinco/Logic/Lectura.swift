@@ -134,6 +134,16 @@ nonisolated enum Lectura {
     }
 
     /// A card for a run: Claude's draft when there is one, else the words as they stand.
+    /// The sentence a run is in, cut from its line (a whole paragraph of an article).
+    static func sentence(of run: Run, in line: String) -> String {
+        let w = words(line)
+        guard run.first < w.count else { return line }
+        let tok = NLTokenizer(unit: .sentence)
+        tok.string = line
+        let s = line[tok.tokenRange(at: w[run.first].lowerBound)].trimmingCharacters(in: .whitespacesAndNewlines)
+        return s.isEmpty ? line : s
+    }
+
     static func record(_ run: Run, gloss: Tutor.Gloss?, sentence: String) -> CardRecord {
         CardRecord(es: gloss?.spanish ?? run.text, en: gloss?.english ?? "", ex: sentence, exWord: run.text,
                    notes: gloss?.note ?? "", tags: "lectura")
@@ -142,6 +152,28 @@ nonisolated enum Lectura {
 
 @MainActor
 extension Lectura {
+    /// Saves a reading's marked words. New words become cards filed in the reading's own theme; a word already in the
+    /// deck stays in its theme. Either way the card keeps this reading, and the sentence, as one of its sources.
+    static func save(_ reading: Reading, new: [(rec: CardRecord, sentence: String)], existing: [(card: Card, sentence: String)],
+                     ctx: ModelContext) {
+        if !new.isEmpty {
+            Deck.importRecords(new.map(\.rec), into: ctx)
+            let chunk = Chunks.forReading(reading, ctx: ctx)
+            let byID = Deck.cardsByID(ctx)
+            for (rec, sentence) in new {
+                guard let c = byID[TextMatch.cardID(rec.es)] else { continue }
+                if c.chunkID.isEmpty { c.chunkID = chunk.id }
+                c.addSource(title: reading.title, sentence: sentence)
+            }
+        }
+        for (c, sentence) in existing {
+            c.addSource(title: reading.title, sentence: sentence)
+            // Due now: it comes up in the next session, at the stage it's at.
+            if c.stage > 0 { c.due = .now }
+        }
+        try? ctx.save()
+    }
+
     /// Deletes readings not opened in `keepDays`, and the oldest past `keepCount`.
     static func recycle(_ ctx: ModelContext, now: Date = .now) {
         let all = (try? ctx.fetch(FetchDescriptor<Reading>(sortBy: [SortDescriptor(\.opened, order: .reverse)]))) ?? []

@@ -28,6 +28,10 @@ final class Card {
     var frases: String = ""
     /// Tense key -> "yo|tú|él|nosotros|vosotros|ellos".
     var tenses: [String: String] = [:]
+    /// The theme the word is filed in (`Chunk.id`); "" while it's loose, waiting in Sueltas.
+    var chunkID: String = ""
+    /// Every reading the word was marked in, oldest first, as "title\u{1F}sentence" (`Source`).
+    var sources: [String] = []
 
     /// Conj cards: the verb card they drill and which of its tenses.
     var verbID: String = ""
@@ -68,6 +72,14 @@ final class Card {
 
     func forms(_ tense: String) -> [String] { TextMatch.splitForms(tenses[tense]) }
 
+    var sourceList: [Source] { sources.compactMap(Source.init) }
+
+    /// Notes a reading the word turned up in; the same sentence from the same reading only once.
+    func addSource(title: String, sentence: String) {
+        let s = Source(title: title, sentence: sentence).raw
+        if !sources.contains(s) { sources.append(s) }
+    }
+
     init(id: String, kind: Kind = .word, es: String, en: String, order: Double) {
         self.id = id
         self.kindRaw = kind.rawValue
@@ -75,6 +87,27 @@ final class Card {
         self.en = en
         self.order = order
     }
+}
+
+/// A reading a word was marked in, and the sentence it was in there. Kept on the card, so it outlives the reading.
+nonisolated struct Source: Hashable {
+    let title: String
+    let sentence: String
+
+    private static let sep: Character = "\u{1F}"
+
+    init(title: String, sentence: String) {
+        self.title = title
+        self.sentence = sentence
+    }
+
+    init?(_ raw: String) {
+        guard let i = raw.firstIndex(of: Self.sep) else { return nil }
+        title = String(raw[..<i])
+        sentence = String(raw[raw.index(after: i)...])
+    }
+
+    var raw: String { title + String(Self.sep) + sentence }
 }
 
 /// What happened on one calendar day, for the daily new-card allowance and the streak.

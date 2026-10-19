@@ -15,7 +15,7 @@ struct CincoApp: App {
 @MainActor
 enum Store {
     static let container: ModelContainer = {
-        let schema = Schema([Card.self, DayLog.self, Reading.self])
+        let schema = Schema([Card.self, DayLog.self, Reading.self, Chunk.self])
         // .automatic syncs through the iCloud container in the entitlements, and stays local when there is
         // none (an unsigned simulator build) or no one is signed into iCloud.
         do {
@@ -40,11 +40,12 @@ struct RootView: View {
 
     var body: some View {
         NavigationStack {
-            HomeView(session: $session, studying: $studying)
+            HomeView(session: $session)
         }
+        .environment(\.study, StudyAction { pool, tab, label, key, fresh in start(pool, tab: tab, label: label, key: key, fresh: fresh) })
         .tint(Palette.accentInk)
         // Capturing the session makes this view depend on it. Without that, a session created in the same
-        // tap that opens the cover (¡Vamos!) wasn't seen yet and the cover came up empty until a redraw.
+        // tap that opens the cover (a theme) wasn't seen yet and the cover came up empty until a redraw.
         .fullScreenCover(isPresented: $studying) { [current = session] in
             Group {
                 if let s = current, !s.isFinished {
@@ -70,13 +71,37 @@ struct RootView: View {
         #endif
     }
 
+    /// Studies a theme or a tense: the session left midway on it, or a new one going round its stages 1–4, with its new
+    /// cards coming in as there's room.
+    private func start(_ pool: [Card], tab: Tab, label: String, key: String, fresh: [Card]) {
+        if let s = session, !s.isFinished, s.key == key { studying = true; return }
+        let s = StudySession(queue: Scheduler.dailyQueue(pool), tab: tab, label: label, key: key, pool: pool, fresh: fresh,
+                             continuous: true, ctx: ctx)
+        guard !s.isFinished else { return }
+        session = s
+        studying = true
+    }
+
     #if DEBUG
     /// Development: `-demo vocab|conj <taps> [stage]` opens a verb card at that stage and moves it forward
     /// `taps` steps, so each phase can be screenshotted in the simulator.
     private func startDemo() {
         let args = ProcessInfo.processInfo.arguments
         // `-loadSample` fills an empty deck with the sample cards, for the flags below.
-        if args.contains("-loadSample") && Deck.allCards(ctx).isEmpty { Deck.loadSample(ctx) }
+        if args.contains("-loadSample") && Deck.allCards(ctx).isEmpty {
+            Deck.loadSample(ctx)
+            // `-sampleThemes` also files most of them into themes, a couple merged, the rest left loose.
+            if args.contains("-sampleThemes") {
+                let words = Deck.allCards(ctx).filter { !$0.isConj }
+                var made: [Chunk] = []
+                for (i, name) in ["Saludos", "En el café", "Por la ciudad", "Mi día", "La familia", "Cómo me siento"].enumerated() {
+                    let c = Chunks.create(name, ctx: ctx)
+                    Chunks.file(Array(words.dropFirst(i * 6).prefix(6)), in: c, ctx: ctx)
+                    made.append(c)
+                }
+                Chunks.merge(made[1], made[2], name: "Salir", ctx: ctx)
+            }
+        }
         // `-openReading` opens a sample reading, some of it marked.
         if args.contains("-openReading") {
             let r = Reading(title: "En el mercado", lines: Lectura.lines("""

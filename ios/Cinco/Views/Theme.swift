@@ -40,6 +40,18 @@ nonisolated enum Palette {
     /// The soft light falling on the backdrop.
     static let glow = dyn(0xFFFFFF, 0xFFD9B0, alpha: (0.6, 0.06))
 
+    /// Theme colours, as a strong mark and a soft card fill: the icon's flags, then teal.
+    nonisolated static let chunkCount = 6
+    private static let chunks: [(Color, Color)] = [
+        (stages[0], dyn(0xFBDCD2, 0x45261E)), (stages[1], dyn(0xFCEBC0, 0x45391A)), (stages[2], dyn(0xCDEBF6, 0x173847)),
+        (stages[3], dyn(0xD3EBD5, 0x1D3A22)), (stages[4], dyn(0xD3DEF0, 0x1E2B45)), (sea, dyn(0xCFEDEB, 0x1D3B3A)),
+    ]
+
+    static func chunk(_ i: Int) -> (mark: Color, fill: Color) {
+        let c = chunks[((i % chunkCount) + chunkCount) % chunkCount]
+        return (c.0, c.1)
+    }
+
     static func mood(_ m: Mood) -> Color {
         switch m {
         case .ind: sea

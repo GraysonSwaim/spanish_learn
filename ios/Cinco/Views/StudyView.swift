@@ -387,34 +387,44 @@ struct StudyView: View {
             .prefix(3).map { $0 }
     }
 
-    /// An optional extra under the answer: the word in a sentence.
+    /// An optional extra under the answer: every reading the word was met in, and more sentences with it.
     @ViewBuilder
     private func moreAbout(_ c: Card) -> some View {
+        let sources = c.sourceList
         let list = sentences(c)
-        if !list.isEmpty {
-            moreChip("Más frases", icon: "text.bubble.fill")
+        if !sources.isEmpty || !list.isEmpty {
+            moreChip(sources.isEmpty ? "Más frases" : sources.count == 1 ? "Dónde la leíste" : "Dónde la leíste · \(sources.count)",
+                     icon: sources.isEmpty ? "text.bubble.fill" : "book.fill")
                 .padding(.top, 18)
             if showSentences {
                 VStack(alignment: .leading, spacing: 12) {
-                    ForEach(list, id: \.self) { es in
-                        Button { session.speak(es) } label: {
-                            HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: "speaker.wave.2.fill").font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(Palette.sea).padding(.top, 4)
-                                Text(es).font(Typo.italic(18)).foregroundStyle(Palette.ink)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(.rect)
+                    ForEach(sources, id: \.self) { s in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(s.title).font(Typo.text(13, .heavy)).foregroundStyle(Palette.muted)
+                            spoken(s.sentence)
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(es)
-                        .accessibilityHint("Toca para escucharla")
                     }
+                    ForEach(list, id: \.self) { es in spoken(es) }
                 }
                 .multilineTextAlignment(.leading)
                 .morePanel()
             }
         }
+    }
+
+    private func spoken(_ es: String) -> some View {
+        Button { session.speak(es) } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "speaker.wave.2.fill").font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Palette.sea).padding(.top, 4)
+                Text(es).font(Typo.italic(18)).foregroundStyle(Palette.ink)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(es)
+        .accessibilityHint("Toca para escucharla")
     }
 
     private func moreChip(_ title: String, icon: String) -> some View {

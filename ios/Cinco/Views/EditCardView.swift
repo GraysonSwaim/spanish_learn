@@ -6,8 +6,10 @@ struct EditCardView: View {
     @Environment(\.modelContext) private var ctx
     @Environment(\.dismiss) private var dismiss
     let card: Card?
+    @Query(sort: \Chunk.order) private var chunks: [Chunk]
 
     @State private var rec = CardRecord()
+    @State private var chunkID = ""
     /// Tense key -> six forms, while editing.
     @State private var forms: [String: [String]] = [:]
     @State private var error: String?
@@ -20,8 +22,11 @@ struct EditCardView: View {
                 TextField("Mi coche es rojo.", text: $rec.ex, axis: .vertical).labeled("Ejemplo")
                 TextField("My car is red.", text: $rec.exEn, axis: .vertical).labeled("Ejemplo en inglés")
                 TextField("En España, coche; en México, carro", text: $rec.notes, axis: .vertical).labeled("Notas")
-                TextField("transporte", text: $rec.tags).labeled("Etiquetas")
-                    .textInputAutocapitalization(.never)
+                Picker("Tema", selection: $chunkID) {
+                    Text("Ninguno: a Sueltas").tag("")
+                    ForEach(chunks) { k in Text(Chunks.path(k, in: chunks)).tag(k.id) }
+                }
+                .foregroundStyle(Palette.muted)
                 if card != nil {
                     TextField("Coche suena a «coach»: un autobús", text: $rec.mnemonic, axis: .vertical).labeled("Mnemotecnia")
                 }
@@ -86,6 +91,7 @@ struct EditCardView: View {
         rec = CardRecord(es: c.es, en: c.en, ex: c.ex, exEn: c.exEn, exWord: c.exWord, notes: c.notes, tags: c.tags,
                          frases: c.frases.split(separator: "|").joined(separator: "\n"), tenses: c.tenses, mnemonic: c.mnemonic)
         forms = c.tenses.mapValues { TextMatch.splitForms($0) }
+        chunkID = chunks.contains { $0.id == c.chunkID } ? c.chunkID : ""
     }
 
     private func save() {
@@ -101,6 +107,8 @@ struct EditCardView: View {
             return t.contains { !$0.isEmpty } ? t.joined(separator: "|") : nil
         }
         if let msg = Deck.save(r, editing: card, ctx: ctx) { error = msg; return }
+        Deck.cardsByID(ctx)[TextMatch.cardID(r.es)]?.chunkID = chunkID
+        try? ctx.save()
         dismiss()
     }
 }

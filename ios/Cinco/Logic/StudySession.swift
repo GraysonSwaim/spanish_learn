@@ -46,6 +46,8 @@ final class StudySession {
 
     let tab: Tab
     let label: String
+    /// What it's studying (a theme's id, a tense), so Home can pick it up again where it stopped.
+    let key: String
     /// The daily session: it keeps going round stages 1–4, and new cards join as stage 1 makes room. A session for one
     /// stage's column asks each card once (a miss comes back a few cards later).
     let continuous: Bool
@@ -79,11 +81,12 @@ final class StudySession {
     var remaining: Int { queue.count }
 
     /// `pool` is everything in the tab (the queue's cards when nil); `fresh` the new cards the daily session may bring in.
-    init(queue: [Card], tab: Tab, label: String = "", pool: [Card]? = nil, fresh: [Card] = [], continuous: Bool = false,
+    init(queue: [Card], tab: Tab, label: String = "", key: String = "", pool: [Card]? = nil, fresh: [Card] = [], continuous: Bool = false,
          ctx: ModelContext, prefs: Prefs = .current) {
         self.queue = queue
         self.tab = tab
         self.label = label
+        self.key = key
         self.pool = pool ?? queue
         self.fresh = fresh
         self.continuous = continuous

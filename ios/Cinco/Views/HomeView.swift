@@ -1,81 +1,59 @@
 import SwiftUI
 import SwiftData
 
+/// Home: how many words there are, the loose ones waiting for a theme, and the themes. Tapping a theme studies it;
+/// there's no one big button. Verbs' tables, when there are any, are studied by tense below.
 struct HomeView: View {
     @Environment(\.modelContext) private var ctx
+    @Environment(\.study) private var study
     @Query(sort: \Card.order) private var cards: [Card]
-    @Query private var logs: [DayLog]
-
-    @AppStorage(PrefKey.tab) private var tabRaw = Tab.vocab.rawValue
-    @AppStorage(PrefKey.tense) private var tense = "presente"
-    @AppStorage(PrefKey.stageCap) private var stageCap = Scheduler.defaultCap
+    @Query(sort: \Chunk.order) private var chunks: [Chunk]
 
     @Binding var session: StudySession?
-    @Binding var studying: Bool
     @State private var editing: EditTarget?
-    @State private var screenHeight: CGFloat = 0
-
-    private var tab: Tab { Tab(rawValue: tabRaw) ?? .vocab }
-    private var tabCards: [Card] { cards.filter { Scheduler.inTab($0, tab: tab, tense: tense) } }
-    private var verbs: [Card] { cards.filter { !$0.isConj && $0.isVerb } }
-    /// A session left midway in this tab picks up where it stopped.
-    private var resumable: Bool { session.map { !$0.isFinished && $0.tab == tab } ?? false }
-    private var stagger: Bool { tab == .conj && tense == Tense.random }
+    #if DEBUG
+    @State private var debugChunk: Chunk?
+    @State private var debugGroup = false
+    #endif
 
     var body: some View {
-        let n = Scheduler.counts(tabCards)
-        let newNow = min(Scheduler.room(tabCards, cap: stageCap), n.unseen)
-        let streak = Scheduler.streak(Dictionary(logs.map { ($0.key, $0) }, uniquingKeysWith: { a, _ in a }))
+        let words = cards.filter { !$0.isConj && !$0.isDropped }
+        let loose = Chunks.loose(cards, chunks: chunks)
+        let top = Chunks.top(chunks)
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Wordmark()
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 12)
-                // Pushes everything under the banner to the bottom of the screen; the stage
-                // columns grow first, so this only takes what's left once they're at their tallest.
-                Spacer(minLength: 44)
-
-                tabPicker
-                if tab == .conj { TenseSwitch(cards: cards, selection: $tense).padding(.bottom, 12).fixedSize(horizontal: false, vertical: true) }
-
-                if n.total == 0 {
-                    Text(Self.emptyLede[tab] ?? "").font(Typo.text(17)).foregroundStyle(Palette.muted).padding(.bottom, 18)
-                } else {
-                    Spacer().frame(height: 18)
-                }
-                ladder(n).layoutPriority(1)
-                Text(n.unseen == 1 ? "1 nueva esperando" : "\(n.unseen) nuevas esperando")
-                    .font(Typo.text(15, .heavy)).foregroundStyle(Palette.muted)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 12).padding(.bottom, 20)
-
-                Button(resumable ? "Seguir la sesión" : "¡Vamos!") { startDaily() }
-                .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
-                .disabled(n.due + newNow == 0 && !resumable)
-                .opacity(n.due + newNow == 0 && !resumable ? 0.5 : 1)
-                .padding(.bottom, 22)
-
-                menu
-                HStack {
-                    if streak > 0 {
-                        Text("Racha: \(streak) \(streak == 1 ? "día" : "días")")
-                            .font(Typo.text(13, .heavy)).foregroundStyle(.white)
-                            .padding(.horizontal, 12).padding(.vertical, 4)
-                            .background(Palette.stage(5), in: .capsule)
-                    }
+                HStack(alignment: .center) {
+                    Wordmark(flag: 30)
                     Spacer()
-                    NavigationLink("Cómo funciona") { HowView() }
-                        .font(Typo.text(16, .heavy)).tint(Palette.accentInk)
+                    Text(words.count == 1 ? "1 palabra" : "\(words.count) palabras")
+                        .font(Typo.text(15, .heavy)).foregroundStyle(Palette.muted)
                 }
-                .frame(minHeight: 44)
-                .padding(.top, 14)
+                .padding(.top, 8)
+
+                if words.isEmpty {
+                    Text("Tu diccionario empieza vacío. Añade palabras una a una con +, o márcalas mientras lees en Lecturas. Después las juntas en temas.")
+                        .font(Typo.text(17)).foregroundStyle(Palette.muted).padding(.top, 32)
+                }
+                if !loose.isEmpty {
+                    NavigationLink { GroupView() } label: { looseRow(loose) }
+                        .buttonStyle(PressStyle())
+                        .padding(.top, 22)
+                }
+                if !top.isEmpty {
+                    ChunkGrid(shown: top, chunks: chunks, cards: cards).padding(.top, 14)
+                    Text(top.count > 1 ? "Toca un tema para estudiarlo. Arrastra uno sobre otro para juntarlos." : "Toca el tema para estudiarlo.")
+                        .font(Typo.text(13, .bold)).foregroundStyle(Palette.muted)
+                        .multilineTextAlignment(.center).frame(maxWidth: .infinity)
+                        .padding(.top, 16)
+                }
+                conjugation
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 16)
-            .frame(maxWidth: 560, minHeight: screenHeight)
+            .padding(.bottom, 24)
+            .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
         }
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { screenHeight = $0 }
+        .safeAreaInset(edge: .bottom) { bar }
         // Cards deleted (Explorar, or Ajustes › Borrar todos los datos) may be in a session left midway: start over.
         .onChange(of: cards.count) { old, new in if new < old { session = nil } }
         // New cards get their example sentences in the background.
@@ -85,145 +63,114 @@ struct HomeView: View {
         .sheet(item: $editing) { t in
             NavigationStack { EditCardView(card: t.card) }
         }
+        #if DEBUG
+        // Development: `-open sueltas` opens Agrupar, `-open <theme name>` that theme, for screenshots.
+        .navigationDestination(item: $debugChunk) { ChunkView(chunk: $0) }
+        .navigationDestination(isPresented: $debugGroup) { GroupView() }
+        .task {
+            let args = ProcessInfo.processInfo.arguments
+            guard let i = args.firstIndex(of: "-open"), i + 1 < args.count else { return }
+            try? await Task.sleep(for: .milliseconds(300))
+            if args[i + 1] == "sueltas" { debugGroup = true } else { debugChunk = chunks.first { $0.name == args[i + 1] } }
+        }
+        #endif
     }
 
-    private var tabPicker: some View {
-        SoftSegmented(options: Tab.allCases.map { ($0.rawValue, $0.name) }, selection: $tabRaw)
-            .padding(.top, 2).padding(.bottom, 16)
-            .fixedSize(horizontal: false, vertical: true)
+    private func looseRow(_ loose: [Card]) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(loose.count == 1 ? "1 suelta" : "\(loose.count) sueltas").font(Typo.text(17, .heavy)).foregroundStyle(Palette.ink)
+                Text(loose.prefix(4).map(\.es).joined(separator: ", ") + (loose.count > 4 ? "…" : ""))
+                    .font(Typo.text(14, .bold)).foregroundStyle(Palette.muted).lineLimit(1)
+            }
+            Spacer()
+            Text("Agrupar ›").font(Typo.text(15, .heavy)).foregroundStyle(Palette.accentInk)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 14)
+        .background(RoundedRectangle(cornerRadius: 20).strokeBorder(Palette.muted.opacity(0.45), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])))
+        .contentShape(.rect)
     }
 
-    private static let emptyLede: [Tab: String] = [
-        .conj: "Aún no hay verbos con conjugación. Añade los tiempos al editar un verbo.",
-        .vocab: "Añade palabras una a una, o márcalas mientras lees en Lecturas.",
-    ]
+    // MARK: conjugation
 
-    private func ladder(_ n: DeckCounts) -> some View {
-        let total = max(1, n.total)
-        return VStack(spacing: 4) {
-            HStack(alignment: .bottom, spacing: 8) {
-                ForEach(1...5, id: \.self) { i in
-                    Button { if n.byStage[i] > 0 { startStage(i) } } label: {
-                        ZStack(alignment: .bottom) {
-                            // A see-through column, so the solid band in it is what reads.
-                            Scalloped().fill(Palette.stage(i).opacity(0.13))
-                            Scalloped().stroke(Palette.stage(i).opacity(0.35), lineWidth: 1.5)
-                            // How full the stage is, as a solid band rising from the foot: stages 1–4 against
-                            // their cap, Dominada against the whole deck.
-                            let full = min(1, CGFloat(n.byStage[i]) / CGFloat(i < 5 ? max(1, stageCap) : total))
-                            GeometryReader { g in
-                                let h = g.size.height * full
-                                VStack {
-                                    Spacer(minLength: 0)
-                                    Gloss(color: Palette.stage(i), shape: Rectangle(), lift: 0)
-                                        .frame(height: n.byStage[i] > 0 ? max(h, 14) : 0)
-                                }
-                            }
-                            .clipShape(Scalloped())
-                            // White once the band has risen up behind the number.
-                            let covered = full > 0.8
-                            VStack(spacing: 8) {
-                                // Stages 1–4 against their cap; Dominada has none.
-                                (Text("\(n.byStage[i])") + Text(i < 5 ? "/\(stageCap)" : "").font(Typo.display(14)))
-                                    .font(Typo.display(22)).foregroundStyle(covered ? .white : Palette.ink).padding(.top, 10)
-                                    .lineLimit(1).minimumScaleFactor(0.7)
-                                Daisy().fill(covered ? .white.opacity(0.9) : Palette.stage(i)).frame(width: 16, height: 16)
-                                Spacer()
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Estudiar las \(n.byStage[i]) tarjetas de la etapa \(i), \(StageInfo.all[i].name)")
+    /// Each tense the verbs have, and all of them together: tap one to study its tables.
+    @ViewBuilder
+    private var conjugation: some View {
+        let conj = cards.filter { $0.isConj && !$0.isDropped }
+        if !conj.isEmpty {
+            var have: [String: Int] = [:]
+            let _ = conj.forEach { have[$0.tense, default: 0] += 1 }
+            let tenses = Tense.all.filter { have[$0.key] != nil }
+            Text("CONJUGACIÓN").font(Typo.text(13, .heavy)).tracking(1).foregroundStyle(Palette.muted)
+                .padding(.top, 28).padding(.bottom, 10)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    if tenses.count > 1 { tenseChip(Tense.random, name: "Todos", count: conj.count, fill: Palette.sunk) }
+                    ForEach(tenses) { t in tenseChip(t.key, name: t.name, count: have[t.key] ?? 0, fill: Palette.moodSoft(t.mood)) }
                 }
+                .padding(.vertical, 6)
             }
-            // Grows to fill a tall screen, up to about twice its smallest height.
-            .frame(minHeight: 150, maxHeight: 300)
-            HStack(spacing: 8) {
-                ForEach(1...5, id: \.self) { i in
-                    VStack(spacing: 0) {
-                        Text("\(i)").font(Typo.display(15)).foregroundStyle(Palette.ink)
-                        Text(StageInfo.all[i].name).font(Typo.text(11.5, .bold)).foregroundStyle(Palette.muted)
-                            .lineLimit(1).minimumScaleFactor(0.8)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            }
-            // Keeps the Home spacer from squeezing the stage names smaller.
-            .fixedSize(horizontal: false, vertical: true)
+            .scrollClipDisabled()
         }
     }
 
-    /// The ways off Home, as tiles in a row.
-    private var menu: some View {
-        HStack(spacing: 8) {
-            NavigationLink { LecturasView() } label: { MenuTile(title: "Lecturas", icon: "book.fill", tint: Palette.stage(1)) }
-            NavigationLink { BrowseView() } label: { MenuTile(title: "Explorar", icon: "rectangle.stack.fill", tint: Palette.stage(2)) }
+    private func tenseChip(_ key: String, name: String, count: Int, fill: Color) -> some View {
+        Button { studyTense(key, name: name) } label: {
+            HStack(spacing: 6) {
+                Text(name).font(Typo.text(15, .heavy)).foregroundStyle(Palette.ink)
+                Text("\(count)").font(Typo.text(14, .bold)).foregroundStyle(Palette.muted)
+            }
+            .padding(.horizontal, 14).frame(minHeight: 44)
+            .background(fill, in: .rect(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Palette.edge, lineWidth: 1))
+        }
+        .buttonStyle(PressStyle())
+        .accessibilityLabel("\(name), \(count) \(count == 1 ? "tabla" : "tablas")")
+    }
+
+    private func studyTense(_ key: String, name: String) {
+        let pool = cards.filter { Scheduler.inTab($0, tab: .conj, tense: key) }
+        let verbs = cards.filter { !$0.isConj && $0.isVerb }
+        study(pool, tab: .conj, label: name, key: "conj:" + key,
+              fresh: Scheduler.unseen(pool, staggerTenses: key == Tense.random, verbs: verbs))
+    }
+
+    // MARK: the bar
+
+    private var bar: some View {
+        HStack {
+            NavigationLink { BrowseView() } label: { barItem("Palabras", icon: "list.bullet") }
+            NavigationLink { LecturasView() } label: { barItem("Lecturas", icon: "book.fill") }
             Button { editing = EditTarget(card: nil) } label: {
-                MenuTile(title: "Añadir", icon: "plus", tint: Palette.stage(3))
+                Image(systemName: "plus").font(.system(size: 22, weight: .heavy)).foregroundStyle(.white)
+                    .frame(width: 54, height: 54)
+                    .background { Gloss(color: Palette.accent, shape: RoundedRectangle(cornerRadius: 18), lift: 0.6) }
             }
-            .accessibilityLabel("Añadir una tarjeta")
-            NavigationLink { SettingsView() } label: { MenuTile(title: "Ajustes", icon: "gearshape.fill", tint: Palette.stage(4)) }
+            .frame(maxWidth: .infinity)
+            .accessibilityLabel("Añadir una palabra")
+            NavigationLink { SettingsView() } label: { barItem("Ajustes", icon: "gearshape.fill") }
         }
-        .buttonStyle(TileStyle())
-        .fixedSize(horizontal: false, vertical: true)
+        .buttonStyle(PressStyle())
+        .padding(8)
+        .panel(radius: 28, shadow: 6)
+        .padding(.horizontal, 16).padding(.bottom, 4)
+        .frame(maxWidth: 560)
     }
 
-    // MARK: starting sessions
-
-    private func startDaily() {
-        if resumable { studying = true; return }
-        let pool = tabCards
-        let s = StudySession(queue: Scheduler.dailyQueue(pool), tab: tab, pool: pool,
-                             fresh: Scheduler.unseen(pool, staggerTenses: stagger, verbs: verbs), continuous: true, ctx: ctx)
-        guard !s.isFinished else { return }
-        session = s
-        studying = true
-    }
-
-    private func startStage(_ i: Int) {
-        let q = Scheduler.stageQueue(tabCards, stage: i)
-        guard !q.isEmpty else { return }
-        session = StudySession(queue: q, tab: tab, label: "Etapa \(i)", pool: tabCards, ctx: ctx)
-        studying = true
+    private func barItem(_ title: String, icon: String) -> some View {
+        VStack(spacing: 3) {
+            Image(systemName: icon).font(.system(size: 19, weight: .bold)).frame(height: 24)
+            Text(title).font(Typo.text(12, .heavy))
+        }
+        .foregroundStyle(Palette.ink)
+        .frame(maxWidth: .infinity, minHeight: 50)
+        .contentShape(.rect)
     }
 }
 
 struct EditTarget: Identifiable {
     let card: Card?
     var id: String { card?.id ?? "new" }
-}
-
-/// One of the Home tiles: an icon in its colour over a short name.
-private struct MenuTile: View {
-    let title: String
-    let icon: String
-    let tint: Color
-
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon).font(.system(size: 17, weight: .bold)).foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.15), radius: 1, y: 1)
-                .frame(width: 38, height: 38)
-                .background { Gloss(color: tint, shape: RoundedRectangle(cornerRadius: 11), lift: 0.4) }
-            Text(title).font(Typo.text(12, .bold)).foregroundStyle(Palette.ink)
-                .lineLimit(1).minimumScaleFactor(0.7)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14).padding(.horizontal, 4)
-    }
-}
-
-/// A paper tile that presses in a little.
-private struct TileStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        let down = configuration.isPressed
-        let shape = RoundedRectangle(cornerRadius: 18)
-        configuration.label
-            .background { Gloss(color: Palette.paper, shape: shape, shade: 0.4, lift: down ? 0.3 : 0.8) }
-            .scaleEffect(down ? 0.95 : 1)
-            .animation(.spring(duration: 0.18), value: down)
-            .contentShape(shape)
-    }
 }
 
 struct MenuRowLabel: View {
@@ -254,123 +201,3 @@ struct MenuRow: View {
     }
 }
 
-/// The tense picker in the Conjugación tab: a soft button that opens a sheet of tense chips,
-/// grouped by mood, with Aleatorio for all of them.
-struct TenseSwitch: View {
-    let cards: [Card]
-    @Binding var selection: String
-    @State private var open = false
-
-    var body: some View {
-        let current = Tense.named(selection)
-        Button { open = true } label: {
-            HStack {
-                Circle().fill(current.map { Palette.mood($0.mood) } ?? Palette.stage(3)).frame(width: 10, height: 10)
-                Text(current?.name ?? "Aleatorio · todos los tiempos").font(Typo.text(16, .heavy)).foregroundStyle(Palette.ink)
-                Spacer()
-                Image(systemName: "chevron.down").font(.system(size: 14, weight: .heavy)).foregroundStyle(Palette.muted)
-            }
-            .padding(.horizontal, 14).padding(.vertical, 11)
-            .background(current.map { Palette.moodSoft($0.mood) } ?? Palette.sunk, in: .rect(cornerRadius: 16))
-            .softShadow(radius: 8, y: 3)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Tiempo verbal: \(current?.name ?? "Aleatorio")")
-        .sheet(isPresented: $open) {
-            TensePicker(cards: cards, selection: $selection)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-                .presentationBackground(Palette.bg)
-                .presentationCornerRadius(28)
-        }
-        #if DEBUG
-        // Development: `-openTenses` opens the sheet at launch so it can be screenshotted.
-        .onAppear { if ProcessInfo.processInfo.arguments.contains("-openTenses") { open = true } }
-        #endif
-    }
-}
-
-/// The sheet behind `TenseSwitch`. Each tense is a chip in its mood's colour showing how many
-/// verbs have it; tenses no verb has yet are faded and can't be picked.
-private struct TensePicker: View {
-    let cards: [Card]
-    @Binding var selection: String
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        let conj = cards.filter { $0.isConj && !$0.isDropped }
-        var have: [String: Int] = [:]
-        for c in conj { have[c.tense, default: 0] += 1 }
-        let total = Set(conj.map(\.verbID)).count
-        return ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                Text("¿Qué tiempo practicas?").font(Typo.display(26)).foregroundStyle(Palette.ink)
-                    .padding(.top, 26).padding(.bottom, 16)
-
-                chip(Tense.random, label: "Aleatorio · todos los tiempos", count: total,
-                     fill: Palette.stage(3))
-                    .padding(.bottom, 8)
-
-                ForEach(Mood.allCases, id: \.self) { m in
-                    Text(m.name.uppercased()).font(Typo.text(13, .heavy)).tracking(1)
-                        .foregroundStyle(Palette.mood(m))
-                        .padding(.top, 18).padding(.bottom, 8)
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 12) {
-                        ForEach(Tense.all.filter { $0.mood == m }) { t in
-                            chip(t.key, label: chipName(t), count: have[t.key] ?? 0,
-                                 fill: Palette.mood(m))
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, 16).padding(.bottom, 24)
-        }
-    }
-
-    /// The mood heading already says "subjuntivo" or "imperativo", so the chip drops it.
-    private func chipName(_ t: Tense) -> String {
-        let n = t.name.replacingOccurrences(of: " de subjuntivo", with: "")
-            .replacingOccurrences(of: "Imperativo ", with: "")
-        return n.prefix(1).uppercased() + n.dropFirst()
-    }
-
-    private func chip(_ key: String, label: String, count: Int, fill: Color) -> some View {
-        let on = key == selection
-        return Button {
-            selection = key
-            dismiss()
-        } label: {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(label).font(Typo.text(15, .heavy)).lineLimit(1).minimumScaleFactor(0.8)
-                Text(count == 0 ? "sin verbos" : "\(count) \(count == 1 ? "verbo" : "verbos")")
-                    .font(Typo.text(12, .bold)).opacity(on ? 0.85 : 1)
-                    .foregroundStyle(on ? AnyShapeStyle(Palette.onGood) : AnyShapeStyle(Palette.muted))
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .foregroundStyle(on ? Palette.onGood : Palette.ink)
-            .padding(.vertical, 8)
-            .padding(.horizontal, 12)
-        }
-        .buttonStyle(ChipStyle(fill: on ? fill : Palette.paper))
-        .disabled(count == 0)
-        .opacity(count == 0 ? 0.45 : 1)
-        .accessibilityLabel("\(label), \(count) \(count == 1 ? "verbo" : "verbos")")
-        .accessibilityAddTraits(on ? .isSelected : [])
-    }
-}
-
-/// A small soft chip that presses in a little.
-private struct ChipStyle: ButtonStyle {
-    let fill: Color
-
-    func makeBody(configuration: Configuration) -> some View {
-        let down = configuration.isPressed
-        let shape = RoundedRectangle(cornerRadius: 14)
-        configuration.label
-            .background(fill, in: shape)
-            .overlay(shape.strokeBorder(Palette.edge, lineWidth: 1))
-            .softShadow(radius: down ? 3 : 6, y: down ? 1 : 3)
-            .scaleEffect(down ? 0.96 : 1)
-            .animation(.spring(duration: 0.18), value: down)
-    }
-}

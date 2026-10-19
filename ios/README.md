@@ -6,6 +6,8 @@ SwiftUI with SwiftData, syncing cards and progress through iCloud (CloudKit).
 
 ```
 Cinco/Model/Card.swift        Card and DayLog, the SwiftData models (CloudKit-safe: defaults, no unique, no relationships)
+Cinco/Model/Chunk.swift       Chunk, a theme: words point at it by chunkID, merged chunks at their parent by parentID
+Cinco/Logic/Chunks.swift      reading and changing the theme tree: words in a theme, merging, nesting, undoing
 Cinco/Logic/Scheduler.swift   the five-stage schedule, pure functions
 Cinco/Logic/StudySession.swift one sitting: queue, reveal steps, grading, undo
 Cinco/Logic/TextMatch.swift   answer checking, and the hash(strip()) card ids
@@ -43,17 +45,23 @@ Tests: `xcodebuild test -project Cinco.xcodeproj -scheme 'Choca Cinco' -destinat
 
 Debug builds take launch arguments for the simulator:
 
-- `-loadSample` loads the sample deck (`samples/deck.json`, read from the repo, not shipped) into an empty store, for the flags here.
+- `-loadSample` loads the sample deck (`samples/deck.json`, read from the repo, not shipped) into an empty store, for the flags here;
+  with `-sampleThemes` most of it is filed into themes, two of them merged.
+- `-open sueltas` opens Agrupar; `-open <theme name>` opens that theme.
 - `-demo vocab|conj <steps> [stage]` opens a verb card at a stage and advances it that many reveal steps.
-- `-openTenses` opens the Conjugación tense picker.
 - `-tutorDemo` gives Lecturas canned answers instead of Claude; `-tutorURL http://localhost:8787` uses a proxy running on the Mac.
 - `-studyNewest <n>` starts a session with the n most recently added word cards; `-studyCard <spanish>` with one card.
 
-## Tabs
+## Home
 
-Vocabulario (every word and phrase, verbs included, as Spanish ↔ meaning) and Conjugación (one card per verb tense).
-There is no separate kind for phrases: a card is a verb only because it has tables. After an answer, «En una frase»
-shows the card's own example and sentences.
+How many words there are, the loose ones (Sueltas › Agrupar), and the themes on top (`Chunks.top`) as cards; one
+holding smaller themes shows them stacked behind it. Tap a theme to study it (one with themes inside opens instead,
+with «Todo junto» at the top); drag one onto another to merge them or put one inside the other; press and hold to
+rename, take it out, or undo it. Each theme is studied as its own pipeline (`StudyAction`, owned by RootView, picks a
+session left midway back up by its key). Verbs' tables are studied by tense from the Conjugación chips below.
+
+Words and phrases are one kind of card; a card is a verb only because it has tables. After an answer, «Dónde la
+leíste» lists every reading the word was marked in, with its sentence, and «Más frases» a verb's own sentences.
 
 ## Lecturas
 
@@ -63,7 +71,12 @@ join into one phrase) and write your English under each line; words already in t
 words you seem to have missed (a tap marks them) and adds a few notes on the text. **Inglés → español** is Al revés: write
 the Spanish back from the English, then compare with the original. **Tarjetas** turns the marked words into cards:
 Claude drafts the dictionary form, the meaning in that sentence and a note, and the sentence becomes the example. A word
-already in the deck is brought forward for review instead. Readings not opened for 30 days are deleted.
+already in the deck is brought forward for review instead.
+
+New words from a reading are filed in the reading's theme (`Chunks.forReading`), and each word keeps the reading's
+title and its own sentence (`Lectura.sentence`, cut from the paragraph) in `Card.sources`, which outlive the reading.
+
+Readings not opened for 30 days are deleted.
 
 **From a link** (Nueva lectura › Desde un enlace, or paste a link with Pegar): `ArticleReader` loads the page in an
 offscreen `WKWebView`, so sites that turn away a plain download still answer, and runs `Resources/ArticleExtract.js`

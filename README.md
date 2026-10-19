@@ -26,8 +26,20 @@ again. Mastering a card at the top opens a place that passes all the way back an
 
 There's no waiting in stages 1–4: the session goes round them for as long as you like, with the Mastered cards that are
 due mixed in. Mastered cards are the spaced repetition: a week, then the wait doubles each time one is right after its
-wait is up (an early review leaves it alone). A miss sends it back to Produce. Tap the Mastered column to review all
-of them whenever you want.
+wait is up (an early review leaves it alone). A miss sends it back to Produce.
+
+## Themes
+
+You build the dictionary yourself, from **Añadir** (one word at a time) and **Lecturas** (words marked while reading),
+and you chunk it into themes. A reading's words arrive together in a theme named after it; a word marked that's
+already in the dictionary keeps its theme and gains the reading, and its sentence, as another source to remember it by.
+Words added by hand wait in Sueltas until you group them. Drag one theme onto another to make a bigger one: the
+smaller ones stay inside, as deep as you like. Tapping a theme studies it, with its own pipeline; there's no single
+"study" button.
+
+Grouping follows the research on learning words in sets (Tinkham 1993, 1997; Waring 1997): new words of the same kind
+(fruits, colours, opposites) learned together interfere with each other, while words that belong to one scene (on the
+platform: the train, the suitcase, the delay) are learned more easily together.
 
 Why this order: recognizing a word (Spanish to English) is much easier than producing it (English to Spanish), and
 production is what speaking requires. Early stages build recognition cheaply, later stages force production. Keeping

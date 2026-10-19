@@ -2,8 +2,9 @@ import SwiftUI
 import SwiftData
 
 /// The words marked in a reading, as cards to look over before they go into the deck. Claude drafts each one (dictionary
-/// form, the meaning in this sentence, a note); the sentence it came from is the card's example. A word already in the
-/// deck isn't added again: it can be brought forward for review instead.
+/// form, the meaning in this sentence, a note); the sentence it came from is the card's example, and the new cards are
+/// filed in the reading's own theme. A word already in the deck isn't added again: it gains this reading as a source,
+/// and comes up for review.
 struct ReadingCardsView: View {
     @Environment(\.modelContext) private var ctx
     @Environment(\.dismiss) private var dismiss
@@ -95,7 +96,7 @@ struct ReadingCardsView: View {
             }
             if let c = draft.existing {
                 if d.wrappedValue.include {
-                    Text(c.stage > 0 ? "Se repasa en la próxima sesión." : "Aún no la has estudiado; sale con las nuevas.")
+                    Text((c.stage > 0 ? "Se repasa en la próxima sesión" : "Aún no la has estudiado") + ", y guarda esta lectura entre sus fuentes.")
                         .font(Typo.text(14)).foregroundStyle(Palette.muted)
                 }
             } else if draft.include {
@@ -120,8 +121,7 @@ struct ReadingCardsView: View {
         let glosses = reading.glosses
         let old = Dictionary(drafts.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         drafts = pending.map { run in
-            let sentence = reading.lines[safe: run.line] ?? ""
-            let rec = Lectura.record(run, gloss: glosses[run.id], sentence: sentence)
+            let rec = Lectura.record(run, gloss: glosses[run.id], sentence: sentence(run))
             let surface = CardRecord(es: run.text)
             let existing = Deck.existing(rec, in: cards) ?? Deck.existing(surface, in: cards)
             if var d = old[run.id] {
@@ -164,20 +164,20 @@ struct ReadingCardsView: View {
         }
     }
 
+    private func sentence(_ run: Run) -> String {
+        Lectura.sentence(of: run, in: reading.lines[safe: run.line] ?? "")
+    }
+
     private func save() {
         let new = drafts.filter { $0.include && $0.existing == nil && ready($0.rec) }.map { d in
             var r = d.rec
             r.es = r.es.trimmingCharacters(in: .whitespacesAndNewlines)
             r.en = r.en.trimmingCharacters(in: .whitespacesAndNewlines)
             r.notes = r.notes.trimmingCharacters(in: .whitespacesAndNewlines)
-            return r
+            return (rec: r, sentence: sentence(d.run))
         }
-        if !new.isEmpty { Deck.importRecords(new, into: ctx) }
-        for d in drafts where d.include {
-            guard let c = d.existing else { continue }
-            // Due now: it comes up in the next session, at the stage it's at.
-            if c.stage > 0 { c.due = .now }
-        }
+        let existing = drafts.compactMap { d in d.include ? d.existing.map { (card: $0, sentence: sentence(d.run)) } : nil }
+        Lectura.save(reading, new: new, existing: existing, ctx: ctx)
         let done = drafts.filter { $0.include && ($0.existing != nil || ready($0.rec)) }.map(\.id)
         reading.carded.append(contentsOf: done.filter { !reading.carded.contains($0) })
         try? ctx.save()

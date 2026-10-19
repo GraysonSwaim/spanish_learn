@@ -1,12 +1,11 @@
 import SwiftUI
 import SwiftData
 
-/// Every card in the current tab, searchable, with dropped ones kept apart.
+/// Every word, or every conjugation table, searchable, with dropped ones kept apart.
 struct BrowseView: View {
     @Environment(\.modelContext) private var ctx
     @Query(sort: \Card.order) private var cards: [Card]
     @AppStorage(PrefKey.tab) private var tabRaw = Tab.vocab.rawValue
-    @AppStorage(PrefKey.tense) private var tense = "presente"
 
     @State private var query = ""
     @State private var showDropped = false
@@ -18,7 +17,7 @@ struct BrowseView: View {
         let tab = Tab(rawValue: tabRaw) ?? .vocab
         let q = TextMatch.strip(query)
         return cards.filter { c in
-            Scheduler.inTab(c, tab: tab, tense: tense) && c.isDropped == showDropped
+            Scheduler.inTab(c, tab: tab, tense: Tense.random) && c.isDropped == showDropped
                 && (q.isEmpty || [c.es, c.en, c.tags].contains { TextMatch.strip($0).contains(q) })
         }
     }
@@ -27,6 +26,14 @@ struct BrowseView: View {
         let list = list
         let picked = list.filter { selection.contains($0.id) }
         List(selection: $selection) {
+            if cards.contains(where: \.isConj) {
+                Picker("", selection: $tabRaw) {
+                    ForEach(Tab.allCases, id: \.self) { Text($0.name).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
+            }
             Picker("", selection: $showDropped) {
                 Text("Activas").tag(false)
                 Text("Descartadas").tag(true)
@@ -66,7 +73,7 @@ struct BrowseView: View {
         .scrollContentBackground(.hidden)
         .background(Backdrop())
         .searchable(text: $query, prompt: "Busca en español, inglés o etiqueta")
-        .navigationTitle(selecting ? (picked.isEmpty ? "Elige tarjetas" : "\(picked.count) elegidas") : "Tarjetas")
+        .navigationTitle(selecting ? (picked.isEmpty ? "Elige tarjetas" : "\(picked.count) elegidas") : "Palabras")
         .navigationBarBackButtonHidden(selecting)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -93,6 +100,7 @@ struct BrowseView: View {
             }
         }
         .onChange(of: showDropped) { selection = [] }
+        .onChange(of: tabRaw) { selection = [] }
         .confirmationDialog(picked.count == 1 ? "¿Borrar 1 tarjeta?" : "¿Borrar \(picked.count) tarjetas?",
                             isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Borrar", role: .destructive) {
