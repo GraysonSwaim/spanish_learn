@@ -267,11 +267,17 @@ struct MnemonicTests {
         answer(true)                        // dos
         answer(false)                       // uno again: still listed once
         #expect(s.missed.map(\.es) == ["uno"])
-        s.undo()
-        s.undo()
+        s.undo()                            // uno's second miss
+        s.undo()                            // dos
+        #expect(s.current?.es == "dos")
+        #expect(s.answered == 1)
         #expect(s.missed.map(\.es) == ["uno"])
+        answer(true)                        // dos
         answer(true)                        // uno right this time; it's still a card that was missed
         #expect(s.missed.map(\.es) == ["uno"])
+        while s.canUndo { s.undo() }
+        #expect(s.current?.es == "uno")
+        #expect(s.missed.isEmpty)
     }
 
     @Test func undoingTheOnlyMissForgetsIt() throws {

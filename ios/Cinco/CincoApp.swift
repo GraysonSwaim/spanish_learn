@@ -51,7 +51,7 @@ struct RootView: View {
                 if let s = current, !s.isFinished {
                     StudyView(session: s) { studying = false }
                 } else if let s = current {
-                    DoneView(done: s.done) { studying = false; session = nil }
+                    DoneView(done: s.done, onUndo: s.canUndo ? { s.undo() } : nil) { studying = false; session = nil }
                 }
             }
             .preferredColorScheme(scheme)
@@ -159,6 +159,8 @@ struct RootView: View {
 
 struct DoneView: View {
     let done: Int
+    /// Brings back the last card, when the session's final swipe was a slip.
+    var onUndo: (() -> Void)?
     let onClose: () -> Void
 
     var body: some View {
@@ -170,6 +172,10 @@ struct DoneView: View {
                 .font(Typo.text(19, .bold)).foregroundStyle(Palette.ink)
             Text("No queda nada por repasar ahora.").font(Typo.text(16)).foregroundStyle(Palette.muted)
             Spacer()
+            if let onUndo {
+                Button("Deshacer la última", systemImage: "arrow.uturn.backward", action: onUndo)
+                    .font(Typo.text(16, .heavy)).tint(Palette.accentInk)
+            }
             Button("Volver al inicio", action: onClose)
                 .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white))
         }

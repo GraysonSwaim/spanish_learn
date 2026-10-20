@@ -141,12 +141,7 @@ struct ReadingCardsView: View {
         let have = reading.glosses
         let want = drafts.filter { $0.existing == nil && have[$0.id] == nil }.map(\.run)
         guard !want.isEmpty else { return }
-        let items = want.map { run in
-            let english = reading.english[safe: run.line] ?? ""
-            let fallback = reading.check?.lines[safe: run.line]?.better ?? ""
-            return Tutor.GlossInput(text: run.text, sentence: reading.lines[safe: run.line] ?? "",
-                                    english: english.trimmingCharacters(in: .whitespaces).isEmpty ? fallback : english)
-        }
+        let items = want.map { Tutor.GlossInput(text: $0.text, sentence: reading.lines[safe: $0.line] ?? "") }
         loading = true
         error = nil
         Task {

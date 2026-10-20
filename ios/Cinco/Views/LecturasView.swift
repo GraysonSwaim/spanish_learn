@@ -48,11 +48,10 @@ struct LecturasView: View {
     }
 
     private func row(_ r: Reading) -> some View {
-        let done = r.english.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count
         let marked = Lectura.runs(lines: r.lines, marks: r.marks).count
         return VStack(alignment: .leading, spacing: 3) {
             Text(r.title).font(Typo.text(18, .heavy)).foregroundStyle(Palette.ink).lineLimit(1)
-            Text("\(done) de \(r.lines.count) líneas · \(marked) \(marked == 1 ? "marcada" : "marcadas") · \(r.opened.formatted(.relative(presentation: .named)))")
+            Text("\(marked) \(marked == 1 ? "marcada" : "marcadas") · \(r.opened.formatted(.relative(presentation: .named)))")
                 .font(Typo.text(14)).foregroundStyle(Palette.muted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -15,7 +15,7 @@ Cinco/Logic/CardRecord.swift  a card as it comes in, and CardJSON (the sample de
 Cinco/Logic/Deck.swift        adding cards, verb tables -> conj cards, merging iCloud duplicates
 Cinco/Model/Reading.swift     Reading, a pasted text for Lecturas (same CloudKit rules)
 Cinco/Logic/Lectura.swift     lines, words and marked runs of a reading; recycling old readings
-Cinco/Logic/Tutor.swift       Claude through the proxy in ../proxy: checking translations, drafting cards
+Cinco/Logic/Tutor.swift       Claude through the proxy in ../proxy: drafting cards, example sentences
 Cinco/Views/                  the screens
 CincoTests/                   tests
 ```
@@ -65,13 +65,11 @@ leíste» lists every reading the word was marked in, with its sentence, and «M
 
 ## Lecturas
 
-Home › Lecturas: paste a Spanish text and it's split into one line per sentence. Tap the words you don't know (neighbours
-join into one phrase) and write your English under each line; words already in the deck are underlined with dots.
-**Revisar** sends the reading to Claude, which grades each line (Bien, Casi, No del todo), says what went wrong, lists
-words you seem to have missed (a tap marks them) and adds a few notes on the text. **Inglés → español** is Al revés: write
-the Spanish back from the English, then compare with the original. **Tarjetas** turns the marked words into cards:
-Claude drafts the dictionary form, the meaning in that sentence and a note, and the sentence becomes the example. A word
-already in the deck is brought forward for review instead.
+Home › Lecturas: paste a Spanish text and it's split into one line per sentence. It's the main way words get in. Tap
+the words you don't know, or hold and slide across a phrase, to mark them (each shows roughly what it means, from
+Apple's translation on the phone); words already in the deck are underlined with dots. **Tarjetas** turns the marked
+words into cards: Claude drafts the dictionary form, the meaning in that sentence and a note, and the sentence becomes
+the example. A word already in the deck is brought forward for review instead.
 
 New words from a reading are filed in the reading's theme (`Chunks.forReading`), and each word keeps the reading's
 title and its own sentence (`Lectura.sentence`, cut from the paragraph) in `Card.sources`, which outlive the reading.
@@ -88,7 +86,6 @@ always gives the same text. It lands in the editor to trim before Empezar; a pag
 characters asks for a copy and paste instead.
 
 Claude is reached through the Cloudflare Worker in `../proxy`, which holds the API key; the app asks once before
-sending anything. Without Claude (declined, offline, out for the day), Apple's on-device model takes a smaller job, since
-in testing it graded translations badly: it translates each line for you to compare with, and gives a marked word's
-meaning in its sentence. Al revés without Claude shows the original to compare with yourself.
+sending anything. Without Claude (declined, offline, out for the day), Apple's on-device model takes a smaller job: it
+gives a marked word's meaning in its sentence, keeping the words as marked.
 

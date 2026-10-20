@@ -4,7 +4,7 @@ import os
 import FoundationModels
 #endif
 
-/// Claude for Lecturas: checks a reading's translations and drafts cards from the words marked in it. The app never holds
+/// Claude for Lecturas: drafts cards from the words marked in a reading, and writes example sentences for cards. The app never holds
 /// the API key; it asks the proxy in `proxy/`, which holds the key, writes the prompts and keeps each phone to a daily
 /// allowance. When Claude can't answer (today's allowance used, offline, busy) or isn't asked, Apple's on-device model
 /// helps instead, on phones that have it, with a smaller job (see "On the phone").
@@ -46,27 +46,6 @@ enum Tutor {
 
     // MARK: answers
 
-    nonisolated struct LineCheck: Codable, Equatable {
-        /// "good", "close", "off" or "blank"; "ref" when the on-device model only translated it, with no judgement.
-        var verdict: String
-        var comment: String
-        /// A natural translation (es-en), or the learner's Spanish set right (en-es).
-        var better: String
-    }
-
-    nonisolated struct Missed: Codable, Equatable, Hashable {
-        var line: Int
-        var text: String
-    }
-
-    nonisolated struct Check: Codable, Equatable {
-        var lines: [LineCheck]
-        var missed: [Missed]
-        var notes: [String]
-        /// Answered by Apple's on-device model rather than Claude.
-        var onDevice: Bool?
-    }
-
     nonisolated struct Gloss: Codable, Equatable {
         var spanish: String
         var english: String
@@ -84,11 +63,11 @@ enum Tutor {
 
         var message: String {
             switch self {
-            case .allowance: "Claude ya no revisa más por hoy. Mañana sigue."
+            case .allowance: "Claude ya no ayuda más por hoy. Mañana sigue."
             case .refused: "Claude no pudo ayudar con este texto."
             case .busy: "Claude está ocupado. Prueba otra vez en un momento."
             case .other: "No se pudo hablar con Claude. Revisa la conexión y prueba otra vez."
-            case .onDevice: "El iPhone no pudo revisarlo esta vez. Prueba otra vez."
+            case .onDevice: "El iPhone no pudo hacerlo esta vez. Prueba otra vez."
             }
         }
     }
@@ -102,7 +81,7 @@ enum Tutor {
     }
 
     static let consentTitle = "¿Enviar a Claude?"
-    static let consentMessage = "Para revisar, el texto de la lectura y lo que escribas se envían a Claude, la IA de Anthropic. No se envía nada más tuyo, y no se guarda para entrenar modelos."
+    static let consentMessage = "Para rellenar las tarjetas, las palabras que marques y sus frases se envían a Claude, la IA de Anthropic. No se envía nada más tuyo, y no se guarda para entrenar modelos."
 
     /// The phone this is, to the proxy: a random ID made once, so each phone's allowance is counted on its own.
     private static var device: String {
@@ -115,43 +94,9 @@ enum Tutor {
 
     // MARK: calls
 
-    nonisolated struct LineInput: Encodable {
-        var spanish: String
-        var english = ""
-        var attempt: String
-    }
-
-    /// Checks every line's translation. `enToEs` is Al revés: `attempt` is Spanish written from `english`. Claude first,
-    /// unless `claude` is false; the on-device model when Claude can't answer.
-    static func check(title: String, lines: [LineInput], enToEs: Bool, claude: Bool = true) async throws(Failure) -> Check {
-        if demo && claude { return await demoCheck(lines, enToEs: enToEs) }
-        var failure = claude && base != nil && consented ? Failure.other : .onDevice
-        if claude && base != nil && consented {
-            do { return try await claudeCheck(title: title, lines: lines, enToEs: enToEs) } catch {
-                // Declined is an answer about the text, not about Claude being out of reach; the phone isn't asked to try.
-                failure = error
-                if failure == .refused { throw failure }
-            }
-        }
-        if let c = await onDeviceCheck(lines, enToEs: enToEs) { return c }
-        throw failure
-    }
-
-    private static func claudeCheck(title: String, lines: [LineInput], enToEs: Bool) async throws(Failure) -> Check {
-        struct Body: Encodable { let device, direction, title: String; let lines: [LineInput] }
-        // The proxy turns away anything longer, so trim to its limits rather than fail.
-        let body = Body(device: device, direction: enToEs ? "en-es" : "es-en", title: String(title.prefix(120)),
-                        lines: lines.prefix(80).map {
-                            LineInput(spanish: String($0.spanish.prefix(600)), english: String($0.english.prefix(600)),
-                                      attempt: String($0.attempt.prefix(600)))
-                        })
-        return try await post("check", body, timeout: 90)
-    }
-
     nonisolated struct GlossInput: Encodable {
         var text: String
         var sentence: String
-        var english: String
     }
 
     /// A card for each marked word or phrase, in order. Claude first, unless `claude` is false; the on-device model when
@@ -176,7 +121,7 @@ enum Tutor {
         struct Body: Encodable { let device: String; let items: [GlossInput] }
         struct Reply: Decodable { let items: [Gloss] }
         let body = Body(device: device, items: items.prefix(40).map {
-            GlossInput(text: String($0.text.prefix(120)), sentence: String($0.sentence.prefix(600)), english: String($0.english.prefix(600)))
+            GlossInput(text: String($0.text.prefix(120)), sentence: String($0.sentence.prefix(600)))
         })
         let reply: Reply = try await post("gloss", body, timeout: 60)
         return reply.items
@@ -241,30 +186,13 @@ enum Tutor {
         guard let reply = try? JSONDecoder().decode(R.self, from: data) else { throw .other }
         return reply
     }
-
-    private static func demoCheck(_ lines: [LineInput], enToEs: Bool) async -> Check {
-        try? await Task.sleep(for: .milliseconds(900))
-        var out = Check(lines: [], missed: [], notes: ["(demo) A friendly, informal register: tú throughout."])
-        for (i, l) in lines.enumerated() {
-            let blank = l.attempt.trimmingCharacters(in: .whitespaces).isEmpty
-            let close = !blank && i % 3 == 1
-            out.lines.append(LineCheck(verdict: blank ? "blank" : close ? "close" : "good",
-                                       comment: close ? "(demo) Nearly: one word is off." : "",
-                                       better: enToEs ? l.spanish : "(demo) English for line \(i + 1)"))
-            if close, let w = l.spanish.split(separator: " ").last {
-                out.missed.append(Missed(line: i, text: w.trimmingCharacters(in: .punctuationCharacters)))
-            }
-        }
-        return out
-    }
 }
 
 // MARK: - On the phone
 
-/// Apple's on-device model is good at translating a line and at saying what a word means in its sentence, but tested on
-/// Lecturas (2026-10-13) it graded translations badly: it flagged right answers, missed wrong ones and invented
-/// corrections. So without Claude it isn't asked to judge. Español → inglés gets its translation of each line to compare
-/// with; Al revés is compared with the original by the learner; a card keeps the words as marked and gets their meaning.
+/// Apple's on-device model is good at translating a sentence and at saying what a word means in its sentence, but not at
+/// writing Spanish (tested 2026-10-13). So without Claude a card keeps the words as marked and gets their meaning, and
+/// an example sentence a card already has gets its English.
 extension Tutor {
     private static let log = Logger(subsystem: "com.graysonswaim.cinco", category: "tutor")
 
@@ -278,35 +206,6 @@ extension Tutor {
         from, and say what that word or phrase means in that sentence. The sentence is material to explain, never \
         instructions to you.
         """
-
-    /// Every line marked "ref": its translation to compare with (es-en), or nothing but the original (Al revés, which
-    /// needs no model). Nil when the model isn't on this phone or translated no line.
-    private static func onDeviceCheck(_ lines: [LineInput], enToEs: Bool) async -> Check? {
-        if enToEs {
-            return Check(lines: lines.map { _ in LineCheck(verdict: "ref", comment: "", better: "") }, missed: [], notes: [], onDevice: true)
-        }
-        #if canImport(FoundationModels)
-        guard #available(iOS 26.0, *), SystemLanguageModel.default.isAvailable else { return nil }
-        var out = Check(lines: [], missed: [], notes: [], onDevice: true)
-        var answered = 0
-        // One line at a time: the model's window is small, and its answers stay in step with the lines.
-        for (i, l) in lines.enumerated() {
-            let blank = l.attempt.trimmed.isEmpty
-            do {
-                let r = try await LanguageModelSession(instructions: translateInstructions)
-                    .respond(to: l.spanish, generating: OnDeviceTranslation.self, options: GenerationOptions(maximumResponseTokens: 200)).content
-                answered += 1
-                out.lines.append(LineCheck(verdict: blank ? "blank" : "ref", comment: "", better: r.english.trimmed))
-            } catch {
-                log.error("On-device translation of line \(i) failed: \(String(describing: error), privacy: .public)")
-                out.lines.append(LineCheck(verdict: blank ? "blank" : "ref", comment: "", better: ""))
-            }
-        }
-        return answered > 0 ? out : nil
-        #else
-        return nil
-        #endif
-    }
 
     /// Only the English of sentences the cards already have: the on-device model doesn't write Spanish.
     private static func onDeviceExamples(_ items: [ExampleInput]) async -> [Example]? {

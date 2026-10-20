@@ -11,6 +11,7 @@ struct StudyView: View {
     @AppStorage(PrefKey.askMnemonics) private var askMnemonics = true
     /// Counts swipes to the right, the only ones that buzz.
     @State private var rightSwipes = 0
+    @State private var undos = 0
     /// Whether the card's sentences are open under the answer.
     @State private var showSentences = false
     /// The card just missed, while its mnemonic sheet is up.
@@ -83,7 +84,7 @@ struct StudyView: View {
     }
 
     private var topBar: some View {
-        // The count stays centred with nothing on the right to balance "Inicio".
+        // The count stays centred between "Inicio" and Deshacer.
         ZStack {
             // The daily session has no end to count down to: it counts what's been done.
             let count = session.continuous ? "Hechas: \(session.answered)" : session.remaining == 1 ? "Queda 1" : "Quedan \(session.remaining)"
@@ -92,10 +93,30 @@ struct StudyView: View {
                 .padding(.horizontal, 80)
             Button("‹ Inicio", action: onExit)
                 .frame(maxWidth: .infinity, alignment: .leading)
+            undoButton.frame(maxWidth: .infinity, alignment: .trailing)
         }
         .font(Typo.text(16, .heavy))
         .tint(Palette.accentInk)
         .frame(minHeight: 44)
+    }
+
+    /// Takes back the last card swiped or set aside, a step at a time, and shows it again.
+    private var undoButton: some View {
+        Button {
+            droppedNote = nil
+            withAnimation(.snappy(duration: 0.25)) { session.undo() }
+            undos += 1
+        } label: {
+            Image(systemName: "arrow.uturn.backward")
+                .font(.system(size: 17, weight: .bold))
+                .frame(width: 44, height: 44)
+                .contentShape(.rect)
+        }
+        .disabled(!session.canUndo)
+        .opacity(session.canUndo ? 1 : 0.35)
+        .sensoryFeedback(.impact(weight: .light), trigger: undos)
+        .accessibilityLabel("Deshacer")
+        .accessibilityHint("Vuelve a la última tarjeta")
     }
 
     // MARK: the card

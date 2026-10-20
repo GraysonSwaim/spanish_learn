@@ -64,7 +64,8 @@ final class StudySession {
     private(set) var answered = 0
     /// Cards missed this session, once each in the order they were missed: a mnemonic is asked for only the first time.
     private(set) var missed: [Card] = []
-    private var undoState: Undo?
+    /// The latest grades, drops and introductions, newest last, each one a step Deshacer can take back.
+    private var history: [Undo] = []
     /// Bumped on every card change, so a delayed auto-advance can tell it's stale, and the view resets
     /// its drag and typing even when a missed card comes straight back (same id).
     private(set) var step = 0
@@ -78,6 +79,7 @@ final class StudySession {
     let prefs: Prefs
 
     var isFinished: Bool { current == nil }
+    var canUndo: Bool { !history.isEmpty }
     var remaining: Int { queue.count }
 
     /// `pool` is everything in the tab (the queue's cards when nil); `fresh` the new cards the daily session may bring in.
@@ -213,8 +215,9 @@ final class StudySession {
     private func snapshot(_ c: Card) {
         let d = Deck.today(ctx)
         let moved = [c] + pool.filter { $0 !== c && $0.stage > 0 && $0.stage < 5 }
-        undoState = Undo(states: moved.map { ($0, CardState($0)) }, queue: queue, fresh: fresh,
-                         day: (d.reviewed, d.correct, d.newVocab, d.newConj), done: done, right: right, answered: answered, missed: missed)
+        history.append(Undo(states: moved.map { ($0, CardState($0)) }, queue: queue, fresh: fresh,
+                            day: (d.reviewed, d.correct, d.newVocab, d.newConj), done: done, right: right, answered: answered, missed: missed))
+        if history.count > Self.undoDepth { history.removeFirst() }
     }
 
     /// Put a new card at stage 1 and ask it again a few cards later.
@@ -286,8 +289,12 @@ final class StudySession {
         next()
     }
 
+    /// How many steps back Deshacer can go.
+    static let undoDepth = 20
+
+    /// Takes back the last grade, drop or introduction, and puts that card back on screen.
     func undo() {
-        guard let u = undoState else { return }
+        guard let u = history.popLast() else { return }
         for (c, state) in u.states { state.restore(c) }
         let d = Deck.today(ctx)
         (d.reviewed, d.correct, d.newVocab, d.newConj) = u.day
@@ -297,7 +304,6 @@ final class StudySession {
         right = u.right
         answered = u.answered
         missed = u.missed
-        undoState = nil
         try? ctx.save()
         next()
     }
