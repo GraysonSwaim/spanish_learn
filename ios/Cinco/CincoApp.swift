@@ -36,6 +36,7 @@ struct RootView: View {
     @State private var studying = false
     #if DEBUG
     @State private var demoReading: Reading?
+    @State private var demoLecturas = false
     #endif
 
     var body: some View {
@@ -67,6 +68,7 @@ struct RootView: View {
         }
         #if DEBUG
         .sheet(item: $demoReading) { r in NavigationStack { ReadingView(reading: r) }.preferredColorScheme(scheme) }
+        .sheet(isPresented: $demoLecturas) { NavigationStack { LecturasView() }.preferredColorScheme(scheme) }
         .task { startDemo() }
         #endif
     }
@@ -101,6 +103,11 @@ struct RootView: View {
                 }
                 Chunks.merge(made[1], made[2], name: "Salir", ctx: ctx)
             }
+        }
+        // `-openLecturas` opens Lecturas.
+        if args.contains("-openLecturas") {
+            demoLecturas = true
+            return
         }
         // `-openReading` opens a sample reading, some of it marked.
         if args.contains("-openReading") {

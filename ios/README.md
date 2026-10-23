@@ -65,7 +65,8 @@ leíste» lists every reading the word was marked in, with its sentence, and «M
 
 ## Lecturas
 
-Home › Lecturas: paste a Spanish text and it's split into one line per sentence. It's the main way words get in. Tap
+Home › Lecturas: paste a link to a Spanish article and it opens on the article's own page (`PageReader`), its text
+read meanwhile into one line per paragraph for the Texto view. It's the main way words get in. Tap
 the words you don't know, or hold and slide across a phrase, to mark them (each shows roughly what it means, from
 Apple's translation on the phone); words already in the deck are underlined with dots. **Tarjetas** turns the marked
 words into cards: Claude drafts the dictionary form, the meaning in that sentence and a note, and the sentence becomes
@@ -76,14 +77,14 @@ title and its own sentence (`Lectura.sentence`, cut from the paragraph) in `Card
 
 Readings not opened for 30 days are deleted.
 
-**From a link** (Nueva lectura › Desde un enlace, or paste a link with Pegar): `ArticleReader` loads the page in an
+**The article's text** (`ReadingView.readArticle`, when a reading from a link has no lines yet): `ArticleReader` loads the page in an
 offscreen `WKWebView`, so sites that turn away a plain download still answer, and runs `Resources/ArticleExtract.js`
 in it. That script returns two candidates: the page's own JSON-LD `articleBody`, and the paragraphs Mozilla's
 Readability (`Resources/Readability.js` 0.6.0, Firefox's Reader View) finds once figures, asides and screen-reader-only
 text are removed. `ArticleText.choose` takes the metadata when it's the whole article in paragraphs, else
 Readability's text, and drops common news labels (PUBLICIDAD, Fuente de la imagen…). No model is involved, so a page
-always gives the same text. It lands in the editor to trim before Empezar; a page that won't load or holds under 200
-characters asks for a copy and paste instead.
+always gives the same text. Paragraphs already marked on the page keep their place. A page whose text can't be read is
+still read on the page, its lines coming from the paragraphs marked there.
 
 Claude is reached through the Cloudflare Worker in `../proxy`, which holds the API key; the app asks once before
 sending anything. Without Claude (declined, offline, out for the day), Apple's on-device model takes a smaller job: it

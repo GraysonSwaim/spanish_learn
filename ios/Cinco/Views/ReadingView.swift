@@ -37,7 +37,7 @@ struct ReadingView: View {
         .background(Backdrop())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if pageURL != nil, !pageFailed {
+            if pageURL != nil, !pageFailed, !reading.lines.isEmpty {
                 ToolbarItem(placement: .principal) {
                     Picker("Vista", selection: $mode) {
                         Text("Original").tag(Mode.page)
@@ -69,7 +69,8 @@ struct ReadingView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
                 Text(reading.title).font(Typo.display(28)).foregroundStyle(Palette.ink)
-                Text(pageFailed ? "No se pudo abrir la página del artículo; aquí está su texto. Toca una palabra que no conoces, o mantén pulsado y desliza para una frase."
+                Text(pageFailed && reading.lines.isEmpty ? "No se pudo abrir la página del artículo, ni leer su texto."
+                     : pageFailed ? "No se pudo abrir la página del artículo; aquí está su texto. Toca una palabra que no conoces, o mantén pulsado y desliza para una frase."
                      : "Toca una palabra que no conoces, o mantén pulsado y desliza para una frase. Lo que marques se hace tarjeta.")
                     .font(Typo.text(15)).foregroundStyle(Palette.muted)
                     .padding(.bottom, 8)
@@ -157,6 +158,15 @@ struct ReadingView: View {
         words = reading.lines.map(Lectura.words)
         known = Lectura.knownWords(cards)
         reading.opened = .now
+        if reading.lines.isEmpty, let url = pageURL { Task { await readArticle(url) } }
+    }
+
+    /// The article's text, for the Texto view and in case the page won't open. Paragraphs already marked on the page
+    /// keep their place, so their marks still point at them.
+    private func readArticle(_ url: URL) async {
+        guard let a = try? await ArticleReader.read(url) else { return }
+        reading.lines += Lectura.lines(a.text).filter { !reading.lines.contains($0) }
+        if !a.title.isEmpty, reading.title == ArticleText.site(url) { reading.title = a.title }
     }
 
     /// A tap on an unmarked word marks it as a card of its own; on a marked one, shows the phrase it's in.

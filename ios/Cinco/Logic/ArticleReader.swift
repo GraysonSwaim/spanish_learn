@@ -2,7 +2,7 @@ import Foundation
 import NaturalLanguage
 import WebKit
 
-/// An article's main text, read from its page for a new reading (Lecturas › Nueva lectura).
+/// An article's main text, read from its page for a reading made from a link (`ReadingView.readArticle`).
 nonisolated struct Article: Equatable {
     var title: String
     var site: String
@@ -85,6 +85,12 @@ nonisolated enum ArticleText {
             let sentences = tok.tokens(for: l.startIndex..<l.endIndex).map { l[$0].trimmingCharacters(in: .whitespaces) }
             return stride(from: 0, to: sentences.count, by: 3).map { sentences[$0..<min($0 + 3, sentences.count)].joined(separator: " ") }
         }
+    }
+
+    /// A link's site, as a reading's name until the article's own title is read.
+    static func site(_ url: URL) -> String {
+        let host = url.host() ?? "Lectura"
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 
     static func isSpanish(_ text: String) -> Bool {

@@ -1,24 +1,21 @@
 import SwiftUI
 import SwiftData
 
-/// Saved readings, newest first, and a way to paste a new one.
+/// Saved readings, newest first, and a link to read a new one.
 struct LecturasView: View {
     @Environment(\.modelContext) private var ctx
     @Query(sort: \Reading.opened, order: .reverse) private var readings: [Reading]
-    @State private var adding = false
     @State private var open: Reading?
 
     var body: some View {
         List {
             Section {
-                Button { adding = true } label: {
-                    Label("Nueva lectura", systemImage: "doc.on.clipboard")
-                        .font(Typo.text(17, .heavy)).foregroundStyle(Palette.accentInk)
-                }
+                NewReadingCard { open = $0 }
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    .listRowBackground(Color.clear)
             } footer: {
-                Text("Pega un texto en español, toca las palabras que no conoces y tradúcelo línea a línea. Al terminar, las palabras marcadas pasan a tus tarjetas.")
+                Text("Se abre la página tal cual. Toca las palabras que no conoces, o selecciona una frase; al terminar, lo que marques pasa a tus tarjetas.")
             }
-            .listRowBackground(Palette.paper)
 
             Section {
                 ForEach(readings) { r in
@@ -42,9 +39,6 @@ struct LecturasView: View {
         .background(Backdrop())
         .navigationTitle("Lecturas")
         .navigationDestination(item: $open) { ReadingView(reading: $0) }
-        .sheet(isPresented: $adding) {
-            NavigationStack { NewReadingView { open = $0 } }
-        }
     }
 
     private func row(_ r: Reading) -> some View {
@@ -59,130 +53,109 @@ struct LecturasView: View {
     }
 }
 
-/// Paste a text and give it a name.
-struct NewReadingView: View {
+/// A link to an article, and nothing else: it opens straight on the article's own page. Its text is read meanwhile
+/// (`ReadingView.readArticle`).
+struct NewReadingCard: View {
     @Environment(\.modelContext) private var ctx
-    @Environment(\.dismiss) private var dismiss
     let onCreate: (Reading) -> Void
 
-    @State private var title = ""
-    @State private var text = ""
     @State private var link = ""
-    @State private var fetching = false
-    @State private var fetched: Result<Article, Error>?
+    @FocusState private var focused: Bool
+
+    private var url: URL? { ArticleText.link(in: link) }
 
     var body: some View {
-        Form {
-            Section {
-                HStack {
-                    TextField("https://…", text: $link)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 14) {
+                Image(systemName: "newspaper.fill")
+                    .font(.system(size: 22, weight: .bold)).foregroundStyle(.white)
+                    .frame(width: 50, height: 50)
+                    .background { Gloss(color: Palette.sea, shape: RoundedRectangle(cornerRadius: 15), lift: 0.6) }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Nueva lectura").font(Typo.display(22)).foregroundStyle(Palette.ink)
+                    Text("Lee un artículo en español donde se publicó.")
+                        .font(Typo.text(15)).foregroundStyle(Palette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            HStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "link").font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(focused ? Palette.accentInk : Palette.muted)
+                    TextField("Pega un enlace…", text: $link)
                         .accessibilityLabel("Enlace a un artículo")
+                        .font(Typo.text(17, .bold)).foregroundStyle(Palette.ink)
                         .keyboardType(.URL).textContentType(.URL)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
-                        .submitLabel(.go).onSubmit(fetch)
-                    if fetching {
-                        ProgressView()
-                    } else {
-                        Button("Traer", action: fetch)
-                            .font(Typo.text(16, .heavy)).tint(Palette.accentInk)
-                            .disabled(ArticleText.link(in: link) == nil)
-                    }
-                }
-            } header: {
-                Text("Desde un enlace")
-            } footer: {
-                Text(linkNote)
-            }
-            Section {
-                TextField("Título (opcional)", text: $title)
-            }
-            Section {
-                TextEditor(text: $text)
-                    .frame(minHeight: 240)
-                    .overlay(alignment: .topLeading) {
-                        if text.isEmpty {
-                            Text("Pega aquí el texto en español…").foregroundStyle(Palette.muted)
-                                .padding(.top, 8).padding(.leading, 5).allowsHitTesting(false)
+                        .submitLabel(.go).onSubmit(start)
+                        .focused($focused)
+                    if !link.isEmpty {
+                        Button { link = "" } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(Palette.muted)
                         }
-                    }
-                // The system's own paste button, so iOS doesn't ask permission each time.
-                PasteButton(payloadType: String.self) { strings in
-                    guard let s = strings.first else { return }
-                    // A pasted link brings its article.
-                    if let url = ArticleText.link(in: s) {
-                        link = url.absoluteString
-                        fetch()
-                    } else {
-                        text = s
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Borrar el enlace")
                     }
                 }
-                .tint(Palette.accentInk)
-            } footer: {
-                Text("Cada línea del texto, con todas sus frases, se traduce debajo de ella.")
+                .padding(.horizontal, 14).frame(height: 50)
+                .background(Palette.sunk, in: .rect(cornerRadius: 16))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16)
+                        .strokeBorder(focused ? Palette.accent.opacity(0.6) : Palette.line, lineWidth: focused ? 2 : 1)
+                }
+                .contentShape(.rect)
+                .onTapGesture { focused = true }
+
+                if link.isEmpty {
+                    // The system's own paste button, so iOS doesn't ask permission each time. A link opens as it
+                    // lands (`onChange`).
+                    PasteButton(payloadType: String.self) { strings in
+                        if let s = strings.first { link = s }
+                    }
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.large)
+                    .tint(Palette.accent)
+                    .labelStyle(.titleAndIcon)
+                } else {
+                    Button(action: start) {
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 19, weight: .heavy)).foregroundStyle(.white)
+                            .frame(width: 50, height: 50)
+                            .background { Gloss(color: Palette.accent, shape: Circle(), lift: url == nil ? 0.3 : 0.8) }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(url == nil)
+                    .opacity(url == nil ? 0.4 : 1)
+                    .accessibilityLabel("Abrir")
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+
+            if !link.isEmpty, url == nil, !focused {
+                Text("Eso no parece un enlace.").font(Typo.text(14, .bold)).foregroundStyle(Palette.again)
             }
         }
-        .font(Typo.text(16))
-        .navigationTitle("Nueva lectura")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Empezar", action: create).disabled(Lectura.lines(text).isEmpty && ArticleText.link(in: link) == nil)
-            }
+        .padding(18)
+        .panel()
+        .animation(.snappy(duration: 0.2), value: link.isEmpty)
+        .animation(.snappy(duration: 0.2), value: focused)
+        // A whole link arriving at once was pasted: open it.
+        .onChange(of: link) { old, new in
+            if old.isEmpty, new.count > 8, ArticleText.link(in: new) != nil { start() }
         }
     }
 
-    private var linkNote: String {
-        switch fetched {
-        case nil:
-            return "Lo lees en la página del artículo, y aquí abajo trae su texto principal, sin menús ni anuncios."
-        case .failure(let e):
-            if (e as? ArticleReader.Failure) == .empty {
-                return e.localizedDescription + " Puedes empezar igual y leerla en su página, o copiar el texto en Safari y pegarlo abajo."
-            }
-            return e.localizedDescription + " Ábrela en Safari, copia el texto y pégalo abajo."
-        case .success(let a):
-            let n = a.paragraphs
-            return "De \(a.site): \(n) \(n == 1 ? "párrafo" : "párrafos"). Borra abajo lo que no quieras leer."
-                + (a.isSpanish ? "" : " Ojo: no parece estar en español.")
-        }
-    }
-
-    private func fetch() {
-        guard !fetching, let url = ArticleText.link(in: link) else { return }
-        fetching = true
-        fetched = nil
-        Task {
-            defer { fetching = false }
-            do {
-                let a = try await ArticleReader.read(url)
-                text = a.text
-                title = a.title
-                fetched = .success(a)
-            } catch {
-                fetched = .failure(error)
-            }
-        }
-    }
-
-    /// A reading of the text, and of the link's page when there is one: a page whose text couldn't be read can still be
-    /// read as it is.
-    private func create() {
-        let lines = Lectura.lines(text)
-        let url = ArticleText.link(in: link)
-        guard !lines.isEmpty || url != nil else { return }
-        let name = title.trimmingCharacters(in: .whitespaces)
-        let r = Reading(title: name.isEmpty ? lines.first.map(Self.defaultTitle) ?? url?.host() ?? "Lectura" : name, lines: lines)
-        r.url = url?.absoluteString ?? ""
+    /// A reading of the link's page, opened on it. Its lines come as the article's text is read, and as paragraphs
+    /// are marked on the page.
+    private func start() {
+        guard let url else { return }
+        let r = Reading(title: ArticleText.site(url), lines: [])
+        r.url = url.absoluteString
         ctx.insert(r)
         try? ctx.save()
-        dismiss()
+        link = ""
+        focused = false
         onCreate(r)
-    }
-
-    /// The first few words of the text.
-    static func defaultTitle(_ first: String) -> String {
-        let words = first.split(separator: " ")
-        return words.prefix(5).joined(separator: " ") + (words.count > 5 ? "…" : "")
     }
 }
