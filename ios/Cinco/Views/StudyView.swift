@@ -26,18 +26,6 @@ struct StudyView: View {
         VStack(spacing: 0) {
             topBar
             if let c = session.current {
-                HStack(spacing: 8) {
-                    StageTiles(stage: c.stage)
-                    if c.ready && c.stage < 5 {
-                        Text("Lista")
-                            .font(Typo.text(13, .heavy)).foregroundStyle(Palette.good)
-                            .padding(.horizontal, 10).padding(.vertical, 3)
-                            .background(Palette.goodSoft, in: .capsule)
-                            .accessibilityLabel("Lista: sube cuando haya sitio en la etapa \(c.stage + 1)")
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 8)
                 card(c)
                 if !onCard { actions(c).padding(.top, 18) }
             }
@@ -83,21 +71,33 @@ struct StudyView: View {
         }
     }
 
+    /// One slim row, so the card gets the screen: back home, the card's stage, and Deshacer.
     private var topBar: some View {
-        // The count stays centred between "Inicio" and Deshacer.
-        ZStack {
-            // The daily session has no end to count down to: it counts what's been done.
-            let count = session.continuous ? "Hechas: \(session.answered)" : session.remaining == 1 ? "Queda 1" : "Quedan \(session.remaining)"
-            Text((session.label.isEmpty ? "" : session.label + " · ") + count)
-                .font(Typo.display(20)).foregroundStyle(Palette.ink)
-                .padding(.horizontal, 80)
-            Button("‹ Inicio", action: onExit)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            undoButton.frame(maxWidth: .infinity, alignment: .trailing)
+        HStack(spacing: 8) {
+            Button(action: onExit) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 18, weight: .bold))
+                    .frame(width: 44, height: 44)
+                    .contentShape(.rect)
+            }
+            .accessibilityLabel("Inicio")
+            Spacer(minLength: 0)
+            if let c = session.current {
+                StageTiles(stage: c.stage)
+                if c.ready && c.stage < 5 {
+                    Text("Lista")
+                        .font(Typo.text(13, .heavy)).foregroundStyle(Palette.good)
+                        .padding(.horizontal, 10).padding(.vertical, 3)
+                        .background(Palette.goodSoft, in: .capsule)
+                        .accessibilityLabel("Lista: sube cuando haya sitio en la etapa \(c.stage + 1)")
+                }
+            }
+            Spacer(minLength: 0)
+            undoButton
         }
-        .font(Typo.text(16, .heavy))
+        .lineLimit(1).minimumScaleFactor(0.75)
         .tint(Palette.accentInk)
-        .frame(minHeight: 44)
+        .padding(.bottom, 4)
     }
 
     /// Takes back the last card swiped or set aside, a step at a time, and shows it again.
@@ -314,13 +314,11 @@ struct StudyView: View {
             english(c.en).padding(.top, 10)
             example(c, blank: false, english: true)
             notesIfAny(c)
-            speakButton()
             moreAbout(c)
         case .esEn:
             kicker("¿Qué significa?")
             word(c.es)
             example(c, blank: false, english: revealed)
-            speakButton()
             if revealed {
                 answerBlock {
                     english(c.en)
@@ -336,7 +334,6 @@ struct StudyView: View {
                 answerBlock {
                     word(c.es)
                     notesIfAny(c)
-                    speakButton()
                     moreAbout(c)
                 }
             }
@@ -349,7 +346,6 @@ struct StudyView: View {
                     word(c.es)
                     VerdictTag(verdict: session.verdict ?? .skip, typed: session.typed)
                     notesIfAny(c)
-                    speakButton()
                     moreAbout(c)
                 }
             } else {
@@ -376,21 +372,15 @@ struct StudyView: View {
     // MARK: in a sentence
 
     /// The card's example, under the word: the card's words in bold, or blanked while the Spanish is what's asked
-    /// (then only the English shows if they can't be found in it). A tap reads it aloud once nothing is hidden.
+    /// (then only the English shows if they can't be found in it).
     @ViewBuilder
     private func example(_ c: Card, blank: Bool, english: Bool) -> some View {
         let canBlank = Examples.range(in: c) != nil
         VStack(spacing: 4) {
             if !c.ex.isEmpty && (!blank || canBlank) {
-                Button { session.speak(c.ex) } label: {
-                    // The custom italic has no bold, so the card's words stand out in colour, upright and heavy.
-                    Text(Examples.marked(c, blank: blank) { $0.font = Typo.text(19, .heavy); $0.foregroundColor = Palette.sea })
-                        .font(Typo.italic(19)).foregroundStyle(Palette.ink)
-                }
-                .buttonStyle(.plain)
-                // Not read aloud while it would give the answer away; not dimmed either, as .disabled would.
-                .allowsHitTesting(!blank)
-                .accessibilityHint(blank ? "" : "Toca para escucharla")
+                // The custom italic has no bold, so the card's words stand out in colour, upright and heavy.
+                Text(Examples.marked(c, blank: blank) { $0.font = Typo.text(19, .heavy); $0.foregroundColor = Palette.sea })
+                    .font(Typo.italic(19)).foregroundStyle(Palette.ink)
             }
             if english && !c.exEn.isEmpty {
                 Text(c.exEn).font(Typo.text(15)).foregroundStyle(Palette.muted)
@@ -422,10 +412,10 @@ struct StudyView: View {
                     ForEach(sources, id: \.self) { s in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(s.title).font(Typo.text(13, .heavy)).foregroundStyle(Palette.muted)
-                            spoken(s.sentence)
+                            sentence(s.sentence)
                         }
                     }
-                    ForEach(list, id: \.self) { es in spoken(es) }
+                    ForEach(list, id: \.self) { es in sentence(es) }
                 }
                 .multilineTextAlignment(.leading)
                 .morePanel()
@@ -433,19 +423,9 @@ struct StudyView: View {
         }
     }
 
-    private func spoken(_ es: String) -> some View {
-        Button { session.speak(es) } label: {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "speaker.wave.2.fill").font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Palette.sea).padding(.top, 4)
-                Text(es).font(Typo.italic(18)).foregroundStyle(Palette.ink)
-            }
+    private func sentence(_ es: String) -> some View {
+        Text(es).font(Typo.italic(18)).foregroundStyle(Palette.ink)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(es)
-        .accessibilityHint("Toca para escucharla")
     }
 
     private func moreChip(_ title: String, icon: String) -> some View {
@@ -546,7 +526,6 @@ struct StudyView: View {
     private func conjExtras(_ c: Card, _ v: Card?, note: String) -> some View {
         if !note.isEmpty { notes(note) }
         mnemonicIfAny(c)
-        Button { session.speakTable() } label: { SpeakIcon() }.padding(.top, 14)
         if let v { VerbTables(verb: v, skip: c.tense, showFirst: false).padding(.top, 14) }
     }
 
@@ -614,10 +593,6 @@ struct StudyView: View {
                 .padding(.top, 14)
                 .accessibilityLabel("Mnemotecnia: \(c.mnemonic)")
         }
-    }
-
-    private func speakButton() -> some View {
-        Button { session.speak() } label: { SpeakIcon() }.padding(.top, 14)
     }
 
     private func answerBlock<V: View>(@ViewBuilder _ content: () -> V) -> some View {

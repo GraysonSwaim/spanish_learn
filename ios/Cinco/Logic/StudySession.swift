@@ -158,16 +158,9 @@ final class StudySession {
         if prefs.autoSpeak && (mode == .intro || mode == .esEn) { speak() }
     }
 
-    func speak(_ text: String? = nil) {
+    func speak() {
         guard let c = current else { return }
-        Speaker.shared.speak(text ?? c.es, lang: prefs.voiceLang)
-    }
-
-    /// Reads a whole table aloud, one form after another.
-    func speakTable() {
-        guard let c = current else { return }
-        let f = forms(of: c)
-        speak(asked(f).map { TextMatch.spokenText(f[$0]) }.joined(separator: ", "))
+        Speaker.shared.speak(c.es, lang: prefs.voiceLang)
     }
 
     func showMeaning() {
