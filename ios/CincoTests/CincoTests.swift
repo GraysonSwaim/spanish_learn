@@ -484,6 +484,29 @@ struct LecturaTests {
         #expect(Lectura.find("perro", in: "Ayer quedamos en el café.") == nil)
     }
 
+    @Test func aStretchOfThePageIsTheWholeWordsItTouches() {
+        let text = "¿Te echo de menos? Sí, mañana."
+        // UTF-16 places: "echo" is 4..<8, "menos" 12..<17.
+        #expect(Lectura.words(in: text, from: 5, to: 6) == 1...1)
+        #expect(Lectura.words(in: text, from: 6, to: 14) == 1...3)
+        // A space, or punctuation, is no word.
+        #expect(Lectura.words(in: text, from: 3, to: 4) == nil)
+        #expect(Lectura.words(in: text, from: 17, to: 18) == nil)
+    }
+
+    @Test func thePagePaintsMarksAndWordsAlreadyInTheDeck() {
+        let text = "Hoy el frutero nos ha regalado unas naranjas porque mi abuela le echa de menos."
+        let lines = ["Otra cosa.", text]
+        // "frutero" (2) marked, "echa de menos" (12-14) a phrase.
+        let p = Lectura.paint(text, lines: lines, marks: ["1.2-2", "1.12-14"], known: ["abuela", "frutero"])
+        let ns = text as NSString
+        #expect(p.marked.map { ns.substring(with: NSRange(location: $0[0], length: $0[1] - $0[0])) } == ["frutero", "echa de menos"])
+        // A marked word isn't underlined as well.
+        #expect(p.known.map { ns.substring(with: NSRange(location: $0[0], length: $0[1] - $0[0])) } == ["abuela"])
+        // A paragraph that isn't a line has no marks; a short one, no underlines.
+        #expect(Lectura.paint("El frutero.", lines: lines, marks: ["1.2-2"], known: ["frutero"]) == ([], []))
+    }
+
     @Test func aGlossMakesTheCardAndTheSentenceIsItsExample() {
         let run = Run(line: 0, first: 1, last: 3, text: "echo de menos")
         let gloss = Tutor.Gloss(spanish: "echar de menos", english: "to miss (someone)", note: "echo: presente, yo")

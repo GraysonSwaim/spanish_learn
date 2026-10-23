@@ -170,6 +170,8 @@ struct ReadingText: UIViewRepresentable {
 struct WordLookup: View {
     let text: String
     let onRemove: () -> Void
+    /// Shown with a way to close it, when it isn't a popover.
+    var onClose: (() -> Void)? = nil
 
     @State private var config: TranslationSession.Configuration?
     @State private var english: String?
@@ -187,6 +189,14 @@ struct WordLookup: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Escuchar")
+                if let onClose {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(Palette.muted)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.leading, 8)
+                    .accessibilityLabel("Cerrar")
+                }
             }
             Group {
                 if let english {
@@ -205,8 +215,6 @@ struct WordLookup: View {
             }
         }
         .padding(16)
-        .frame(minWidth: 220, idealWidth: 260, maxWidth: 320, alignment: .leading)
-        .presentationCompactAdaptation(.popover)
         .translationTask(config) { session in
             do {
                 let r = try await session.translate(text)

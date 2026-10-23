@@ -114,6 +114,14 @@ struct RootView: View {
             demoReading = r
             return
         }
+        // `-openPage <url>` opens a reading of that article's own page.
+        if let i = args.firstIndex(of: "-openPage"), i + 1 < args.count {
+            let r = Reading(title: "Página", lines: [])
+            r.url = args[i + 1]
+            ctx.insert(r)
+            demoReading = r
+            return
+        }
         // `-studyCard <spanish>` studies that one card.
         if let i = args.firstIndex(of: "-studyCard"), i + 1 < args.count,
            let c = Deck.allCards(ctx).first(where: { !$0.isConj && TextMatch.noArticle($0.es) == TextMatch.noArticle(args[i + 1]) }) {

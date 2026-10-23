@@ -127,7 +127,7 @@ struct NewReadingView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Empezar", action: create).disabled(Lectura.lines(text).isEmpty)
+                Button("Empezar", action: create).disabled(Lectura.lines(text).isEmpty && ArticleText.link(in: link) == nil)
             }
         }
     }
@@ -135,9 +135,12 @@ struct NewReadingView: View {
     private var linkNote: String {
         switch fetched {
         case nil:
-            return "Trae solo el texto principal de un artículo, sin menús ni anuncios. Lo revisas abajo antes de empezar."
+            return "Lo lees en la página del artículo, y aquí abajo trae su texto principal, sin menús ni anuncios."
         case .failure(let e):
-            return (e.localizedDescription) + " Ábrela en Safari, copia el texto y pégalo abajo."
+            if (e as? ArticleReader.Failure) == .empty {
+                return e.localizedDescription + " Puedes empezar igual y leerla en su página, o copiar el texto en Safari y pegarlo abajo."
+            }
+            return e.localizedDescription + " Ábrela en Safari, copia el texto y pégalo abajo."
         case .success(let a):
             let n = a.paragraphs
             return "De \(a.site): \(n) \(n == 1 ? "párrafo" : "párrafos"). Borra abajo lo que no quieras leer."
@@ -162,11 +165,15 @@ struct NewReadingView: View {
         }
     }
 
+    /// A reading of the text, and of the link's page when there is one: a page whose text couldn't be read can still be
+    /// read as it is.
     private func create() {
         let lines = Lectura.lines(text)
-        guard !lines.isEmpty else { return }
+        let url = ArticleText.link(in: link)
+        guard !lines.isEmpty || url != nil else { return }
         let name = title.trimmingCharacters(in: .whitespaces)
-        let r = Reading(title: name.isEmpty ? Self.defaultTitle(lines[0]) : name, lines: lines)
+        let r = Reading(title: name.isEmpty ? lines.first.map(Self.defaultTitle) ?? url?.host() ?? "Lectura" : name, lines: lines)
+        r.url = url?.absoluteString ?? ""
         ctx.insert(r)
         try? ctx.save()
         dismiss()

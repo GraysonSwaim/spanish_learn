@@ -121,6 +121,37 @@ nonisolated enum Lectura {
         return nil
     }
 
+    // MARK: on the article's own page
+
+    /// The word places a stretch of a paragraph touches, `start..<end` counted in UTF-16 units as the page counts them.
+    /// A tap is a stretch of one; a selection that cuts a word takes all of it.
+    static func words(in text: String, from start: Int, to end: Int) -> ClosedRange<Int>? {
+        let rs = words(text).map { NSRange($0, in: text) }
+        let hit = rs.indices.filter { rs[$0].location < end && rs[$0].location + rs[$0].length > start }
+        guard let a = hit.first, let b = hit.last else { return nil }
+        return a...b
+    }
+
+    /// Shorter paragraphs than this are menus and captions: words already in the deck aren't underlined in them.
+    static let pageMinWords = 8
+
+    /// What the page paints on one of its paragraphs, as UTF-16 [start, end] pairs: the stretches marked in it (when it's
+    /// one of the reading's lines), and the words in it already in the deck.
+    static func paint(_ text: String, lines: [String], marks: [String], known: Set<String>) -> (marked: [[Int]], known: [[Int]]) {
+        let ws = words(text)
+        let rs = ws.map { NSRange($0, in: text) }
+        var marked: [[Int]] = [], covered = Set<Int>()
+        if let i = lines.firstIndex(of: text) {
+            for s in spans(marks, line: i, text: text) where s.upperBound < rs.count {
+                marked.append([rs[s.lowerBound].location, NSMaxRange(rs[s.upperBound])])
+                covered.formUnion(s)
+            }
+        }
+        guard ws.count >= pageMinWords else { return (marked, []) }
+        let inDeck = ws.indices.filter { !covered.contains($0) && known.contains(TextMatch.strip(String(text[ws[$0]]))) }
+        return (marked, inDeck.map { [rs[$0].location, NSMaxRange(rs[$0])] })
+    }
+
     /// The deck's one-word fronts, stripped and without articles, to show which words of a reading are already cards.
     static func knownWords(_ cards: [Card]) -> Set<String> {
         var out = Set<String>()

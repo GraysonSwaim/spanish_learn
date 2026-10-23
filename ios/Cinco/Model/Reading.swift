@@ -10,8 +10,10 @@ final class Reading {
     var title: String = ""
     var created: Date = Date.now
     var opened: Date = Date.now
-    /// The Spanish, one sentence per entry.
+    /// The Spanish, one sentence per entry. A paragraph marked on the article's own page is added when it isn't one.
     var lines: [String] = []
+    /// The article's page, for a reading made from a link: it can be read there, as it was published.
+    var url: String = ""
     /// No longer written: the learner's translations each way, from when Lecturas had them. Kept so the CloudKit
     /// schema only ever grows.
     var english: [String] = []
