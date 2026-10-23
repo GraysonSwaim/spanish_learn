@@ -14,8 +14,8 @@ extension EnvironmentValues {
     @Entry var study = StudyAction()
 }
 
-/// A theme as a card. One with smaller themes inside shows them as cards stacked behind it.
-struct ChunkTile: View {
+/// A theme as one line: its colour, its name and what's in it, and what's due on the right.
+struct ChunkRow: View {
     let chunk: Chunk
     let words: [Card]
     let inside: Int
@@ -25,37 +25,26 @@ struct ChunkTile: View {
         let live = words.filter { !$0.isDropped }
         let due = live.filter { $0.stage == 5 && Scheduler.isDue($0) }.count
         let color = Palette.chunk(chunk.color)
-        let shape = RoundedRectangle(cornerRadius: 20)
-        ZStack(alignment: .bottom) {
-            ForEach(Array((0..<min(inside, 2)).reversed()), id: \.self) { i in
-                shape.fill(color.fill).opacity(i == 0 ? 0.75 : 0.45)
-                    .overlay(shape.strokeBorder(Palette.ink.opacity(0.08), lineWidth: 1))
-                    .padding(.horizontal, CGFloat(i + 1) * 6)
-                    .offset(y: -CGFloat(i + 1) * 6)
+        HStack(spacing: 14) {
+            Capsule().fill(color.mark).frame(width: 5, height: 34)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(chunk.name).font(Typo.text(18, .heavy)).foregroundStyle(Palette.ink)
+                    .lineLimit(1).minimumScaleFactor(0.85)
+                Text(subtitle(live.count)).font(Typo.text(13, .bold)).foregroundStyle(Palette.muted)
             }
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Circle().fill(color.mark).frame(width: 12, height: 12)
-                    Spacer()
-                    if due > 0 {
-                        Text("\(due) por repasar").font(Typo.text(12, .heavy)).foregroundStyle(Palette.accentInk)
-                    }
-                }
-                Spacer(minLength: 8)
-                Text(chunk.name).font(Typo.display(18)).foregroundStyle(Palette.ink)
-                    .lineLimit(2).minimumScaleFactor(0.8).multilineTextAlignment(.leading)
-                Text(subtitle(live.count)).font(Typo.text(13, .bold)).foregroundStyle(Palette.muted).padding(.top, 3)
+            Spacer(minLength: 8)
+            if due > 0 {
+                Text("\(due) por repasar").font(Typo.text(12, .heavy)).foregroundStyle(Palette.accentInk)
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 120)
-            .background(color.fill, in: shape)
-            .overlay(shape.strokeBorder(targeted ? color.mark : Palette.ink.opacity(0.08), lineWidth: targeted ? 3 : 1))
-            .softShadow(radius: 8, y: 3)
+            // Only a theme holding smaller ones opens; the rest start studying.
+            if inside > 0 {
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(Palette.muted)
+            }
         }
-        .padding(.top, 12)
-        .scaleEffect(targeted ? 1.04 : 1)
-        .animation(.spring(duration: 0.2), value: targeted)
+        .padding(.vertical, 12).padding(.horizontal, 6)
+        .background(targeted ? color.fill : .clear, in: .rect(cornerRadius: 12))
+        .contentShape(.rect)
+        .animation(.snappy(duration: 0.2), value: targeted)
         .accessibilityElement(children: .combine)
     }
 
@@ -65,9 +54,9 @@ struct ChunkTile: View {
     }
 }
 
-/// Themes in two columns. Tap one to study it (or, when it holds smaller themes, to open it); drag one onto another
+/// Themes as a list. Tap one to study it (or, when it holds smaller themes, to open it); drag one onto another
 /// to put them together; press and hold for the rest.
-struct ChunkGrid: View {
+struct ChunkList: View {
     let shown: [Chunk]
     let chunks: [Chunk]
     let cards: [Card]
@@ -81,8 +70,11 @@ struct ChunkGrid: View {
     @State private var newName = ""
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
-            ForEach(shown) { c in tile(c) }
+        VStack(spacing: 0) {
+            ForEach(shown) { c in
+                row(c)
+                if c !== shown.last { Divider().overlay(Palette.line) }
+            }
         }
         .navigationDestination(item: $open) { ChunkView(chunk: $0) }
         .sheet(item: $merging) { m in
@@ -99,15 +91,18 @@ struct ChunkGrid: View {
         }
     }
 
-    private func tile(_ c: Chunk) -> some View {
+    private func row(_ c: Chunk) -> some View {
         let words = Chunks.words(in: c.id, cards: cards, chunks: chunks)
         let inside = Chunks.children(of: c.id, in: chunks).count
         let parent = chunks.first { $0.id == c.parentID }
         return Button { tap(c, words: words, inside: inside) } label: {
-            ChunkTile(chunk: c, words: words, inside: inside, targeted: target == c.id)
+            ChunkRow(chunk: c, words: words, inside: inside, targeted: target == c.id)
         }
         .buttonStyle(PressStyle())
-        .draggable(c.id) { ChunkTile(chunk: c, words: words, inside: inside).frame(width: 170) }
+        .draggable(c.id) {
+            ChunkRow(chunk: c, words: words, inside: inside).frame(width: 300).padding(.horizontal, 8)
+                .background(Palette.paper, in: .rect(cornerRadius: 14))
+        }
         .dropDestination(for: String.self) { ids, _ in
             guard let id = ids.first, let a = chunks.first(where: { $0.id == id }), a !== c else { return false }
             merging = MergePair(a: a, b: c)
@@ -218,7 +213,7 @@ struct ChunkView: View {
                 }
                 if !kids.isEmpty {
                     kicker("Dentro")
-                    ChunkGrid(shown: kids, chunks: chunks, cards: cards)
+                    ChunkList(shown: kids, chunks: chunks, cards: cards)
                 }
                 if !own.isEmpty {
                     kicker(kids.isEmpty ? "Palabras" : "Sueltas en «\(chunk.name)»")

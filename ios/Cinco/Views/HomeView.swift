@@ -37,10 +37,11 @@ struct HomeView: View {
                 if !loose.isEmpty {
                     NavigationLink { GroupView() } label: { looseRow(loose) }
                         .buttonStyle(PressStyle())
-                        .padding(.top, 22)
+                        .padding(.top, 18)
+                    if !top.isEmpty { Divider().overlay(Palette.line) }
                 }
                 if !top.isEmpty {
-                    ChunkGrid(shown: top, chunks: chunks, cards: cards).padding(.top, 14)
+                    ChunkList(shown: top, chunks: chunks, cards: cards).padding(.top, loose.isEmpty ? 18 : 0)
                     Text(top.count > 1 ? "Toca un tema para estudiarlo. Arrastra uno sobre otro para juntarlos." : "Toca el tema para estudiarlo.")
                         .font(Typo.text(13, .bold)).foregroundStyle(Palette.muted)
                         .multilineTextAlignment(.center).frame(maxWidth: .infinity)
@@ -76,18 +77,19 @@ struct HomeView: View {
         #endif
     }
 
+    /// The words not in a theme yet: a line like a theme's, but grey, as they've no colour of their own.
     private func looseRow(_ loose: [Card]) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
+            Capsule().fill(Palette.line).frame(width: 5, height: 34)
             VStack(alignment: .leading, spacing: 2) {
-                Text(loose.count == 1 ? "1 suelta" : "\(loose.count) sueltas").font(Typo.text(17, .heavy)).foregroundStyle(Palette.ink)
+                Text(loose.count == 1 ? "1 suelta" : "\(loose.count) sueltas").font(Typo.text(18, .heavy)).foregroundStyle(Palette.ink)
                 Text(loose.prefix(4).map(\.es).joined(separator: ", ") + (loose.count > 4 ? "…" : ""))
-                    .font(Typo.text(14, .bold)).foregroundStyle(Palette.muted).lineLimit(1)
+                    .font(Typo.text(13, .bold)).foregroundStyle(Palette.muted).lineLimit(1)
             }
-            Spacer()
+            Spacer(minLength: 8)
             Text("Agrupar ›").font(Typo.text(15, .heavy)).foregroundStyle(Palette.accentInk)
         }
-        .padding(.horizontal, 16).padding(.vertical, 14)
-        .background(RoundedRectangle(cornerRadius: 20).strokeBorder(Palette.muted.opacity(0.45), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])))
+        .padding(.vertical, 12).padding(.horizontal, 6)
         .contentShape(.rect)
     }
 
