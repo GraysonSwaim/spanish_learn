@@ -26,7 +26,8 @@ struct ChunkRow: View {
         let due = live.filter { $0.stage == 5 && Scheduler.isDue($0) }.count
         let color = Palette.chunk(chunk.color)
         HStack(spacing: 14) {
-            Capsule().fill(color.mark).frame(width: 5, height: 34)
+            // The theme's own mosaic, from its name.
+            Mosaic(word: chunk.name).frame(width: 44, height: 44).clipShape(.rect(cornerRadius: 4))
             VStack(alignment: .leading, spacing: 2) {
                 Text(chunk.name).font(Typo.text(18, .heavy)).foregroundStyle(Palette.ink)
                     .lineLimit(1).minimumScaleFactor(0.85)
@@ -42,7 +43,7 @@ struct ChunkRow: View {
             }
         }
         .padding(.vertical, 12).padding(.horizontal, 6)
-        .background(targeted ? color.fill : .clear, in: .rect(cornerRadius: 12))
+        .background(targeted ? color.fill : .clear, in: .rect(cornerRadius: 6))
         .contentShape(.rect)
         .animation(.snappy(duration: 0.2), value: targeted)
         .accessibilityElement(children: .combine)
@@ -101,7 +102,7 @@ struct ChunkList: View {
         .buttonStyle(PressStyle())
         .draggable(c.id) {
             ChunkRow(chunk: c, words: words, inside: inside).frame(width: 300).padding(.horizontal, 8)
-                .background(Palette.paper, in: .rect(cornerRadius: 14))
+                .background(Palette.paper, in: .rect(cornerRadius: 6))
         }
         .dropDestination(for: String.self) { ids, _ in
             guard let id = ids.first, let a = chunks.first(where: { $0.id == id }), a !== c else { return false }
@@ -152,7 +153,7 @@ private struct MergeSheet: View {
                 .submitLabel(.done)
                 .onSubmit(merge)
                 .padding(.horizontal, 14).padding(.vertical, 12)
-                .background(Palette.sunk, in: .rect(cornerRadius: 14))
+                .background(Palette.sunk, in: .rect(cornerRadius: 6))
                 .padding(.top, 16)
             Button("Juntar", action: merge)
                 .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white, radius: 18, size: 18))
@@ -281,7 +282,7 @@ struct ChunkView: View {
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
-            .background { Gloss(color: color.mark, shape: RoundedRectangle(cornerRadius: 20), lift: 0.6) }
+            .background { Gloss(color: color.mark, shape: RoundedRectangle(cornerRadius: 6), lift: 0.6) }
         }
         .buttonStyle(PressStyle())
     }

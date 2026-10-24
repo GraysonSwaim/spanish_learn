@@ -121,7 +121,7 @@ struct Bunting: View {
         paper
             .overlay {
                 Text(letter)
-                    .font(.custom("Nunito-ExtraBold", size: flag * 0.95, relativeTo: .largeTitle))
+                    .font(.custom("BricolageGrotesque-Bold", size: flag * 0.95, relativeTo: .largeTitle))
                     .offset(y: -flag * 0.12)
                     .blendMode(.destinationOut)
             }

@@ -120,7 +120,7 @@ struct ReadingView: View {
             WordLookup(text: text, onRemove: { unmark(l) }, onClose: { lookup = nil })
                 .id(text)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Palette.paper, in: .rect(cornerRadius: 18))
+                .background(Palette.paper, in: .rect(cornerRadius: 6))
                 .shadow(color: Palette.shadow, radius: 10, y: 3)
                 .padding(.horizontal, 16)
         }

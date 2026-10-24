@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// Home: how many words there are, the loose ones waiting for a theme, and the themes. Tapping a theme studies it;
+/// Home: the day's mosaic and how many words there are, the loose ones waiting for a theme, and the themes. Tapping a theme studies it;
 /// there's no one big button. Verbs' tables, when there are any, are studied by tense below.
 struct HomeView: View {
     @Environment(\.modelContext) private var ctx
@@ -22,11 +22,18 @@ struct HomeView: View {
         let top = Chunks.top(chunks)
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .center) {
-                    Wordmark(flag: 30)
-                    Spacer()
-                    Text(words.count == 1 ? "1 palabra" : "\(words.count) palabras")
-                        .font(Typo.text(15, .heavy)).foregroundStyle(Palette.muted)
+                // The day's mosaic, with the name on a plaster plaque.
+                ZStack(alignment: .bottomLeading) {
+                    Mosaic(word: Mosaic.today).frame(height: 168).clipShape(.rect(cornerRadius: 6))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Choca Cinco").font(Typo.display(28)).foregroundStyle(Palette.ink)
+                            .accessibilityAddTraits(.isHeader)
+                        Text(words.count == 1 ? "1 palabra" : "\(words.count) palabras")
+                            .font(Typo.text(13)).foregroundStyle(Palette.muted)
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 12)
+                    .background(Palette.bg, in: .rect(cornerRadius: 4))
+                    .padding(14)
                 }
                 .padding(.top, 8)
 
@@ -77,10 +84,11 @@ struct HomeView: View {
         #endif
     }
 
-    /// The words not in a theme yet: a line like a theme's, but grey, as they've no colour of their own.
+    /// The words not in a theme yet: a line like a theme's, with an empty frame where its mosaic would be.
     private func looseRow(_ loose: [Card]) -> some View {
         HStack(spacing: 14) {
-            Capsule().fill(Palette.line).frame(width: 5, height: 34)
+            RoundedRectangle(cornerRadius: 4).strokeBorder(Palette.edge, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                .frame(width: 44, height: 44)
             VStack(alignment: .leading, spacing: 2) {
                 Text(loose.count == 1 ? "1 suelta" : "\(loose.count) sueltas").font(Typo.text(18, .heavy)).foregroundStyle(Palette.ink)
                 Text(loose.prefix(4).map(\.es).joined(separator: ", ") + (loose.count > 4 ? "…" : ""))
@@ -123,8 +131,8 @@ struct HomeView: View {
                 Text("\(count)").font(Typo.text(14, .bold)).foregroundStyle(Palette.muted)
             }
             .padding(.horizontal, 14).frame(minHeight: 44)
-            .background(fill, in: .rect(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Palette.edge, lineWidth: 1))
+            .background(fill, in: .rect(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Palette.edge, lineWidth: 1))
         }
         .buttonStyle(PressStyle())
         .accessibilityLabel("\(name), \(count) \(count == 1 ? "tabla" : "tablas")")
@@ -146,7 +154,7 @@ struct HomeView: View {
             Button { editing = EditTarget(card: nil) } label: {
                 Image(systemName: "plus").font(.system(size: 22, weight: .heavy)).foregroundStyle(.white)
                     .frame(width: 54, height: 54)
-                    .background { Gloss(color: Palette.accent, shape: RoundedRectangle(cornerRadius: 18), lift: 0.6) }
+                    .background { Gloss(color: Palette.accent, shape: RoundedRectangle(cornerRadius: 6), lift: 0.6) }
             }
             .frame(maxWidth: .infinity)
             .accessibilityLabel("Añadir una palabra")

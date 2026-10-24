@@ -80,7 +80,7 @@ struct ReadingText: UIViewRepresentable {
         func render() {
             guard let tv = view else { return }
             let p = parent
-            let font = UIFontMetrics(forTextStyle: .body).scaledFont(for: UIFont(name: "Nunito-Medium", size: ReadingText.size)
+            let font = UIFontMetrics(forTextStyle: .body).scaledFont(for: UIFont(name: "BricolageGrotesque-Medium", size: ReadingText.size)
                                                                      ?? .systemFont(ofSize: ReadingText.size))
             let para = NSMutableParagraphStyle()
             para.lineSpacing = 6

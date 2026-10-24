@@ -2,15 +2,15 @@ import SwiftUI
 
 /// The third-party work Cinco ships with, and the license text it asks to be shown with.
 struct AcknowledgementsView: View {
-    private static let nunito = URL(string: "https://fonts.google.com/specimen/Nunito")!
+    private static let bricolage = URL(string: "https://github.com/ateliertriay/bricolage")!
     private static let readability = URL(string: "https://github.com/mozilla/readability")!
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Credit(name: "Nunito", blurb: "La tipografía, de Vernon Adams, Cyreal y Jacques Le Bailly.",
-                       license: "SIL Open Font License 1.1", link: Self.nunito)
-                NavigationLink("Licencia de Nunito (SIL OFL 1.1)") { LicenseTextView(title: "Nunito", resource: "OFL") }
+                Credit(name: "Bricolage Grotesque", blurb: "La tipografía, de Mathieu Triay.",
+                       license: "SIL Open Font License 1.1", link: Self.bricolage)
+                NavigationLink("Licencia de Bricolage Grotesque (SIL OFL 1.1)") { LicenseTextView(title: "Bricolage Grotesque", resource: "OFL") }
                     .font(Typo.text(16, .heavy)).tint(Palette.accentInk)
                 Credit(name: "Readability.js", blurb: "De Mozilla, el modo lectura de Firefox: saca el texto de un artículo para una lectura nueva.",
                        license: "Apache License 2.0", link: Self.readability)
@@ -48,8 +48,8 @@ private struct Credit: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.sunk, in: .rect(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Palette.line, lineWidth: 1))
+        .background(Palette.sunk, in: .rect(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Palette.line, lineWidth: 1))
     }
 }
 

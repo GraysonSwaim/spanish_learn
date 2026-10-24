@@ -680,3 +680,28 @@ struct ChunkTests {
         #expect(Lectura.sentence(of: run, in: line) == "Mi abuela conoce a todos los vendedores.")
     }
 }
+
+/// Expected values were taken from the design canvas's Mosaico.dc.html, run in Node: a word must draw the same
+/// mosaic in the app as on the canvas, and the same on every device.
+struct MosaicTests {
+    @Test(arguments: [
+        ("la maleta", 19, (0.0, 0.0, 128.70, 99.08), (43.0, 73.0, 84.5), 0.66),
+        ("madrugar", 19, (0.0, 0.0, 132.60, 110.73), (264.0, 46.0, 53.3), 0.38),
+        ("Viajes", 8, (0.0, 0.0, 120.90, 159.80), (151.0, 28.0, 83.8), 0.39),
+    ])
+    func matchesTheCanvas(word: String, count: Int, first: (Double, Double, Double, Double),
+                          hsl: (Double, Double, Double), shadowX: Double) {
+        let plan = MosaicPlan(word: word, aspect: 470.0 / 390)
+        #expect(plan.pieces.count == count)
+        let p = plan.pieces[0]
+        let r = (p.rect.minX * 390, p.rect.minY * 390, p.rect.width * 390, p.rect.height * 390)
+        #expect(abs(r.0 - first.0) < 0.01 && abs(r.1 - first.1) < 0.01 && abs(r.2 - first.2) < 0.01 && abs(r.3 - first.3) < 0.01)
+        #expect(p.hsl.h == hsl.0 && p.hsl.s == hsl.1 && abs(p.hsl.l - hsl.2) < 0.001)
+        #expect(abs(plan.shadow[2].x - shadowX) < 0.001)
+    }
+
+    @Test func caseAndSpacesDontChangeIt() {
+        let a = MosaicPlan(word: "La Maleta ", aspect: 1.2), b = MosaicPlan(word: "la maleta", aspect: 1.2)
+        #expect(a.pieces.map(\.rect) == b.pieces.map(\.rect))
+    }
+}

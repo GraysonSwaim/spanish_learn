@@ -70,7 +70,7 @@ struct NewReadingCard: View {
                 Image(systemName: "newspaper.fill")
                     .font(.system(size: 22, weight: .bold)).foregroundStyle(.white)
                     .frame(width: 50, height: 50)
-                    .background { Gloss(color: Palette.sea, shape: RoundedRectangle(cornerRadius: 15), lift: 0.6) }
+                    .background { Gloss(color: Palette.sea, shape: RoundedRectangle(cornerRadius: 6), lift: 0.6) }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Nueva lectura").font(Typo.display(22)).foregroundStyle(Palette.ink)
                     Text("Lee un artículo en español donde se publicó.")
@@ -99,9 +99,9 @@ struct NewReadingCard: View {
                     }
                 }
                 .padding(.horizontal, 14).frame(height: 50)
-                .background(Palette.sunk, in: .rect(cornerRadius: 16))
+                .background(Palette.sunk, in: .rect(cornerRadius: 6))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: 6)
                         .strokeBorder(focused ? Palette.accent.opacity(0.6) : Palette.line, lineWidth: focused ? 2 : 1)
                 }
                 .contentShape(.rect)

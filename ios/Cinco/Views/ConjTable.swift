@@ -52,7 +52,7 @@ struct ConjTable<Cell: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 11)
             .padding(.vertical, 7)
-            .background(tint(p)?.color ?? Palette.sunk, in: .rect(cornerRadius: 12))
+            .background(tint(p)?.color ?? Palette.sunk, in: .rect(cornerRadius: 6))
             .opacity(p == Person.vosotros && !vosotros ? 0.45 : 1)
         } else {
             Color.clear.gridCellUnsizedAxes(.vertical)

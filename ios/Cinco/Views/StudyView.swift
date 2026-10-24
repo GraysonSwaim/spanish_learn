@@ -121,21 +121,20 @@ struct StudyView: View {
 
     // MARK: the card
 
+    /// The word's mosaic along the top, then the card's content. A verb's tenses share the verb's mosaic.
     private func card(_ c: Card) -> some View {
         GeometryReader { g in
-            ScrollView {
-                cardContent(c).frame(maxWidth: .infinity, minHeight: g.size.height)
+            let band = min(200, g.size.height * 0.28)
+            VStack(spacing: 0) {
+                Mosaic(word: c.isConj ? session.verb(of: c)?.es ?? c.es : c.es).frame(height: band)
+                ScrollView {
+                    cardContent(c).frame(maxWidth: .infinity, minHeight: g.size.height - band)
+                }
+                .scrollBounceBehavior(.basedOnSize)
             }
-            .scrollBounceBehavior(.basedOnSize)
         }
-        // A faint daisy in the corner, in the card's stage colour, like the cutouts in the icon.
-        .background(alignment: .topTrailing) {
-            Daisy().fill(Palette.stage(c.stage).opacity(0.1))
-                .frame(width: 96, height: 96)
-                .offset(x: 26, y: -26)
-        }
-        .clipShape(.rect(cornerRadius: 28))
-        .panel(radius: 28, shadow: 6)
+        .clipShape(.rect(cornerRadius: 6))
+        .panel(radius: 6)
         .overlay(alignment: .topLeading) { dropButton(c).opacity(dragX == 0 ? 1 : 0) }
         .overlay(alignment: .bottom) {
             if session.canGrade { gradeTabs.transition(.opacity.combined(with: .offset(y: 12))) }
@@ -165,8 +164,9 @@ struct StudyView: View {
         } label: {
             Image(systemName: "eye.slash")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Palette.muted)
+                .foregroundStyle(Palette.ink)
                 .frame(width: 44, height: 44)
+                .background(Circle().fill(Palette.paper).frame(width: 36, height: 36))
                 .contentShape(.rect)
         }
         .padding(6)
@@ -213,7 +213,7 @@ struct StudyView: View {
         let hit = stage == 5 ? "sigue dominada" : session.passMovesUp ? "sube una etapa" : "lista, sube con sitio"
         return HStack(spacing: 10) {
             Button { grade(false) } label: { BigLabel("Otra vez", miss).padding(.leading, 12) }
-                .buttonStyle(GradeTabStyle(color: Palette.again, text: .white, right: false))
+                .buttonStyle(GradeTabStyle(color: Palette.paper, text: Palette.ink, right: false))
                 .scaleEffect(dragX < 0 ? 1 + 0.06 * toward : 1)
                 .opacity(dragX > 0 ? 1 - 0.6 * toward : 1)
                 .accessibilityLabel("Otra vez, \(miss)")
@@ -293,8 +293,8 @@ struct StudyView: View {
         Text(text)
             .font(Typo.display(20)).foregroundStyle(color)
             .padding(.horizontal, 12).padding(.vertical, 5)
-            .background(Palette.paper, in: .rect(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(color, lineWidth: 2.5))
+            .background(Palette.paper, in: .rect(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(color, lineWidth: 2.5))
             .softShadow(radius: 6, y: 3)
             .rotationEffect(.degrees(angle))
             .padding(18)
@@ -358,8 +358,8 @@ struct StudyView: View {
                         .submitLabel(.done)
                         .onSubmit { session.check(typed) }
                         .padding(.horizontal, 16).padding(.vertical, 14)
-                        .background(Palette.sunk, in: .rect(cornerRadius: 18))
-                        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(focus == .answer ? Palette.sea.opacity(0.6) : Palette.edge, lineWidth: 1.5))
+                        .background(Palette.sunk, in: .rect(cornerRadius: 6))
+                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(focus == .answer ? Palette.sea.opacity(0.6) : Palette.edge, lineWidth: 1.5))
                     Button("Comprobar") { session.check(typed) }
                         .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, radius: 18, size: 18))
                         .fixedSize()
@@ -380,7 +380,7 @@ struct StudyView: View {
             if !c.ex.isEmpty && (!blank || canBlank) {
                 // The custom italic has no bold, so the card's words stand out in colour, upright and heavy.
                 Text(Examples.marked(c, blank: blank) { $0.font = Typo.text(19, .heavy); $0.foregroundColor = Palette.sea })
-                    .font(Typo.italic(19)).foregroundStyle(Palette.ink)
+                    .font(Typo.sentence(19)).foregroundStyle(Palette.ink)
             }
             if english && !c.exEn.isEmpty {
                 Text(c.exEn).font(Typo.text(15)).foregroundStyle(Palette.muted)
@@ -424,7 +424,7 @@ struct StudyView: View {
     }
 
     private func sentence(_ es: String) -> some View {
-        Text(es).font(Typo.italic(18)).foregroundStyle(Palette.ink)
+        Text(es).font(Typo.sentence(18)).foregroundStyle(Palette.ink)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -589,7 +589,7 @@ struct StudyView: View {
             Label(c.mnemonic, systemImage: "lightbulb.fill")
                 .font(Typo.text(15, .bold)).foregroundStyle(Palette.ink)
                 .padding(.horizontal, 14).padding(.vertical, 9)
-                .background(Palette.stageSoft(2), in: .rect(cornerRadius: 14))
+                .background(Palette.stageSoft(2), in: .rect(cornerRadius: 6))
                 .padding(.top, 14)
                 .accessibilityLabel("Mnemotecnia: \(c.mnemonic)")
         }
@@ -605,7 +605,7 @@ struct StudyView: View {
 }
 
 /// Two lines on a big button: what it does, and a small note.
-/// A grade button shaped like an arrow tab, pointing the way the card swipes for that grade.
+/// A grade button shaped like an arrow tab, pointing the way the card swipes for that grade. Paper ones get a hairline.
 private struct GradeTabStyle: ButtonStyle {
     let color: Color
     let text: Color
@@ -616,17 +616,17 @@ private struct GradeTabStyle: ButtonStyle {
         configuration.label
             .font(Typo.display(19))
             .foregroundStyle(text)
-            .shadow(color: .black.opacity(0.15), radius: 1, y: 1)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 11)
             .background { Gloss(color: color, shape: ArrowTab(right: right), lift: down ? 0.2 : 0.7) }
+            .overlay { if color == Palette.paper { ArrowTab(right: right).stroke(Palette.edge, lineWidth: 1.5) } }
             .offset(y: down ? 1.5 : 0)
             .animation(.spring(duration: 0.18), value: down)
             .contentShape(ArrowTab(right: right))
     }
 }
 
-/// A rounded tab whose outer end comes to a soft point.
+/// A tab with small corners whose outer end comes to a point.
 nonisolated struct ArrowTab: Shape {
     var right = true
 
@@ -635,7 +635,7 @@ nonisolated struct ArrowTab: Shape {
         var pts = [CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX - d, y: r.minY), CGPoint(x: r.maxX, y: r.midY),
                    CGPoint(x: r.maxX - d, y: r.maxY), CGPoint(x: r.minX, y: r.maxY)]
         if !right { pts = pts.map { CGPoint(x: r.minX + r.maxX - $0.x, y: $0.y) } }
-        let radii: [CGFloat] = [16, 12, 7, 12, 16]
+        let radii: [CGFloat] = [6, 6, 4, 6, 6]
         var p = Path()
         let n = pts.count
         p.move(to: CGPoint(x: (pts[n - 1].x + pts[0].x) / 2, y: (pts[n - 1].y + pts[0].y) / 2))
@@ -714,8 +714,8 @@ private extension View {
     func morePanel() -> some View {
         self.frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .background(Palette.sunk, in: .rect(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Palette.line, lineWidth: 1))
+            .background(Palette.sunk, in: .rect(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Palette.line, lineWidth: 1))
             .padding(.top, 12)
             .transition(.opacity.combined(with: .move(edge: .top)))
     }

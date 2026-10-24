@@ -18,10 +18,10 @@
 	<false/>
 	<key>UIAppFonts</key>
 	<array>
-		<string>Nunito-Medium.ttf</string>
-		<string>Nunito-Bold.ttf</string>
-		<string>Nunito-ExtraBold.ttf</string>
-		<string>Nunito-MediumItalic.ttf</string>
+		<string>BricolageGrotesque-Medium.ttf</string>
+		<string>BricolageGrotesque-SemiBold.ttf</string>
+		<string>BricolageGrotesque-Bold.ttf</string>
+		<string>BricolageGrotesque96pt-Bold.ttf</string>
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>

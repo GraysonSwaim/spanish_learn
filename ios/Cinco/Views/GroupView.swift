@@ -47,7 +47,7 @@ struct GroupView: View {
 
     private func word(_ c: Card) -> some View {
         let on = picked.contains(c.id)
-        let shape = RoundedRectangle(cornerRadius: 18)
+        let shape = RoundedRectangle(cornerRadius: 6)
         return Button {
             if on { picked.remove(c.id) } else { picked.insert(c.id) }
         } label: {
@@ -84,11 +84,11 @@ struct GroupView: View {
                     .submitLabel(.done)
                     .onSubmit { create(chosen) }
                     .padding(.horizontal, 14).padding(.vertical, 12)
-                    .background(Palette.sunk, in: .rect(cornerRadius: 14))
+                    .background(Palette.sunk, in: .rect(cornerRadius: 6))
                 Button("Crear") { create(chosen) }
                     .font(Typo.text(16, .heavy)).foregroundStyle(.white)
                     .padding(.horizontal, 18).frame(minHeight: 48)
-                    .background { Gloss(color: Palette.accent, shape: RoundedRectangle(cornerRadius: 14), lift: 0.5) }
+                    .background { Gloss(color: Palette.accent, shape: RoundedRectangle(cornerRadius: 6), lift: 0.5) }
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                     .opacity(name.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
             }
@@ -101,7 +101,7 @@ struct GroupView: View {
                             Button(Chunks.path(k, in: chunks)) { file(chosen, in: k) }
                                 .font(Typo.text(15, .heavy)).foregroundStyle(Palette.ink)
                                 .padding(.horizontal, 12).frame(minHeight: 40)
-                                .background(Palette.chunk(k.color).fill, in: .rect(cornerRadius: 13))
+                                .background(Palette.chunk(k.color).fill, in: .rect(cornerRadius: 6))
                         }
                     }
                 }

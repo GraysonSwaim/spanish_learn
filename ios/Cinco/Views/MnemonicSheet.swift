@@ -49,8 +49,8 @@ struct MnemonicSheet: View {
                         .font(Typo.text(16, .bold))
                         .focused($focused)
                         .padding(.horizontal, 14).padding(.vertical, 11)
-                        .background(Palette.sunk, in: .rect(cornerRadius: 14))
-                        .overlay(RoundedRectangle(cornerRadius: 14)
+                        .background(Palette.sunk, in: .rect(cornerRadius: 6))
+                        .overlay(RoundedRectangle(cornerRadius: 6)
                             .strokeBorder(focused ? Palette.sea.opacity(0.6) : Palette.edge, lineWidth: 1.5))
                 }
                 HStack(spacing: 10) {

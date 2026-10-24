@@ -107,7 +107,7 @@ struct ReadingCardsView: View {
             }
         } footer: {
             if draft.include, draft.existing == nil {
-                Text(reading.lines[safe: draft.run.line] ?? "").font(Typo.italic(13))
+                Text(reading.lines[safe: draft.run.line] ?? "").font(Typo.sentence(13))
             }
         }
     }

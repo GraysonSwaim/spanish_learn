@@ -145,7 +145,7 @@ struct CardDetailView: View {
                 StageTiles(stage: card.stage)
                 Text(card.es).font(Typo.display(40)).foregroundStyle(Palette.ink).multilineTextAlignment(.center)
                 Text(card.en).font(Typo.text(26, .heavy)).foregroundStyle(Palette.en).multilineTextAlignment(.center)
-                if !card.ex.isEmpty { Text(card.ex).font(Typo.italic(18)).foregroundStyle(Palette.muted) }
+                if !card.ex.isEmpty { Text(card.ex).font(Typo.sentence(18)).foregroundStyle(Palette.muted) }
                 if !card.notes.isEmpty { Text(card.notes).font(Typo.text(14)).foregroundStyle(Palette.muted) }
                 Button { Speaker.shared.speak(card.es, lang: Prefs.current.voiceLang) } label: { SpeakIcon() }
                 if card.isConj, let verb, let t = Tense.named(card.tense) {
