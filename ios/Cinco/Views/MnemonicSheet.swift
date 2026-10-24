@@ -2,7 +2,8 @@ import SwiftUI
 import SwiftData
 
 /// Comes up the moment a card is missed: a box for a memory trick, filled in if the card already has one.
-/// Turned off with the switch at its foot, or in Ajustes › Pedir mnemotecnias.
+/// Turned off with one tap on No preguntar más, in its top corner, or in Ajustes › Pedir mnemotecnias.
+/// The keyboard waits for a tap on the box, so nothing covers the sheet's buttons.
 struct MnemonicSheet: View {
     @Environment(\.modelContext) private var ctx
     @Environment(\.dismiss) private var dismiss
@@ -17,9 +18,20 @@ struct MnemonicSheet: View {
         let tense = card.isConj ? Tense.named(card.tense) : nil
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Spacer()
+                    Button("No preguntar más") {
+                        askMnemonics = false
+                        dismiss()
+                    }
+                    .font(Typo.text(15, .heavy)).foregroundStyle(Palette.accentInk)
+                    .padding(.horizontal, 14).frame(minHeight: 36)
+                    .background(Palette.sunk, in: .capsule)
+                    .accessibilityHint("Deja de salir al fallar. Vuelve a activarlo en Ajustes.")
+                }
+                .padding(.top, 18)
                 Text(card.mnemonic.isEmpty ? "¿Quieres añadir una mnemotecnia?" : "¿Mejoras tu mnemotecnia?")
                     .font(Typo.display(24)).foregroundStyle(Palette.ink)
-                    .padding(.top, 26)
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(card.es).font(Typo.display(card.es.count > 16 ? 20 : 24)).foregroundStyle(Palette.ink)
                     if let tense {
@@ -48,24 +60,10 @@ struct MnemonicSheet: View {
                         .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white, size: 17))
                 }
                 .padding(.top, 8)
-                Toggle(isOn: $askMnemonics) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Preguntar cada vez que fallo").font(Typo.text(15, .bold)).foregroundStyle(Palette.ink)
-                        Text(askMnemonics ? "También en Ajustes" : "Ya no saldrá. Actívalo aquí o en Ajustes.")
-                            .font(Typo.text(13)).foregroundStyle(Palette.muted)
-                    }
-                }
-                .tint(Palette.good)
-                .padding(.horizontal, 16).padding(.vertical, 12)
-                .background(Palette.sunk, in: .rect(cornerRadius: 16))
-                .padding(.top, 10)
             }
             .padding(.horizontal, 16).padding(.bottom, 16)
         }
-        .onAppear {
-            text = card.mnemonic
-            focused = true
-        }
+        .onAppear { text = card.mnemonic }
     }
 
     private func save() {
