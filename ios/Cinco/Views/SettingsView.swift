@@ -14,12 +14,45 @@ struct SettingsView: View {
     @AppStorage(PrefKey.askMnemonics) private var askMnemonics = true
     @AppStorage(PrefKey.examples) private var examples = Tutor.consented
     @AppStorage(PrefKey.newPerScan) private var newPerScan = Scheduler.defaultNewPerScan
+    @AppStorage(PrefKey.reminder) private var reminder = false
+    @AppStorage(PrefKey.reminderMinutes) private var reminderMinutes = Reminder.defaultMinutes
 
     @State private var iCloud = "Comprobando…"
     @State private var confirmErase = false
+    @State private var reminderRefused = false
+
+    /// The reminder's time, as the picker wants it.
+    private var reminderTime: Binding<Date> {
+        Binding {
+            Calendar.current.startOfDay(for: .now).addingTimeInterval(Double(reminderMinutes) * 60)
+        } set: {
+            let c = Calendar.current.dateComponents([.hour, .minute], from: $0)
+            reminderMinutes = (c.hour ?? 0) * 60 + (c.minute ?? 0)
+        }
+    }
 
     var body: some View {
         Form {
+            Section {
+                Toggle("Recordatorio diario", isOn: $reminder)
+                if reminder {
+                    DatePicker("Hora", selection: reminderTime, displayedComponents: .hourAndMinute)
+                }
+            } footer: {
+                Text(reminderRefused ? "iOS no tiene permiso para avisarte. Actívalo en Ajustes › Notificaciones › Choca Cinco."
+                     : "Te avisa de cuántas tarjetas tienes para repasar. Los días que no tengas ninguna, no suena.")
+            }
+            .onChange(of: reminder) { _, on in
+                Task {
+                    if on, !(await Reminder.ask()) {
+                        reminder = false
+                        reminderRefused = true
+                    }
+                    if on, reminder { reminderRefused = false }
+                    await Reminder.refresh(ctx)
+                }
+            }
+            .onChange(of: reminderMinutes) { Task { await Reminder.refresh(ctx) } }
             Section("Estudio") {
                 Stepper(value: $stageCap, in: 1...20) {
                     VStack(alignment: .leading) {
@@ -134,11 +167,11 @@ struct HowView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Tienes una sola biblioteca de palabras, y cada palabra está una sola vez, por muchas páginas en las que salga. Se llena sola con lo que lees.")
                 Text("Toca + y escanea una página. Claude saca todas sus palabras y las ordena en tres niveles: básicas, intermedias y avanzadas. Las nuevas entran en tu biblioteca, las básicas primero, hasta el límite que digas en Ajustes.")
-                Text("Luego estudias. Cada palabra nueva te la pregunta una vez: si dices Ya la sé, queda aprendida y no hace falta entrenarla; si dices No la sé, empieza a subir por las etapas. Primero salen las de la página que vas a leer.")
+                Text("Luego estudias. Cada palabra nueva te la pregunta una vez: si dices Ya la sé, no hace falta entrenarla y te la pregunta a la semana; si dices No la sé, empieza a subir por las etapas. Primero salen las de la página que vas a leer.")
                 Text("Después lees. Toca lo que no entiendas y queda guardado. En amarillo, ya estaba en tu biblioteca, y vuelve a repasarse. En verde, es nueva, y acaba de entrar. Las que ya has estudiado salen en amarillo pálido, aunque estén conjugadas; se apaga con el rotulador de arriba.")
                 Text("Cada tarjeta sube cinco etapas, cada una más difícil que la anterior. Si aciertas, sube (toca ¡La sé! o desliza a la derecha). Si fallas (toca Otra vez o desliza a la izquierda), baja una etapa y vuelve unas tarjetas después.")
                 Text("De la 1 a la 4 caben pocas tarjetas a la vez: 5 en cada etapa, o las que digas en Ajustes. Así estudias pocas y las aprendes bien. Una tarjeta solo sube si en la siguiente etapa hay sitio; si no, queda lista y sube en cuanto lo hay. Una nueva entra cuando hay sitio en la 1.")
-                Text("La sesión no se acaba sola: repasas sin esperas, tanto como quieras, y las nuevas van entrando. Las dominadas no tienen límite: vuelven a la semana y, si las aciertas, a las 2 semanas, a las 4, a las 8…")
+                Text("La sesión no se acaba sola: repasas sin esperas, tanto como quieras, y las nuevas van entrando. Las dominadas no tienen límite. Para que pasen a la memoria larga, te las pregunta a las 24 horas, a las 48 y a las 96; luego a la semana, a las 2 semanas, a las 4, a las 8… Cada palabra va por su cuenta: un fallo solo mueve esa palabra, que vuelve a empezar por las 24 horas. Si tocas una mientras lees, te la pregunta otra vez, y si la aciertas no pierde nada.")
                 ForEach(1...5, id: \.self) { i in
                     HStack(alignment: .top, spacing: 10) {
                         Text("\(i)").font(Typo.display(18)).foregroundStyle(.white)

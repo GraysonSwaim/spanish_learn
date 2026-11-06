@@ -224,6 +224,19 @@ enum Deck {
         d.set(true, forKey: PrefKey.trimmed)
     }
 
+    /// Once per device with cards: the Dominada cards from before the ladder start coming through it, words and tables
+    /// each at their own pace.
+    static func feedThroughOnce(_ ctx: ModelContext) {
+        let d = UserDefaults.standard
+        guard !d.bool(forKey: PrefKey.fedThrough) else { return }
+        let all = allCards(ctx)
+        guard !all.isEmpty else { return }
+        Scheduler.feedThrough(all.filter { !$0.isConj })
+        Scheduler.feedThrough(all.filter(\.isConj))
+        try? ctx.save()
+        d.set(true, forKey: PrefKey.fedThrough)
+    }
+
     #if DEBUG
     /// A sample deck for the simulator and tests, read from the repo (`ios/samples/deck.json`) rather than shipped:
     /// 40 everyday words and phrases, 10 of them verbs with their core tables.

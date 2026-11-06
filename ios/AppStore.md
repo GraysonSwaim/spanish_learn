@@ -30,7 +30,7 @@ and each stage asks a little more of you than the last.
 2. Reconocer: see the Spanish, recall the English.
 3. Recordar: see the English, say the Spanish out loud before you look.
 4. Producir: type the Spanish. Accents count, but a near miss is marked, not failed.
-5. Dominada: mastered. It comes back after a week, then 2 weeks, 4, 8…
+5. Dominada: mastered. It comes back after 24, 48 and 96 hours, then a week, 2 weeks, 4, 8…
 
 Only five cards fit in each of the first four stages, so you learn a few words well before more arrive. Get it
 right and a card moves up when there's room. Miss it and it drops one stage and returns a few cards later.

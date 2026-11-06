@@ -60,8 +60,9 @@ enum Library {
     // MARK: studying
 
     /// One session over the whole library. `first` (card ids) comes before the rest: the words of the page about to be
-    /// read. Then new words go foundational first, so the commonest words are learned first.
-    static func plan(_ cards: [Card], first: Set<String> = []) -> (pool: [Card], queue: [Card], fresh: [Card]) {
+    /// read. Then new words go foundational first, so the commonest words are learned first. While too many reviews are
+    /// waiting, new words wait too (`held`), so what's been learned isn't lost to what's coming; a page's words still come.
+    static func plan(_ cards: [Card], first: Set<String> = []) -> (pool: [Card], queue: [Card], fresh: [Card], held: Int) {
         let pool = cards.filter { $0.kind == .word }
         let daily = Scheduler.dailyQueue(pool)
         let queue = daily.filter { first.contains($0.id) } + daily.filter { !first.contains($0.id) }
@@ -70,7 +71,9 @@ enum Library {
             let (x, y) = (rank(a.element), rank(b.element))
             return x != y ? x < y : a.offset < b.offset
         }.map(\.element)
-        return (pool, queue, fresh)
+        guard daily.count(where: { $0.stage == 5 }) > Scheduler.reviewsFirst else { return (pool, queue, fresh, 0) }
+        let now = fresh.filter { first.contains($0.id) }
+        return (pool, queue, now, fresh.count - now.count)
     }
 
     // MARK: feeding it a page
@@ -215,7 +218,7 @@ enum Library {
 
     private static func settle(_ run: Run, in reading: Reading, card c: Card, sentence: String, isNew: Bool) {
         c.addSource(title: reading.title, sentence: sentence)
-        // Due now: it comes up in the next session, at the stage it's at.
+        // Due now: it comes up in the next session, at the stage it's at. Right then, it's lost nothing (`Scheduler.pass`).
         if !isNew, c.stage > 0 { c.due = .now }
         var g = reading.glosses
         g[run.id] = Tutor.Gloss(spanish: c.es, english: c.en, note: c.notes, isNew: isNew)

@@ -20,6 +20,11 @@ enum PrefKey {
     static let newPerScan = "newPerScan"
     /// Whether a reading highlights the words you know (`KnownWords`).
     static let highlightKnown = "highlightKnown"
+    /// Set once the Dominada cards from before the ladder are coming through it (`Scheduler.feedThrough`).
+    static let fedThrough = "ladderFedThrough"
+    /// The daily reminder (`Reminder`), and when it comes, in minutes after midnight.
+    static let reminder = "dailyReminder"
+    static let reminderMinutes = "dailyReminderMinutes"
 }
 
 struct Prefs {

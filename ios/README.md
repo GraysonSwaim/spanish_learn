@@ -7,7 +7,8 @@ SwiftUI with SwiftData, syncing cards and progress through iCloud (CloudKit).
 ```
 Cinco/Model/Card.swift        Card and DayLog, the SwiftData models (CloudKit-safe: defaults, no unique, no relationships)
 Cinco/Model/Chunk.swift       Chunk, a theme from before the one library: unused, kept in the CloudKit schema
-Cinco/Logic/Scheduler.swift   the five-stage schedule, pure functions
+Cinco/Logic/Scheduler.swift   the five-stage schedule and the review ladder, pure functions
+Cinco/Logic/Reminder.swift    the daily reminder, as local notifications
 Cinco/Logic/StudySession.swift one sitting: queue, reveal steps, grading, undo
 Cinco/Logic/TextMatch.swift   answer checking, and the hash(strip()) card ids
 Cinco/Logic/CardRecord.swift  a card as it comes in, and CardJSON (the sample deck)
@@ -63,6 +64,24 @@ tense from the Conjugación chips below, and those sessions can be picked up by 
 Words and phrases are one kind of card; a card is a verb only because it has tables. After an answer, «Dónde la
 leíste» lists every reading the word was marked in, with its sentence, and «Más frases» a verb's own sentences.
 
+## Long-term memory
+
+Stages 1–4 have no wait, so a word can get through them in one sitting. Dominada is where it's kept: tested after 24, 48
+and 96 hours, then a week, then 2, 4, 8… weeks (`Scheduler.nextInterval`), for every word and table in the library.
+
+- A card's schedule answers only to its own tests. A miss moves that card alone: back to Producir, then 24 hours again.
+- A word tapped while reading comes back for a test. Right, it keeps the wait it had, so the tap neither stretches nor
+  resets it. The same goes for a test that comes early for any reason.
+- Only a test counts as seeing a word: reading past a highlighted one proves nothing.
+- A card counts as due up to 4 hours early (`lookahead`). Among those due, the latest for its wait comes first.
+- While more than 30 reviews wait, new words wait too, and Home says so. A page's own words still come when studying it.
+- Dominada cards from before the ladder come through it 15 a day (`feedThrough`). One never tested after a wait starts at 24
+  hours; one with a longer wait is tested in its turn and, if right, keeps it.
+- Ajustes › Recordatorio diario schedules the next 7 days at a chosen time, each saying how many will be waiting then, and
+  none for a day with nothing. So it goes quiet after a week away. It's rewritten whenever the app opens or closes.
+
+No new fields: this is `due`, `interval`, `lastReviewed`, which were already synced.
+
 ## Lecturas
 
 The library is fed by what's read, and each word is in it once (`Library`): a card is found by its Spanish without its
@@ -79,7 +98,7 @@ and running head. Then `ReadingView.takeWords`:
    unless changed). Each sentence on the page becomes that card's example. Once those are studied, the page offers the
    next batch; otherwise they wait for another page.
 3. The page offers to study, its words first (`Library.plan(first:)`), and the session comes back to it. A new word is
-   a check and the start of training in one: "Ya la sé" (`Scheduler.alreadyKnown`, Dominada, checked in a month), or "No
+   a check and the start of training in one: "Ya la sé" (`Scheduler.alreadyKnown`, Dominada, checked in a week), or "No
    la sé" (`introDone`, into stage 1). Reading is never held back.
 
 **Tapping while reading** (`Library.record`): tap a word, or hold and slide across a phrase, and it's recorded straight

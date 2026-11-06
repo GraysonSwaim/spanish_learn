@@ -42,9 +42,9 @@ final class Card {
     var stage: Int = 0
     /// Passed at its stage, but the next one is full: it moves up as soon as a place opens (`Scheduler.settle`).
     var ready: Bool = false
-    /// When a Dominada card is next reviewed. Stages 1–4 have no wait.
+    /// When a Dominada card is next tested. Stages 1–4 have no wait.
     var due: Date = Date.distantPast
-    /// Dominada: days between reviews, doubled each time one is passed on time.
+    /// Dominada: days until its next test (`Scheduler.nextInterval`).
     var interval: Int = 0
     var reps: Int = 0
     var lapses: Int = 0

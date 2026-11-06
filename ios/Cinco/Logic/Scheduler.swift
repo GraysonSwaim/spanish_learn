@@ -44,12 +44,12 @@ struct StageInfo {
         StageInfo(name: "Reconocer", blurb: "Ves el español y recuerdas el inglés."),
         StageInfo(name: "Recordar", blurb: "Ves el inglés y dices el español en voz alta antes de mirar."),
         StageInfo(name: "Producir", blurb: "Ves el inglés y escribes el español. Los acentos cuentan, pero un casi se marca en vez de fallarse."),
-        StageInfo(name: "Dominada", blurb: "Escribir o reconocer, al azar. Vuelve a la semana, y cada acierto tras la espera la duplica: 2 semanas, 4, 8… Un fallo la baja a Producir."),
+        StageInfo(name: "Dominada", blurb: "Escribir o reconocer, al azar. Vuelve a las 24 horas, a las 48 y a las 96; luego a la semana, y cada acierto tras la espera la duplica: 2 semanas, 4, 8… Un fallo la baja a Producir, y vuelve a empezar por las 24 horas."),
     ]
 }
 
 struct DeckCounts {
-    /// Stages 1–4, which are always studied, and the Dominada cards whose week (or more) is up.
+    /// Stages 1–4, which are always studied, and the Dominada cards whose wait is up.
     var due = 0, unseen = 0, total = 0, dropped = 0
     var byStage = [0, 0, 0, 0, 0, 0]
 }
@@ -57,20 +57,39 @@ struct DeckCounts {
 /// The five stages as a pipeline: stages 1–4 each hold at most `cap` cards (Ajustes › Tarjetas por etapa), a card moves
 /// up only into a stage with room, and a new card comes in only when stage 1 has room. A miss drops a card one stage
 /// even into a full one, so it holds up the cards behind it until a correct answer makes room again. There's no wait
-/// between stages 1–4; Dominada has no cap and is reviewed weekly, then every 2, 4, 8… weeks. Pure functions over cards,
-/// so they're testable.
+/// between stages 1–4, so a word can get through them in one sitting: long-term memory is Dominada's job. It has no cap,
+/// and is tested after 24, 48 and 96 hours, then a week, then 2, 4, 8… weeks. A card's schedule answers only to its own
+/// tests: being right is never undone by anything else, and a miss moves no other card back. Pure functions over cards, so
+/// they're testable.
 enum Scheduler {
     /// Cards between a miss and its retry.
     static let relearnGap = 5
     static let defaultCap = 5
-    /// Days before a newly mastered card is reviewed.
-    static let masteredInterval = 7
+    /// Days before a newly mastered card is first tested.
+    static let firstInterval = 1
+    /// New cards wait while more reviews than this do, unless they're on the page about to be read.
+    static let reviewsFirst = 30
+    /// How many Dominada cards from before the ladder come through it each day (`feedThrough`), per word or table.
+    static let feedPerDay = 15
+    /// When the ladder arrived: a card tested since is already on it.
+    static let ladderStart = Date(timeIntervalSince1970: 1794009600) // 2026-11-07 UTC
     /// New words one scan adds to the library, unless Ajustes says otherwise.
     static let defaultNewPerScan = 25
-    /// Days before a word first seen as "Ya la sé" is checked.
-    static let knownInterval = 30
-    /// A Dominada card due within this window counts as due now.
-    static let lookahead: TimeInterval = 15 * 60
+    /// Days before a word first seen as "Ya la sé" is checked: past the short waits, since it's said to be known.
+    static let knownInterval = 7
+    /// A Dominada card due within this window counts as due now, so the same time tomorrow needn't be to the minute.
+    static let lookahead: TimeInterval = 4 * 3600
+
+    /// The wait after a right answer: 1, 2 and 4 days, a week, then double.
+    static func nextInterval(_ days: Int) -> Int {
+        switch days {
+        case ..<1: firstInterval
+        case 1: 2
+        case 2...3: 4
+        case 4...6: 7
+        default: days * 2
+        }
+    }
 
     static func inTab(_ c: Card, tab: Tab, tense: String) -> Bool {
         switch tab {
@@ -119,19 +138,25 @@ enum Scheduler {
         }.map(\.element)
     }
 
-    /// Everything in stages 1–4, the least recently seen first, taking turns with the Dominada cards that are due
-    /// (oldest first), so neither buries the other. New cards join as stage 1 makes room (`StudySession`).
+    /// Everything in stages 1–4, the least recently seen first, taking turns with the Dominada cards that are due, so
+    /// neither buries the other. Among those, the latest for its wait comes first: three days late matters more to a word
+    /// on 24 hours than to one on 8 weeks. New cards join as stage 1 makes room (`StudySession`).
     static func dailyQueue(_ cards: [Card], now: Date = .now) -> [Card] {
         let live = cards.filter { !$0.isDropped }
         let working = live.filter { $0.stage > 0 && $0.stage < 5 }
             .sorted { ($0.lastReviewed ?? .distantPast) < ($1.lastReviewed ?? .distantPast) }
-        let mastered = live.filter { $0.stage == 5 && isDue($0, now: now) }.sorted { $0.due < $1.due }
+        let mastered = live.filter { $0.stage == 5 && isDue($0, now: now) }.sorted { lateness($0, now: now) > lateness($1, now: now) }
         var out: [Card] = []
         for i in 0..<max(working.count, mastered.count) {
             if i < working.count { out.append(working[i]) }
             if i < mastered.count { out.append(mastered[i]) }
         }
         return out
+    }
+
+    /// How late a card is, in waits.
+    private static func lateness(_ c: Card, now: Date) -> Double {
+        now.timeIntervalSince(c.due) / (Double(max(1, c.interval)) * 86_400)
     }
 
     /// Everything at one stage, due or not, for practising a single column.
@@ -148,8 +173,8 @@ enum Scheduler {
         c.seen = now
     }
 
-    /// A new word the learner already knows skips the training: it's in the library as Dominada, and checked in a month.
-    /// A miss then sends it to Producir like any other.
+    /// A new word the learner already knows skips the training: it's in the library as Dominada, and checked in a week.
+    /// Right, it goes on from there; a miss sends it to Producir like any other.
     static func alreadyKnown(_ c: Card, now: Date = .now) {
         c.stage = 5
         c.ready = false
@@ -159,23 +184,26 @@ enum Scheduler {
         c.lastReviewed = now
     }
 
-    /// Right: the card is ready to move up and does if there's room (`settle`). A Dominada card's wait doubles, but
-    /// only when it was reviewed once the wait was up; an early review leaves its schedule alone.
+    /// Right: the card is ready to move up and does if there's room (`settle`). A Dominada card goes on to its next wait
+    /// if it's waited this one out. Brought back sooner (tapped while reading, or `feedThrough`), it keeps the wait it had,
+    /// starting again from now. And a review before it's due leaves its schedule alone.
     static func pass(_ c: Card, in pool: [Card], cap: Int, now: Date = .now) {
         c.reps += 1
-        c.lastReviewed = now
         if c.stage == 5 {
             guard isDue(c, now: now) else { return }
-            c.interval = max(masteredInterval, c.interval) * 2
+            let waited = c.lastReviewed.map { day(c.interval, after: $0) <= now.addingTimeInterval(lookahead) } ?? true
+            if waited { c.interval = nextInterval(c.interval) }
             c.due = day(c.interval, after: now)
+            c.lastReviewed = now
         } else {
+            c.lastReviewed = now
             c.ready = true
             settle(pool + [c], cap: cap, now: now)
         }
     }
 
     /// Wrong: the card drops one stage (never below 1), even into a full stage, and the place it left can take a ready
-    /// card from below. A Dominada card drops to Producir and starts over at a week when it's mastered again.
+    /// card from below. A Dominada card drops to Producir and starts over at 24 hours when it's mastered again.
     static func fail(_ c: Card, in pool: [Card], cap: Int, now: Date = .now) {
         c.reps += 1
         c.lastReviewed = now
@@ -204,12 +232,24 @@ enum Scheduler {
                 c.ready = false
                 c.stage = s + 1
                 if c.stage == 5 {
-                    c.interval = masteredInterval
-                    c.due = day(masteredInterval, after: now)
+                    c.interval = firstInterval
+                    c.due = day(firstInterval, after: now)
                 } else {
                     c.due = now
                 }
             }
+        }
+    }
+
+    /// Once, when the ladder arrived: the Dominada cards from before it come through, a few a day so they're never a wall.
+    /// One that was mastered in a sitting and has never been tested after a wait (its first wait was a week) starts at 24
+    /// hours. One that has earned a longer wait, or was said to be known, is tested in its turn and, if right, keeps it.
+    static func feedThrough(_ cards: [Card], perDay: Int = feedPerDay, before: Date = ladderStart, now: Date = .now) {
+        let waiting = cards.filter { !$0.isDropped && $0.stage == 5 && ($0.lastReviewed ?? .distantPast) < before }
+            .sorted { $0.due < $1.due }
+        for (i, c) in waiting.enumerated() {
+            if c.interval == 7 { c.interval = firstInterval }
+            c.due = day(i / perDay, after: now)
         }
     }
 
@@ -233,7 +273,7 @@ enum Scheduler {
     }
 
     private static func day(_ days: Int, after now: Date) -> Date {
-        Calendar.current.date(byAdding: .day, value: days, to: Calendar.current.startOfDay(for: now))!
+        Calendar.current.date(byAdding: .day, value: days, to: now)!
     }
 
     /// Consecutive days with at least one review, counting today only once something's been reviewed.

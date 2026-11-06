@@ -58,6 +58,7 @@ struct HomeView: View {
     private func library(_ words: [Card]) -> some View {
         let plan = Library.plan(cards)
         let pending = plan.queue.count + plan.fresh.count
+        let reviews = plan.queue.count { $0.stage == 5 }
         return VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 18) {
                 ForEach(1...3, id: \.self) { l in
@@ -68,6 +69,12 @@ struct HomeView: View {
                     .accessibilityElement(children: .combine)
                 }
                 Spacer(minLength: 0)
+            }
+            if reviews > 0 {
+                Text((reviews == 1 ? "1 para repasar" : "\(reviews) para repasar")
+                     + (plan.held > 0 ? ". Las \(plan.held) nuevas esperan a que repases." : ""))
+                    .font(Typo.text(15, .bold)).foregroundStyle(Palette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if pending > 0 {
                 Button { study(plan.pool, queue: plan.queue, label: "Biblioteca", fresh: plan.fresh) } label: {

@@ -51,6 +51,7 @@ struct RootView: View {
     @State private var demoReading: Reading?
     @State private var demoLecturas = false
     @State private var demoReview = false
+    @State private var demoSettings = false
     #endif
 
     var body: some View {
@@ -77,8 +78,11 @@ struct RootView: View {
             if p == .active {
                 Deck.dedupe(ctx)
                 Deck.trimOnce(ctx)
+                Deck.feedThroughOnce(ctx)
                 Lectura.recycle(ctx)
             }
+            // The reminder says how many are waiting, so it's written again whenever that may have changed.
+            if p != .inactive { Task { await Reminder.refresh(ctx) } }
         }
         #if DEBUG
         .sheet(item: $demoReading) { r in
@@ -87,6 +91,7 @@ struct RootView: View {
         }
         .sheet(isPresented: $demoLecturas) { NavigationStack { LecturasView() }.preferredColorScheme(scheme) }
         .sheet(isPresented: $demoReview) { NavigationStack { ReviewLibraryView() }.preferredColorScheme(scheme) }
+        .sheet(isPresented: $demoSettings) { NavigationStack { SettingsView() }.preferredColorScheme(scheme) }
         .task { startDemo() }
         #endif
     }
@@ -109,6 +114,17 @@ struct RootView: View {
         // `-loadSample` fills an empty deck with the sample cards, for the flags below.
         if args.contains("-loadSample") && Deck.allCards(ctx).isEmpty {
             Deck.loadSample(ctx)
+        }
+        // `-dueSample` makes every word a Dominada card waiting to be tested, for Home's count of reviews.
+        if args.contains("-dueSample") {
+            for c in Deck.allCards(ctx) where !c.isConj {
+                (c.stage, c.interval, c.due) = (5, 1, .distantPast)
+            }
+        }
+        // `-openSettings` opens Ajustes.
+        if args.contains("-openSettings") {
+            demoSettings = true
+            return
         }
         // `-openLecturas` opens Lecturas.
         if args.contains("-openLecturas") {

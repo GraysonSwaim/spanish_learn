@@ -98,20 +98,152 @@ struct SchedulerTests {
         #expect(d.stage == 1 && !d.ready)
     }
 
-    /// A week, then twice as long each time it's right once the wait is up. Early reviews don't stretch it.
-    @Test func dominadaDoublesFromAWeek() {
+    /// 24, 48 and 96 hours, a week, then twice as long each time it's right once the wait is up. Early reviews don't stretch it.
+    @Test func dominadaClimbsTheLadder() {
         let now = Date()
-        let day = { (n: Int) in Calendar.current.date(byAdding: .day, value: n, to: Calendar.current.startOfDay(for: now))! }
+        let day = { (n: Int) in Calendar.current.date(byAdding: .day, value: n, to: now)! }
         let c = card(4)
         Scheduler.pass(c, in: [c], cap: 5, now: now)
-        #expect(c.stage == 5 && c.interval == 7 && c.due == day(7))
+        #expect(c.stage == 5 && c.interval == 1 && c.due == day(1))
         Scheduler.pass(c, in: [c], cap: 5, now: now)
-        #expect(c.interval == 7 && c.due == day(7))
-        let later = day(7).addingTimeInterval(3600)
-        Scheduler.pass(c, in: [c], cap: 5, now: later)
-        #expect(c.interval == 14)
-        Scheduler.pass(c, in: [c], cap: 5, now: c.due)
+        #expect(c.interval == 1 && c.due == day(1))
+        var gaps = [c.interval]
+        for _ in 0..<6 {
+            Scheduler.pass(c, in: [c], cap: 5, now: c.due)
+            gaps.append(c.interval)
+        }
+        #expect(gaps == [1, 2, 4, 7, 14, 28, 56])
+    }
+
+    /// The same time tomorrow needn't be to the minute.
+    @Test func aCardIsDueAFewHoursEarly() {
+        let now = Date()
+        let c = card(5, due: now)
+        c.interval = 1
+        c.lastReviewed = now.addingTimeInterval(-86_400)
+        c.due = now
+        #expect(Scheduler.isDue(c, now: now.addingTimeInterval(-3.9 * 3600)))
+        #expect(!Scheduler.isDue(c, now: now.addingTimeInterval(-4.1 * 3600)))
+        Scheduler.pass(c, in: [c], cap: 5, now: now.addingTimeInterval(-3.9 * 3600))
+        #expect(c.interval == 2)
+    }
+
+    /// Tapped while reading, it's due now. Right, it hasn't lost its place, and it hasn't earned a longer wait either.
+    @Test func aTappedWordGotRightKeepsItsWait() {
+        let now = Date()
+        let c = card(5)
+        c.interval = 56
+        c.lastReviewed = now.addingTimeInterval(-3 * 86_400)
+        c.due = now
+        Scheduler.pass(c, in: [c], cap: 5, now: now)
+        #expect(c.stage == 5 && c.interval == 56)
+        #expect(c.due == Calendar.current.date(byAdding: .day, value: 56, to: now)!)
+    }
+
+    /// And if its wait was up anyway, it goes on.
+    @Test func aTappedWordThatHadWaitedGoesOn() {
+        let now = Date()
+        let c = card(5)
+        c.interval = 14
+        c.lastReviewed = now.addingTimeInterval(-20 * 86_400)
+        c.due = now
+        Scheduler.pass(c, in: [c], cap: 5, now: now)
         #expect(c.interval == 28)
+    }
+
+    /// A miss moves that card alone.
+    @Test func aMissLeavesOtherCardsWhereTheyAre() {
+        let now = Date()
+        let due = now.addingTimeInterval(86_400)
+        let others = [card(5, due: due), card(5, due: due), card(3), card(4)]
+        others[0].interval = 56
+        others[1].interval = 1
+        let missed = card(5, due: now)
+        missed.interval = 28
+        Scheduler.fail(missed, in: others + [missed], cap: 5, now: now)
+        #expect(missed.stage == 4 && missed.interval == 0)
+        #expect(stages(others) == [5, 5, 3, 4])
+        #expect(others[0].interval == 56 && others[1].interval == 1 && others[0].due == due && others[1].due == due)
+        #expect(others.allSatisfy { $0.lapses == 0 })
+    }
+
+    /// Mastered again after a miss, it starts over.
+    @Test func aMissStartsTheLadderAgain() {
+        let now = Date()
+        let c = card(5, due: now)
+        c.interval = 28
+        Scheduler.fail(c, in: [c], cap: 5, now: now)
+        Scheduler.pass(c, in: [c], cap: 5, now: now)
+        #expect(c.stage == 5 && c.interval == 1)
+    }
+
+    @Test func alreadyKnownIsCheckedInAWeekAndGoesOnFromThere() {
+        let now = Date()
+        let c = card(0)
+        Scheduler.alreadyKnown(c, now: now)
+        #expect(c.stage == 5 && c.interval == 7)
+        Scheduler.pass(c, in: [c], cap: 5, now: c.due)
+        #expect(c.interval == 14)
+    }
+
+    @Test func theLatestForItsWaitComesFirst() {
+        let now = Date()
+        let threeDaysAgo = now.addingTimeInterval(-3 * 86_400)
+        let long = card(5, due: threeDaysAgo.addingTimeInterval(-3600))
+        long.interval = 56
+        let short = card(5, due: threeDaysAgo)
+        short.interval = 1
+        #expect(Scheduler.dailyQueue([long, short], now: now).map(\.id) == [short.id, long.id])
+    }
+
+    /// Those from before the ladder come through a few a day. One never tested after a wait starts at 24 hours; one that's
+    /// earned a longer wait keeps it, if it's right.
+    @Test func oldCardsAreFedThroughSlowly() {
+        let now = Date()
+        let before = now.addingTimeInterval(-86_400)
+        let old = { (interval: Int, offset: Double) -> Card in
+            let c = self.card(5, due: now.addingTimeInterval(offset))
+            c.interval = interval
+            c.lastReviewed = before.addingTimeInterval(-86_400)
+            return c
+        }
+        let crammed = (0..<3).map { old(7, Double($0) * 3600) }
+        let earned = old(28, 10 * 86_400)
+        let said = old(30, 20 * 86_400)
+        let recent = card(5, due: now.addingTimeInterval(86_400))
+        recent.interval = 7
+        recent.lastReviewed = now
+        let dropped = old(7, 0)
+        dropped.dropped = now
+        let dueLater = recent.due
+        Scheduler.feedThrough(crammed + [earned, said, recent, dropped], perDay: 2, before: before, now: now)
+        let day = { (n: Int) in Calendar.current.date(byAdding: .day, value: n, to: now)! }
+        #expect(crammed.map(\.due) == [day(0), day(0), day(1)])
+        #expect(crammed.allSatisfy { $0.interval == 1 })
+        #expect(earned.due == day(1) && said.due == day(2))
+        #expect(recent.interval == 7 && recent.due == dueLater && dropped.interval == 7)
+        Scheduler.pass(earned, in: [earned], cap: 5, now: earned.due)
+        #expect(earned.interval == 28)
+        Scheduler.pass(crammed[0], in: [crammed[0]], cap: 5, now: crammed[0].due)
+        #expect(crammed[0].interval == 2)
+    }
+
+    /// One a day for a week, none for a day with nothing waiting.
+    @Test func theReminderSaysHowManyWillBeWaiting() {
+        let cal = Calendar.current
+        let morning = cal.date(bySettingHour: 9, minute: 0, second: 0, of: Date())!
+        let at8 = 20 * 60
+        let tonight = cal.date(bySettingHour: 20, minute: 0, second: 0, of: morning)!
+        #expect(Reminder.plan([], minutes: at8, now: morning).isEmpty)
+        let a = card(5, due: morning.addingTimeInterval(3600))
+        let b = card(5, due: cal.date(byAdding: .day, value: 2, to: tonight)!)
+        let p = Reminder.plan([a, b], minutes: at8, now: morning)
+        #expect(p.count == 7 && p.first?.date == tonight)
+        #expect(p.map(\.count) == [1, 1, 2, 2, 2, 2, 2])
+        // Past today's time, it starts tomorrow.
+        let night = cal.date(bySettingHour: 21, minute: 0, second: 0, of: morning)!
+        #expect(Reminder.plan([a], minutes: at8, now: night).first?.date == cal.date(byAdding: .day, value: 1, to: tonight))
+        #expect(Reminder.plan([card(0)], minutes: at8, now: morning).isEmpty)
     }
 
     /// A Dominada miss goes back to Producir, even when it's full.
@@ -751,6 +883,24 @@ struct LibraryTests {
         let plan = Library.plan(all, first: [hard.id, onPage.id])
         #expect(plan.fresh.first === hard)
         #expect(plan.queue.first === onPage)
+    }
+
+    /// Past the limit new words wait, and say so, but the words of the page about to be read still come.
+    @Test func newWordsWaitWhileTooManyReviewsDo() throws {
+        let ctx = try store()
+        let onPage = add("la desdicha", level: 1, ctx: ctx), other = add("el paraguas", level: 1, ctx: ctx)
+        var reviews: [Card] = []
+        for i in 0...Scheduler.reviewsFirst {
+            let c = add("palabra\(i)", level: 1, ctx: ctx)
+            (c.stage, c.interval, c.due) = (5, 1, .distantPast)
+            reviews.append(c)
+        }
+        let over = Library.plan(Deck.allCards(ctx), first: [onPage.id])
+        #expect(over.fresh.map(\.id) == [onPage.id] && over.held == 1)
+        #expect(Library.plan(Deck.allCards(ctx)).fresh.isEmpty)
+        reviews[0].due = .distantFuture
+        let under = Library.plan(Deck.allCards(ctx))
+        #expect(under.fresh.count == 2 && under.held == 0 && under.fresh.contains { $0 === other })
     }
 
     @Test func aNewWordCanBeAlreadyKnown() throws {

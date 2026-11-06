@@ -201,6 +201,7 @@ struct CardDetailView: View {
     private var facts: some View {
         let f = Date.FormatStyle(date: .long, time: .omitted).locale(Locale(identifier: "es-MX"))
         var parts: [String] = []
+        if let last = card.lastReviewed { parts.append("Último repaso: \(last.formatted(f))") }
         if card.stage == 5 { parts.append("Próximo repaso: \(card.due.formatted(f))") }
         parts.append("Repasos: \(card.reps) · Fallos: \(card.lapses)")
         if let l = card.level, let name = Library.levelNames[l] { parts.append("Nivel: \(name)") }
