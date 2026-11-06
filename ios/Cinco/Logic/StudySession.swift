@@ -27,6 +27,8 @@ final class StudySession {
         let day: (reviewed: Int, correct: Int, newVocab: Int, newConj: Int)
         let done: Int, right: Int, answered: Int
         let missed: [Card]
+        /// The result it put in `RecallLog`, if it was a test after a wait.
+        var recall: (date: Date, right: Bool)?
     }
 
     private struct CardState {
@@ -246,6 +248,11 @@ final class StudySession {
     func grade(_ pass: Bool) {
         guard let c = current, canGrade else { return }
         snapshot(c)
+        if !c.isConj, c.stage == 5, Scheduler.isDue(c) {
+            let now = Date.now
+            RecallLog.add(right: pass, on: now)
+            history[history.count - 1].recall = (now, pass)
+        }
         let d = Deck.today(ctx)
         d.reviewed += 1
         queue.removeFirst()
@@ -303,6 +310,7 @@ final class StudySession {
     func undo() {
         guard let u = history.popLast() else { return }
         for (c, state) in u.states { state.restore(c) }
+        if let r = u.recall { RecallLog.add(right: r.right, by: -1, on: r.date) }
         let d = Deck.today(ctx)
         (d.reviewed, d.correct, d.newVocab, d.newConj) = u.day
         queue = u.queue

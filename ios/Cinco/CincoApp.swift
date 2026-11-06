@@ -111,6 +111,33 @@ struct RootView: View {
     }
 
     #if DEBUG
+    private static func fakeProgress(_ ctx: ModelContext) {
+        let extra = (0..<240).map { CardRecord(es: "palabra\($0)", en: "word \($0)", tags: "nivel\($0 % 7 == 0 ? 3 : $0 % 3 == 0 ? 2 : 1)") }
+        Deck.importRecords(extra, into: ctx)
+        let now = Date.now
+        let spread = [(1, 0), (1, 1), (2, 2), (4, 1), (4, 3), (7, 2), (7, 5), (14, 9), (28, 12)]
+        for (i, c) in Deck.allCards(ctx).filter({ !$0.isConj }).enumerated() {
+            c.stage = 0
+            guard i < 130 else { continue }
+            if i % 12 == 0 { c.stage = 1 + i % 4; c.lapses = i % 5; c.reps = 4; continue }
+            let (interval, days) = spread[i % spread.count]
+            (c.stage, c.interval, c.reps, c.lapses) = (5, interval, 6, 0)
+            c.due = Calendar.current.date(byAdding: .day, value: days, to: now)!
+            c.lastReviewed = Calendar.current.date(byAdding: .day, value: -interval, to: c.due)
+        }
+        for back in 0..<14 where back % 5 != 3 {
+            let date = Calendar.current.date(byAdding: .day, value: -back, to: now)!
+            let log = Deck.today(ctx, date: date)
+            log.reviewed = 20 + back * 7 % 40
+            log.correct = log.reviewed * (70 + back) / 100
+        }
+        RecallLog.clear()
+        for back in 0..<28 {
+            let date = Calendar.current.date(byAdding: .day, value: -back, to: now)!
+            for i in 0..<4 { RecallLog.add(right: i < 3 || back % (back < 14 ? 3 : 2) == 0, on: date) }
+        }
+    }
+
     /// Development: `-demo vocab|conj <taps> [stage]` opens a verb card at that stage and moves it forward
     /// `taps` steps, so each phase can be screenshotted in the simulator.
     private func startDemo() {
@@ -125,6 +152,8 @@ struct RootView: View {
                 (c.stage, c.interval, c.due) = (5, 1, .distantPast)
             }
         }
+        // `-progressSample` gives the library a history, for Home's progress.
+        if args.contains("-progressSample") { Self.fakeProgress(ctx) }
         // `-openNew <url>` makes a new reading of that article, as pasting its link does.
         if let i = args.firstIndex(of: "-openNew"), i + 1 < args.count, let url = URL(string: args[i + 1]) {
             let r = Reading(title: ArticleText.site(url), lines: [])

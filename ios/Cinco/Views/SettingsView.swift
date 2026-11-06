@@ -187,6 +187,7 @@ struct HowView: View {
                 Text("Con + también puedes añadir una sola palabra: escríbela con su significado, y Claude corrige cómo se escribe y añade una frase de ejemplo y su nivel. Si ya está en tu biblioteca, no se repite.")
                 Text("Si un significado te parece mal, toca ¿Está bien? bajo la respuesta: lo compara con Apple Traducir y Apple Intelligence, y con un toque lo cambias. Para mirar todas tus palabras de una vez, está Ajustes › Revisar mi biblioteca.")
                 Text("Si fallas una tarjeta, puedes escribir en ese momento una mnemotecnia: un truco para recordarla. Aparece con la respuesta la próxima vez. Se puede desactivar en Ajustes.")
+                Text("En la pantalla de inicio ves cómo vas. A largo plazo son las palabras que han superado las 24, las 48 y las 96 horas; las de Ya la sé cuentan cuando las aciertas a la semana. Recordadas al volver es cuántas aciertas cuando te las pregunta tras su espera, lo que mejor dice si se te quedan, y se cuenta en cada dispositivo. Lo que viene supone que aciertas todo, así que un fallo lo cambia. Toca un día para ver su detalle.")
                 Text("Tus tarjetas y tu progreso se guardan en iCloud y se sincronizan entre todos tus dispositivos con la misma cuenta. Los ajustes, como las tarjetas por etapa, se quedan en cada dispositivo.")
             }
             .font(Typo.text(16))

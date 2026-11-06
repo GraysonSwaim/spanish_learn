@@ -191,8 +191,7 @@ enum Scheduler {
         c.reps += 1
         if c.stage == 5 {
             guard isDue(c, now: now) else { return }
-            let waited = c.lastReviewed.map { day(c.interval, after: $0) <= now.addingTimeInterval(lookahead) } ?? true
-            if waited { c.interval = nextInterval(c.interval) }
+            if waitedOut(c, now: now) { c.interval = nextInterval(c.interval) }
             c.due = day(c.interval, after: now)
             c.lastReviewed = now
         } else {
@@ -200,6 +199,11 @@ enum Scheduler {
             c.ready = true
             settle(pool + [c], cap: cap, now: now)
         }
+    }
+
+    /// Whether a Dominada card has sat out its whole wait by `now`, rather than being brought back sooner.
+    static func waitedOut(_ c: Card, now: Date = .now) -> Bool {
+        c.lastReviewed.map { day(c.interval, after: $0) <= now.addingTimeInterval(lookahead) } ?? true
     }
 
     /// Wrong: the card drops one stage (never below 1), even into a full stage, and the place it left can take a ready

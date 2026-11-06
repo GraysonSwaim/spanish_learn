@@ -44,6 +44,14 @@ nonisolated enum Palette {
     static let markPending = dyn(0xE7E1D8, 0x4A4640)
     /// A word you know, not tapped: the same yellow, paler, so a tap still shows.
     static let markKnown = dyn(0xFAF0D8, 0x43371E)
+    /// Home's progress: a word's standing, as one jacaranda ramp from long-term memory down, and the plaster of what's not begun.
+    static let longTerm = dyn(0x3F2A7E, 0xC7B2F0)
+    static let reviewing = dyn(0x7455B8, 0x8A6BC4)
+    static let learning = dyn(0xA993DA, 0x4F3D78)
+    static let notBegun = edge
+    /// Answers right and wrong in the charts. Not green and red, which many colour-blind readers can't tell apart.
+    static let answerRight = dyn(0x2D5DA8, 0x5F8FDC)
+    static let answerWrong = dyn(0xC66A1E, 0xD27A34)
 
     static func mood(_ m: Mood) -> Color {
         switch m {

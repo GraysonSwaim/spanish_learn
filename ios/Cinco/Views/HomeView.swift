@@ -33,16 +33,25 @@ struct HomeView: View {
                     Text("Tu biblioteca empieza vacía. Toca + para escanear una página del libro que lees, y sus palabras entran aquí para que las estudies. También puedes añadirlas una a una.")
                         .font(Typo.text(17)).foregroundStyle(Palette.muted).padding(.top, 32)
                 } else {
-                    library(words).padding(.top, 18)
+                    library.padding(.top, 18)
                 }
                 conjugation
+                if !words.isEmpty { LibraryProgress(words: words) }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
         }
-        .safeAreaInset(edge: .bottom) { bar }
+        #if DEBUG
+        // `-scrollBottom` opens at the end of the page, for screenshots of what's below the fold.
+        .defaultScrollAnchor(ProcessInfo.processInfo.arguments.contains("-scrollBottom") ? .bottom : .top)
+        #endif
+        // Plaster under the clock and round the bar, so the page scrolls away behind them rather than through them.
+        .safeAreaInset(edge: .top, spacing: 0) { Color.clear.frame(height: 0).background(Palette.bg, ignoresSafeAreaEdges: .top) }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            bar.padding(.top, 8).frame(maxWidth: .infinity).background(Palette.bg, ignoresSafeAreaEdges: .bottom)
+        }
         // Cards deleted (Explorar, or Ajustes › Borrar todos los datos) may be in a session left midway: start over.
         .onChange(of: cards.count) { old, new in if new < old { session = nil } }
         // New cards get their example sentences in the background.
@@ -54,22 +63,12 @@ struct HomeView: View {
         .toolbar(.hidden, for: .navigationBar)
     }
 
-    /// How the library stands by level, and the one way into studying it.
-    private func library(_ words: [Card]) -> some View {
+    /// What's waiting, and the one way into studying it.
+    private var library: some View {
         let plan = Library.plan(cards)
         let pending = plan.queue.count + plan.fresh.count
         let reviews = plan.queue.count { $0.stage == 5 }
         return VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 18) {
-                ForEach(1...3, id: \.self) { l in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("\(words.filter { $0.level == l }.count)").font(Typo.display(22)).foregroundStyle(Palette.ink)
-                        Text(Library.levelNames[l] ?? "").font(Typo.text(13, .bold)).foregroundStyle(Palette.muted)
-                    }
-                    .accessibilityElement(children: .combine)
-                }
-                Spacer(minLength: 0)
-            }
             if reviews > 0 {
                 Text((reviews == 1 ? "1 para repasar" : "\(reviews) para repasar")
                      + (plan.held > 0 ? ". Las \(plan.held) nuevas esperan a que repases." : ""))

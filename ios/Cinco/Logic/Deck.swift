@@ -181,6 +181,7 @@ enum Deck {
     static func eraseAll(_ ctx: ModelContext) {
         for c in allCards(ctx) { ctx.delete(c) }
         for l in (try? ctx.fetch(FetchDescriptor<DayLog>())) ?? [] { ctx.delete(l) }
+        RecallLog.clear()
         for r in (try? ctx.fetch(FetchDescriptor<Reading>())) ?? [] { ctx.delete(r) }
         for c in (try? ctx.fetch(FetchDescriptor<Chunk>())) ?? [] { ctx.delete(c) }
         try? ctx.save()

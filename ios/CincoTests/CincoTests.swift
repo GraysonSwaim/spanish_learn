@@ -1286,3 +1286,129 @@ struct ArticleWordsTests {
         #expect(Library.toStudy(Library.cards(on: r, in: all)).map(\.es) == ["el papel"])
     }
 }
+
+struct StatsTests {
+    private func word(stage: Int, interval: Int = 0, reps: Int = 5, dueIn days: Int = 0, level: Int? = nil, now: Date) -> Card {
+        let c = Card(id: UUID().uuidString, es: "x", en: "y", order: 0)
+        (c.stage, c.interval, c.reps) = (stage, interval, reps)
+        c.due = Calendar.current.date(byAdding: .day, value: days, to: now)!
+        c.lastReviewed = Calendar.current.date(byAdding: .day, value: -interval, to: c.due)
+        c.level = level
+        return c
+    }
+
+    private let now = Calendar.current.date(from: DateComponents(year: 2026, month: 11, day: 10, hour: 12))!
+
+    @Test @MainActor func aWordIsInLongTermOnlyOnceItHasClimbedThere() {
+        #expect(Stats.standing(word(stage: 0, now: now)) == .fresh)
+        #expect(Stats.standing(word(stage: 3, now: now)) == .learning)
+        #expect(Stats.standing(word(stage: 5, interval: 4, now: now)) == .reviewing)
+        #expect(Stats.standing(word(stage: 5, interval: 7, now: now)) == .longTerm)
+        // "Ya la sé" starts on a week, but nothing has tested it yet.
+        #expect(Stats.standing(word(stage: 5, interval: 7, reps: 0, now: now)) == .reviewing)
+        #expect(Stats.standing(word(stage: 5, interval: 14, reps: 1, now: now)) == .longTerm)
+    }
+
+    @Test @MainActor func aheadFollowsTheLadderIfEveryAnswerIsRight() {
+        let days = Stats.ahead([word(stage: 5, interval: 1, now: now)], now: now)
+        // Right today, it's back in 2 days, then 4 more, where it reaches a week; then it's a week on.
+        #expect(days.enumerated().filter { $0.element.tests > 0 }.map(\.offset) == [0, 2, 6, 13])
+        #expect(days.enumerated().filter { $0.element.arrivals > 0 }.map(\.offset) == [6])
+    }
+
+    @Test @MainActor func aWordAlreadyInLongTermNeverArrivesAgain() {
+        let days = Stats.ahead([word(stage: 5, interval: 7, dueIn: 3, now: now)], now: now)
+        #expect(days.reduce(0) { $0 + $1.tests } == 1)
+        #expect(days.reduce(0) { $0 + $1.arrivals } == 0)
+    }
+
+    @Test @MainActor func yaLaSeArrivesWhenItsCheckedRight() {
+        let days = Stats.ahead([word(stage: 5, interval: 7, reps: 0, dueIn: 7, now: now)], now: now)
+        #expect(days[7].arrivals == 1)
+    }
+
+    @Test @MainActor func overdueIsTodaysAndUnscheduledCardsAreNotCounted() {
+        let days = Stats.ahead([word(stage: 5, interval: 28, dueIn: -9, now: now),
+                                   word(stage: 3, now: now), word(stage: 0, now: now)], now: now)
+        #expect(days[0].tests == 1)
+        #expect(days.reduce(0) { $0 + $1.tests } == 1)
+    }
+
+    /// Being tested early keeps a word's wait (`Scheduler.pass`), and the forecast has to agree.
+    @Test @MainActor func aWordBroughtBackSoonerKeepsItsWaitInTheForecast() {
+        let c = word(stage: 5, interval: 4, now: now)
+        c.lastReviewed = Calendar.current.date(byAdding: .day, value: -1, to: now)
+        let days = Stats.ahead([c], now: now)
+        #expect(days[0].tests == 1)
+        #expect(days[0].arrivals == 0)
+        #expect(days[4].tests == 1)
+        #expect(days[4].arrivals == 1)
+    }
+
+    @Test @MainActor func wordsWithoutALevelAreShownOnTheirOwn() {
+        let levels = Stats.levels([word(stage: 5, interval: 14, level: 1, now: now), word(stage: 1, now: now)])
+        #expect(levels.map(\.name) == ["Básicas", "Sin nivel"])
+        #expect(levels[0].count(.longTerm) == 1)
+        #expect(levels[1].count(.learning) == 1)
+        #expect(Stats.levels([word(stage: 1, level: 2, now: now)]).map(\.name) == ["Intermedias"])
+    }
+
+    @Test @MainActor func behindEndsTodayAndCountsWrongAnswers() {
+        let log = DayLog(key: DayLog.key(for: now))
+        (log.reviewed, log.correct) = (10, 7)
+        let days = Stats.behind([log], now: now)
+        #expect(days.count == 14)
+        #expect(days.last == Stats.DayBehind(date: Calendar.current.startOfDay(for: now), right: 7, wrong: 3))
+        #expect(days.first?.right == 0)
+    }
+
+    @Test @MainActor func recallCountsByDayAndCanBeTakenBack() {
+        let d = UserDefaults(suiteName: "recall-\(UUID().uuidString)")!
+        RecallLog.add(right: true, on: now, in: d)
+        RecallLog.add(right: false, on: now, in: d)
+        RecallLog.add(right: true, on: Calendar.current.date(byAdding: .day, value: -20, to: now)!, in: d)
+        #expect(RecallLog.tally(now: now, in: d) == (1, 2))
+        #expect(RecallLog.tally(back: 14, now: now, in: d) == (1, 1))
+        RecallLog.add(right: false, by: -1, on: now, in: d)
+        #expect(RecallLog.tally(now: now, in: d) == (1, 1))
+        RecallLog.clear(in: d)
+        #expect(RecallLog.tally(now: now, in: d) == (0, 0))
+    }
+
+    @Test @MainActor func oldRecallIsLetGo() {
+        let d = UserDefaults(suiteName: "recall-\(UUID().uuidString)")!
+        RecallLog.add(right: true, on: Calendar.current.date(byAdding: .day, value: -27, to: now)!, in: d)
+        RecallLog.add(right: true, on: Calendar.current.date(byAdding: .day, value: -40, to: now)!, in: d)
+        RecallLog.add(right: true, on: now, in: d)
+        #expect(RecallLog.tally(days: 28, now: now, in: d).total == 2)
+        #expect((d.dictionary(forKey: PrefKey.recall) ?? [:]).count == 2)
+    }
+
+    /// A real session: a word tested after its wait counts, a word not yet due doesn't, and Deshacer takes it back.
+    @Test @MainActor func gradingAWordAfterItsWaitIsRemembered() throws {
+        let schema = Schema([Card.self, DayLog.self, Chunk.self])
+        let ctx = ModelContext(try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)))
+        let due = word(stage: 5, interval: 1, dueIn: 0, now: .now); ctx.insert(due)
+        let early = word(stage: 5, interval: 7, dueIn: 5, now: .now); ctx.insert(early)
+        var prefs = Prefs(); prefs.autoSpeak = false; prefs.direction = .esEn
+        let before = RecallLog.tally()
+
+        let s = StudySession(queue: [due, early], tab: .vocab, pool: [due, early], fresh: [], continuous: false, ctx: ctx, prefs: prefs)
+        s.reveal(); s.grade(true)
+        #expect(RecallLog.tally().total == before.total + 1)
+        #expect(RecallLog.tally().right == before.right + 1)
+        s.reveal(); s.grade(true)
+        #expect(RecallLog.tally().total == before.total + 1)
+        s.undo(); s.undo()
+        #expect(RecallLog.tally().total == before.total)
+        #expect(RecallLog.tally().right == before.right)
+    }
+
+    @Test @MainActor func onlyWordsMissedRepeatedlyAndNotYetHeldStruggle() {
+        let hard = word(stage: 2, now: now); hard.lapses = 4
+        let less = word(stage: 3, now: now); less.lapses = 2
+        let once = word(stage: 3, now: now); once.lapses = 1
+        let held = word(stage: 5, interval: 28, now: now); held.lapses = 9
+        #expect(Stats.struggling([less, once, held, hard]).map(\.lapses) == [4, 2])
+    }
+}

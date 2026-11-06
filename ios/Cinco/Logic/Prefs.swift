@@ -25,6 +25,8 @@ enum PrefKey {
     /// The daily reminder (`Reminder`), and when it comes, in minutes after midnight.
     static let reminder = "dailyReminder"
     static let reminderMinutes = "dailyReminderMinutes"
+    /// How words do when tested after their wait (`RecallLog`).
+    static let recall = "recallLog"
 }
 
 struct Prefs {
