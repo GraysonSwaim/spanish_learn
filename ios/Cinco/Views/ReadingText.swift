@@ -2,15 +2,14 @@ import SwiftUI
 import UIKit
 @preconcurrency import Translation
 
-/// One line of a reading, set as running text. Tap a word to pick it; hold on a word and slide to pick a phrase. Marked
-/// words are highlighted (a phrase as one band) and words already in the deck are underlined with dots. A UITextView
-/// underneath, since SwiftUI's Text can't say which word is under a finger.
+/// One line of a reading, set as running text. Tap a word to pick it; hold on a word and slide to pick a phrase. Only
+/// words picked are coloured (a phrase as one band), by what `MarkColor` says of them. A UITextView underneath, since
+/// SwiftUI's Text can't say which word is under a finger.
 struct ReadingText: UIViewRepresentable {
     let text: String
     let words: [Range<String.Index>]
-    /// The marked runs in this line, as word places.
-    let spans: [ClosedRange<Int>]
-    let known: Set<String>
+    /// The picked runs in this line, as word places, with their colours.
+    let spans: [(span: ClosedRange<Int>, color: MarkColor)]
     /// A word tapped, with where it is in this view.
     let onTap: (Int, CGRect) -> Void
     /// A phrase picked by sliding, with where it is.
@@ -43,7 +42,8 @@ struct ReadingText: UIViewRepresentable {
     func updateUIView(_ tv: UITextView, context: Context) {
         let c = context.coordinator
         c.parent = self
-        c.colors = .init(ink: resolve(Palette.ink, context), mark: resolve(Palette.mark, context), sea: resolve(Palette.sea, context))
+        c.colors = .init(ink: resolve(Palette.ink, context), seen: resolve(Palette.mark, context), new: resolve(Palette.markNew, context),
+                         pending: resolve(Palette.markPending, context))
         c.render()
     }
 
@@ -63,10 +63,20 @@ struct ReadingText: UIViewRepresentable {
     }
 
     final class Coordinator: NSObject {
-        struct Colors { var ink, mark, sea: UIColor }
+        struct Colors {
+            var ink, seen, new, pending: UIColor
+
+            func of(_ c: MarkColor) -> UIColor {
+                switch c {
+                case .seen: seen
+                case .new: new
+                case .pending: pending
+                }
+            }
+        }
 
         var parent: ReadingText
-        var colors = Colors(ink: .label, mark: .systemYellow, sea: .systemTeal)
+        var colors = Colors(ink: .label, seen: .systemYellow, new: .systemGreen, pending: .systemGray5)
         weak var view: UITextView?
         /// The phrase under the finger while sliding.
         private var picking: ClosedRange<Int>?
@@ -86,14 +96,9 @@ struct ReadingText: UIViewRepresentable {
             para.lineSpacing = 6
             let s = NSMutableAttributedString(string: p.text, attributes: [.font: font, .foregroundColor: colors.ink, .paragraphStyle: para])
             let rs = ranges
-            for r in rs where p.known.contains(TextMatch.strip((p.text as NSString).substring(with: r))) {
-                s.addAttributes([.underlineStyle: NSUnderlineStyle.single.rawValue | NSUnderlineStyle.patternDot.rawValue,
-                                 .underlineColor: colors.sea], range: r)
-            }
-            for span in p.spans + (picking.map { [$0] } ?? []) {
+            for (span, color) in p.spans + (picking.map { [($0, MarkColor.pending)] } ?? []) {
                 guard let r = range(span, rs) else { continue }
-                s.removeAttribute(.underlineStyle, range: r)
-                s.addAttribute(.backgroundColor, value: colors.mark, range: r)
+                s.addAttribute(.backgroundColor, value: colors.of(color), range: r)
             }
             tv.attributedText = s
         }
@@ -166,9 +171,13 @@ struct ReadingText: UIViewRepresentable {
     }
 }
 
-/// What a picked word or phrase roughly means, from Apple's translation on the phone, with a way to unpick it.
+/// What a picked word or phrase means: its card's meaning once it has one, and until then Apple's translation on the
+/// phone. With what became of it in the library, and a way to unpick it.
 struct WordLookup: View {
     let text: String
+    /// The card's meaning, once it's settled.
+    var meaning: String? = nil
+    var color = MarkColor.pending
     let onRemove: () -> Void
     /// Shown with a way to close it, when it isn't a popover.
     var onClose: (() -> Void)? = nil
@@ -176,6 +185,14 @@ struct WordLookup: View {
     @State private var config: TranslationSession.Configuration?
     @State private var english: String?
     @State private var failed = false
+
+    private var status: String {
+        switch color {
+        case .pending: "Guardándola…"
+        case .seen: "Ya la tenías: vuelve a repasarse"
+        case .new: "Nueva en tu biblioteca"
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -199,8 +216,8 @@ struct WordLookup: View {
                 }
             }
             Group {
-                if let english {
-                    Text(english).font(Typo.text(17)).foregroundStyle(Palette.en)
+                if let shown = meaning ?? english {
+                    Text(shown).font(Typo.text(17)).foregroundStyle(Palette.en)
                 } else if failed {
                     Text("Sin traducción en este iPhone.").font(Typo.text(15)).foregroundStyle(Palette.muted)
                 } else {
@@ -209,7 +226,7 @@ struct WordLookup: View {
             }
             .frame(minHeight: 22, alignment: .leading)
             HStack {
-                Text("Se hará tarjeta").font(Typo.text(13)).foregroundStyle(Palette.muted)
+                Text(status).font(Typo.text(13)).foregroundStyle(Palette.muted)
                 Spacer(minLength: 12)
                 Button("Quitar", role: .destructive, action: onRemove).font(Typo.text(14, .heavy))
             }

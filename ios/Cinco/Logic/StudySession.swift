@@ -46,7 +46,8 @@ final class StudySession {
 
     let tab: Tab
     let label: String
-    /// What it's studying (a theme's id, a tense), so Home can pick it up again where it stopped.
+    /// What it's studying (a tense), so Home can pick it up again where it stopped; "" for the library, which starts
+    /// afresh each time so words just added are in it.
     let key: String
     /// The daily session: it keeps going round stages 1–4, and new cards join as stage 1 makes room. A session for one
     /// stage's column asks each card once (a miss comes back a few cards later).
@@ -225,6 +226,19 @@ final class StudySession {
         }
         queue.removeFirst()
         requeue(c)
+        try? ctx.save()
+        next()
+    }
+
+    /// A new word the learner says they already know: no training, it goes straight into the library as known.
+    func alreadyKnown() {
+        guard let c = current, mode == .intro, !c.isConj else { return }
+        snapshot(c)
+        Scheduler.alreadyKnown(c)
+        Deck.today(ctx).newVocab += 1
+        done += 1
+        queue.removeFirst()
+        if continuous { admit() }
         try? ctx.save()
         next()
     }

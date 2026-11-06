@@ -1,25 +1,18 @@
 import SwiftUI
 import SwiftData
 
-/// Home: the day's mosaic and how many words there are, the loose ones waiting for a theme, and the themes. Tapping a theme studies it;
-/// there's no one big button. Verbs' tables, when there are any, are studied by tense below.
+/// Home: the day's mosaic, the library of words, and one button to study it. Verbs' tables, when there are any, are
+/// studied by tense below.
 struct HomeView: View {
     @Environment(\.modelContext) private var ctx
     @Environment(\.study) private var study
     @Query(sort: \Card.order) private var cards: [Card]
-    @Query(sort: \Chunk.order) private var chunks: [Chunk]
 
     @Binding var session: StudySession?
     @State private var editing: EditTarget?
-    #if DEBUG
-    @State private var debugChunk: Chunk?
-    @State private var debugGroup = false
-    #endif
 
     var body: some View {
         let words = cards.filter { !$0.isConj && !$0.isDropped }
-        let loose = Chunks.loose(cards, chunks: chunks)
-        let top = Chunks.top(chunks)
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 // The day's mosaic, with the name on a plaster plaque.
@@ -38,21 +31,10 @@ struct HomeView: View {
                 .padding(.top, 8)
 
                 if words.isEmpty {
-                    Text("Tu diccionario empieza vacío. Añade palabras una a una con +, o márcalas mientras lees en Lecturas. Después las juntas en temas.")
+                    Text("Tu biblioteca empieza vacía. Escanea una página del libro que lees, en Lecturas, y sus palabras entran aquí para que las estudies. También puedes añadirlas una a una con +.")
                         .font(Typo.text(17)).foregroundStyle(Palette.muted).padding(.top, 32)
-                }
-                if !loose.isEmpty {
-                    NavigationLink { GroupView() } label: { looseRow(loose) }
-                        .buttonStyle(PressStyle())
-                        .padding(.top, 18)
-                    if !top.isEmpty { Divider().overlay(Palette.line) }
-                }
-                if !top.isEmpty {
-                    ChunkList(shown: top, chunks: chunks, cards: cards).padding(.top, loose.isEmpty ? 18 : 0)
-                    Text(top.count > 1 ? "Toca un tema para estudiarlo. Arrastra uno sobre otro para juntarlos." : "Toca el tema para estudiarlo.")
-                        .font(Typo.text(13, .bold)).foregroundStyle(Palette.muted)
-                        .multilineTextAlignment(.center).frame(maxWidth: .infinity)
-                        .padding(.top, 16)
+                } else {
+                    library(words).padding(.top, 18)
                 }
                 conjugation
             }
@@ -65,40 +47,41 @@ struct HomeView: View {
         // Cards deleted (Explorar, or Ajustes › Borrar todos los datos) may be in a session left midway: start over.
         .onChange(of: cards.count) { old, new in if new < old { session = nil } }
         // New cards get their example sentences in the background.
-        .task(id: cards.count) { await Examples.fill(ctx) }
+        .task(id: cards.count) {
+            await Library.fillLevels(ctx)
+            await Examples.fill(ctx)
+        }
         .background(Backdrop())
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $editing) { t in
             NavigationStack { EditCardView(card: t.card) }
         }
-        #if DEBUG
-        // Development: `-open sueltas` opens Agrupar, `-open <theme name>` that theme, for screenshots.
-        .navigationDestination(item: $debugChunk) { ChunkView(chunk: $0) }
-        .navigationDestination(isPresented: $debugGroup) { GroupView() }
-        .task {
-            let args = ProcessInfo.processInfo.arguments
-            guard let i = args.firstIndex(of: "-open"), i + 1 < args.count else { return }
-            try? await Task.sleep(for: .milliseconds(300))
-            if args[i + 1] == "sueltas" { debugGroup = true } else { debugChunk = chunks.first { $0.name == args[i + 1] } }
-        }
-        #endif
     }
 
-    /// The words not in a theme yet: a line like a theme's, with an empty frame where its mosaic would be.
-    private func looseRow(_ loose: [Card]) -> some View {
-        HStack(spacing: 14) {
-            RoundedRectangle(cornerRadius: 4).strokeBorder(Palette.edge, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                .frame(width: 44, height: 44)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(loose.count == 1 ? "1 suelta" : "\(loose.count) sueltas").font(Typo.text(18, .heavy)).foregroundStyle(Palette.ink)
-                Text(loose.prefix(4).map(\.es).joined(separator: ", ") + (loose.count > 4 ? "…" : ""))
-                    .font(Typo.text(13, .bold)).foregroundStyle(Palette.muted).lineLimit(1)
+    /// How the library stands by level, and the one way into studying it.
+    private func library(_ words: [Card]) -> some View {
+        let plan = Library.plan(cards)
+        let pending = plan.queue.count + plan.fresh.count
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 18) {
+                ForEach(1...3, id: \.self) { l in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(words.filter { $0.level == l }.count)").font(Typo.display(22)).foregroundStyle(Palette.ink)
+                        Text(Library.levelNames[l] ?? "").font(Typo.text(13, .bold)).foregroundStyle(Palette.muted)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 8)
-            Text("Agrupar ›").font(Typo.text(15, .heavy)).foregroundStyle(Palette.accentInk)
+            if pending > 0 {
+                Button { study(plan.pool, queue: plan.queue, label: "Biblioteca", fresh: plan.fresh) } label: {
+                    Text("Estudiar · \(pending)").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white, size: 18))
+            } else {
+                Text("Nada por estudiar ahora. Escanea otra página.").font(Typo.text(15, .bold)).foregroundStyle(Palette.muted)
+            }
         }
-        .padding(.vertical, 12).padding(.horizontal, 6)
-        .contentShape(.rect)
     }
 
     // MARK: conjugation
@@ -141,7 +124,7 @@ struct HomeView: View {
     private func studyTense(_ key: String, name: String) {
         let pool = cards.filter { Scheduler.inTab($0, tab: .conj, tense: key) }
         let verbs = cards.filter { !$0.isConj && $0.isVerb }
-        study(pool, tab: .conj, label: name, key: "conj:" + key,
+        study(pool, queue: Scheduler.dailyQueue(pool), tab: .conj, label: name, key: "conj:" + key,
               fresh: Scheduler.unseen(pool, staggerTenses: key == Tense.random, verbs: verbs))
     }
 

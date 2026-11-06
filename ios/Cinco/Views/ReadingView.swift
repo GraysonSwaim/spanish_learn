@@ -1,59 +1,56 @@
 import SwiftUI
 import SwiftData
 
-/// One reading, set like the article it came from, sentence by sentence. Tap a word you don't know, or hold and slide
-/// across a phrase, to mark it and see roughly what it means; Tarjetas turns the marked words into cards.
-/// A reading made from a link can also be read on the article's own page (`PageReader`), marked the same way.
-/// A scanned page of a book is studied first: Claude picks its words, they're studied from here, and the session comes
-/// back to the page to read it.
+/// One reading, set like the article it came from. A scanned page first feeds the library: its new words go in, to be
+/// studied from here, and the session comes back to the page to read it. Tap a word you don't understand, or hold and
+/// slide across a phrase, and it's recorded: yellow if it's in the library already, green if it's new to it.
+/// A reading made from a link can also be read on the article's own page (`PageReader`), tapped the same way.
 struct ReadingView: View {
-    @Bindable var reading: Reading
-    /// Go straight to the cards, for a page just scanned.
-    var startCards = false
+    @Environment(\.modelContext) private var ctx
     @Environment(\.study) private var study
-    @Query private var cards: [Card]
-    @Query private var chunks: [Chunk]
+    @Bindable var reading: Reading
+    /// Take the page's words straight away, for a page just scanned.
+    var justScanned = false
+    @Query(sort: \Card.order) private var cards: [Card]
 
     enum Mode { case page, text }
 
     @State private var mode = Mode.page
     @State private var words: [[Range<String.Index>]] = []
-    @State private var known = Set<String>()
     /// The word or phrase whose meaning is showing.
     @State private var lookup: Lookup?
-    @State private var makingCards = false
     /// What's selected on the page.
     @State private var selection: PageSelection?
     @State private var page = PageHandle()
     @State private var pageFailed = false
 
-    private var runs: [Run] { Lectura.runs(lines: reading.lines, marks: reading.marks) }
+    /// Taking the page's words.
+    @State private var working: String?
+    @State private var problem: String?
+    @State private var askScanConsent = false
+    @State private var askConsent = false
+    /// Tapped words are settled one at a time, by this.
+    @State private var settling = false
+    @State private var settleFailed = Set<String>()
+
     private var pageURL: URL? { reading.url.isEmpty || reading.book != nil ? nil : URL(string: reading.url) }
     private var onPage: Bool { mode == .page && pageURL != nil && !pageFailed }
     private var isBook: Bool { reading.book != nil }
-
-    /// A book page's words to study before reading it: the ones new to its theme, and those from the deck it brought back.
-    private var pageWords: [Card] {
-        guard isBook else { return [] }
-        let theme = chunks.first { $0.readingID == reading.id }?.id
-        return cards.filter { c in
-            !c.isConj && !c.isDropped && (c.chunkID == theme || c.sourceList.contains { $0.title == reading.title })
-        }
-    }
-
-    /// A session over them would have something to show.
-    private var canStudy: Bool {
-        let words = pageWords
-        return !Scheduler.dailyQueue(words).isEmpty || !Scheduler.unseen(words, staggerTenses: false, verbs: []).isEmpty
+    /// This page's cards in the library.
+    private var pageCards: [Card] { Library.cards(on: reading, in: cards) }
+    /// The page's words waiting to go into the library.
+    private var waiting: Int {
+        reading.pageWords.map { Library.newWords($0, index: Library.index(cards)).count } ?? 0
     }
 
     var body: some View {
+        let colors = reading.markColors
         Group {
             if onPage, let url = pageURL {
-                PageReader(url: url, lines: reading.lines, marks: reading.marks, known: known, handle: page,
+                PageReader(url: url, lines: reading.lines, marks: reading.marks, colors: colors, handle: page,
                            onTap: pageTapped, onSelect: pageSelected, onFail: { pageFailed = true })
             } else {
-                lines
+                lines(colors)
             }
         }
         .background(Backdrop())
@@ -72,42 +69,43 @@ struct ReadingView: View {
         }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
-                if onPage { pagePanel }
+                if onPage { pagePanel(colors) }
                 actions
             }
         }
         .onAppear(perform: load)
         .onChange(of: reading.lines.count) { words = reading.lines.map(Lectura.words) }
-        .onChange(of: cards.count) { known = Lectura.knownWords(cards) }
-        // After the screen has arrived: a sheet asked for during the push doesn't come up.
-        .task {
-            guard startCards, reading.marks.isEmpty, reading.carded.isEmpty else { return }
-            try? await Task.sleep(for: .milliseconds(450))
-            makingCards = true
-        }
         .onChange(of: mode) {
             lookup = nil
             selection = nil
         }
-        .sheet(isPresented: $makingCards) {
-            NavigationStack { ReadingCardsView(reading: reading) }
+        .task {
+            if justScanned, isBook, reading.pageWords == nil { takeWords() }
         }
+        .alert("¿Enviar la página a Claude?", isPresented: $askScanConsent) {
+            Button("Enviar") { Tutor.scanConsented = true; takeWords() }
+            Button("Cancelar", role: .cancel) {}
+        } message: { Text(Tutor.scanConsentMessage) }
+        .alert(Tutor.consentTitle, isPresented: $askConsent) {
+            Button("Enviar") { Tutor.consented = true; settle() }
+            if Tutor.onDeviceAvailable { Button("Solo en el iPhone") { settle(claude: false) } }
+            Button("Cancelar", role: .cancel) {}
+        } message: { Text(Tutor.consentMessage) }
     }
 
-    private var lines: some View {
+    private func lines(_ colors: [String: MarkColor]) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
                 Text(reading.title).font(Typo.display(28)).foregroundStyle(Palette.ink)
-                Text(isBook ? "Estudia primero las palabras de esta página; luego léela con calma. Si te atascas, toca una palabra para ver qué significa."
-                     : pageFailed && reading.lines.isEmpty ? "No se pudo abrir la página del artículo, ni leer su texto."
-                     : pageFailed ? "No se pudo abrir la página del artículo; aquí está su texto. Toca una palabra que no conoces, o mantén pulsado y desliza para una frase."
-                     : "Toca una palabra que no conoces, o mantén pulsado y desliza para una frase. Lo que marques se hace tarjeta.")
+                Text(pageFailed && reading.lines.isEmpty ? "No se pudo abrir la página del artículo, ni leer su texto."
+                     : pageFailed ? "No se pudo abrir la página del artículo; aquí está su texto. Toca lo que no entiendas y queda guardado."
+                     : "Toca lo que no entiendas, o mantén pulsado y desliza para una frase. Amarillo: ya estaba en tu biblioteca. Verde: es nueva.")
                     .font(Typo.text(15)).foregroundStyle(Palette.muted)
                     .padding(.bottom, 8)
 
                 ForEach(reading.lines.indices, id: \.self) { i in
                     HStack(alignment: .top, spacing: 6) {
-                        spanish(i)
+                        spanish(i, colors)
                         speakButton(reading.lines[i])
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -120,34 +118,42 @@ struct ReadingView: View {
         }
     }
 
-    /// The Spanish line as running text, its marked words highlighted. A tap or a slide marks, and shows the meaning.
-    private func spanish(_ i: Int) -> some View {
+    /// The Spanish line as running text, its tapped words coloured. A tap or a slide records, and shows the meaning.
+    private func spanish(_ i: Int, _ colors: [String: MarkColor]) -> some View {
         let line = reading.lines[i]
-        return ReadingText(text: line, words: words[safe: i] ?? [], spans: Lectura.spans(reading.marks, line: i, text: line),
-                           known: known,
+        let spans = Lectura.spans(reading.marks, line: i, text: line).map { s in
+            (span: s, color: colors["\(i).\(s.lowerBound)-\(s.upperBound)"] ?? MarkColor.pending)
+        }
+        return ReadingText(text: line, words: words[safe: i] ?? [], spans: spans,
                            onTap: { w, rect in tapped(line: i, word: w, rect: rect) },
                            onPick: { span, rect in picked(line: i, span: span, rect: rect) })
             .popover(isPresented: Binding(get: { lookup?.line == i }, set: { if !$0 { lookup = nil } }),
                      attachmentAnchor: .rect(.rect(lookup?.line == i ? lookup!.rect : .zero))) {
                 if let l = lookup, let text = phrase(l) {
-                    WordLookup(text: text) { unmark(l) }
+                    wordLookup(l, text: text, colors: colors, onClose: nil)
                         .frame(minWidth: 220, idealWidth: 260, maxWidth: 320, alignment: .leading)
                         .presentationCompactAdaptation(.popover)
                 }
             }
     }
 
-    /// Over the page: the meaning of what was tapped, or a way to mark what's selected.
+    private func wordLookup(_ l: Lookup, text: String, colors: [String: MarkColor], onClose: (() -> Void)?) -> some View {
+        let id = Lectura.markKey(line: l.line, first: l.words.lowerBound, last: l.words.upperBound)
+        return WordLookup(text: text, meaning: reading.glosses[id]?.english, color: colors[id] ?? .pending,
+                          onRemove: { unmark(l) }, onClose: onClose)
+    }
+
+    /// Over the page: the meaning of what was tapped, or a way to record what's selected.
     @ViewBuilder
-    private var pagePanel: some View {
+    private func pagePanel(_ colors: [String: MarkColor]) -> some View {
         if let s = selection, !s.phrase.isEmpty {
             Button { markSelection(s) } label: {
-                Label("Marcar «\(s.phrase)»", systemImage: "highlighter").lineLimit(1).frame(maxWidth: .infinity)
+                Label("Guardar «\(s.phrase)»", systemImage: "highlighter").lineLimit(1).frame(maxWidth: .infinity)
             }
             .buttonStyle(SoftButtonStyle(fill: Palette.paper, text: Palette.ink, size: 17))
             .padding(.horizontal, 16)
         } else if let l = lookup, let text = phrase(l) {
-            WordLookup(text: text, onRemove: { unmark(l) }, onClose: { lookup = nil })
+            wordLookup(l, text: text, colors: colors, onClose: { lookup = nil })
                 .id(text)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Palette.paper, in: .rect(cornerRadius: 6))
@@ -167,27 +173,41 @@ struct ReadingView: View {
         .accessibilityLabel("Escuchar la línea")
     }
 
+    /// What's next for this page: its words going in, studying them, and more of them when you want them. Reading is
+    /// never held back by any of it.
     private var actions: some View {
-        let n = runs.filter { !reading.carded.contains($0.id) }.count
-        // A book page with nothing marked yet can still have its words chosen.
-        let choosable = isBook && runs.isEmpty
-        let enabled = !runs.isEmpty || choosable
+        let onThisPage = pageCards
+        let toStudy = Library.toStudy(onThisPage).count
+        let unseen = onThisPage.contains { $0.stage == 0 }
         return VStack(spacing: 8) {
-            if canStudy {
-                Button { studyPage() } label: {
-                    Text("Estudiar estas palabras · \(pageWords.count)").frame(maxWidth: .infinity)
+            if let working {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text(working).font(Typo.text(15, .bold)).foregroundStyle(Palette.muted)
                 }
-                .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white, size: 18))
-            }
-            // A page whose words are all cards has nothing more to make.
-            if !isBook || n > 0 || runs.isEmpty {
-                Button { makingCards = true } label: {
-                    Text(choosable ? "Elegir las palabras" : n > 0 ? "Hacer tarjetas · \(n)" : runs.isEmpty ? "Marca palabras para hacer tarjetas" : "Tarjetas")
-                        .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, minHeight: 44)
+            } else {
+                if let problem {
+                    Text(problem).font(Typo.text(14, .bold)).foregroundStyle(Palette.again)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, size: 18))
-                .disabled(!enabled)
-                .opacity(enabled ? 1 : 0.5)
+                if toStudy > 0 {
+                    Button(action: studyPage) {
+                        Text("Estudiar estas palabras · \(toStudy)").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white, size: 18))
+                }
+                if isBook, reading.pageWords == nil {
+                    Button(action: takeWords) {
+                        Text("Sacar las palabras de esta página").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, size: 18))
+                } else if waiting > 0, !unseen {
+                    Button(action: addMore) {
+                        Text("Añadir \(min(waiting, Prefs.current.newPerScan)) más · quedan \(waiting)").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, size: 18))
+                }
             }
         }
         .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
@@ -198,16 +218,68 @@ struct ReadingView: View {
 
     // MARK: actions
 
+    /// The whole library, this page's words first.
     private func studyPage() {
-        let theme = chunks.first { $0.readingID == reading.id }
-        study(pageWords, label: theme?.name ?? reading.title, key: "page:" + reading.id)
+        let plan = Library.plan(cards, first: Set(pageCards.map(\.id)))
+        study(plan.pool, queue: plan.queue, label: reading.title, fresh: plan.fresh)
+    }
+
+    /// Reads the page's words and adds the first of the new ones to the library.
+    private func takeWords() {
+        guard Tutor.scanConsented else { askScanConsent = true; return }
+        working = "Leyendo las palabras de la página…"
+        problem = nil
+        Task {
+            do throws(Tutor.Failure) {
+                if reading.pageWords == nil { reading.pageWords = try await Tutor.words(lines: reading.lines) }
+                try? ctx.save()
+                working = "Preparando tus tarjetas…"
+                try await Library.addNext(from: reading, limit: Prefs.current.newPerScan, ctx: ctx)
+            } catch {
+                problem = error.message
+            }
+            working = nil
+        }
+    }
+
+    private func addMore() {
+        working = "Preparando tus tarjetas…"
+        problem = nil
+        Task {
+            do throws(Tutor.Failure) {
+                try await Library.addNext(from: reading, limit: Prefs.current.newPerScan, ctx: ctx)
+            } catch {
+                problem = error.message
+            }
+            working = nil
+        }
     }
 
     private func load() {
         words = reading.lines.map(Lectura.words)
-        known = Lectura.knownWords(cards)
         reading.opened = .now
         if reading.lines.isEmpty, let url = pageURL { Task { await readArticle(url) } }
+        if !Tutor.needsConsent { settle() }
+    }
+
+    /// Settles the tapped words still waiting, one at a time. One that fails waits until the reading is opened again.
+    private func settle(claude: Bool = true) {
+        guard !settling else { return }
+        settling = true
+        Task {
+            while let run = Library.unresolved(reading).first(where: { !settleFailed.contains($0.id) }) {
+                do throws(Tutor.Failure) {
+                    try await Library.record(run, in: reading, claude: claude, ctx: ctx)
+                } catch {
+                    settleFailed.insert(run.id)
+                }
+            }
+            settling = false
+        }
+    }
+
+    private func record() {
+        if Tutor.needsConsent { askConsent = true } else { settle() }
     }
 
     /// The article's text, for the Texto view and in case the page won't open. Paragraphs already marked on the page
@@ -218,7 +290,7 @@ struct ReadingView: View {
         if !a.title.isEmpty, reading.title == ArticleText.site(url) { reading.title = a.title }
     }
 
-    /// A tap on an unmarked word marks it as a card of its own; on a marked one, shows the phrase it's in.
+    /// A tap on a new word records it; on one already tapped, shows the phrase it's in.
     private func tapped(line i: Int, word w: Int, rect: CGRect) {
         if let span = Lectura.spans(reading.marks, line: i, text: reading.lines[i]).first(where: { $0.contains(w) }) {
             lookup = Lookup(line: i, words: span, rect: rect)
@@ -226,17 +298,23 @@ struct ReadingView: View {
             Lectura.mark(&reading.marks, line: i, first: w, last: w)
             UISelectionFeedbackGenerator().selectionChanged()
             lookup = Lookup(line: i, words: w...w, rect: rect)
+            record()
         }
     }
 
-    /// A slide across words marks them as one phrase, in place of any marks they cross.
+    /// A slide across words records them as one phrase, in place of any marks they cross.
     private func picked(line i: Int, span: ClosedRange<Int>, rect: CGRect) {
         Lectura.mark(&reading.marks, line: i, first: span.lowerBound, last: span.upperBound)
         lookup = Lookup(line: i, words: span, rect: rect)
+        record()
     }
 
     private func unmark(_ l: Lookup) {
         guard let line = reading.lines[safe: l.line] else { return }
+        if let run = Lectura.runs(lines: reading.lines, marks: reading.marks)
+            .first(where: { $0.line == l.line && ($0.first...$0.last).contains(l.words.lowerBound) }) {
+            Library.forget(run, in: reading, ctx: ctx)
+        }
         Lectura.unmark(&reading.marks, line: l.line, text: line, word: l.words.lowerBound)
         lookup = nil
     }

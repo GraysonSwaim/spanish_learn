@@ -1,6 +1,19 @@
 import SwiftUI
 import SwiftData
 
+/// Starts a session over some cards. RootView owns the session; Home and the readings call this.
+struct StudyAction {
+    var run: (_ pool: [Card], _ queue: [Card], _ tab: Tab, _ label: String, _ key: String, _ fresh: [Card]) -> Void = { _, _, _, _, _, _ in }
+
+    func callAsFunction(_ pool: [Card], queue: [Card], tab: Tab = .vocab, label: String, key: String = "", fresh: [Card]) {
+        run(pool, queue, tab, label, key, fresh)
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var study = StudyAction()
+}
+
 @main
 struct CincoApp: App {
     var body: some Scene {
@@ -43,7 +56,7 @@ struct RootView: View {
         NavigationStack {
             HomeView(session: $session)
         }
-        .environment(\.study, StudyAction { pool, tab, label, key, fresh in start(pool, tab: tab, label: label, key: key, fresh: fresh) })
+        .environment(\.study, StudyAction(run: start))
         .tint(Palette.accentInk)
         // Capturing the session makes this view depend on it. Without that, a session created in the same
         // tap that opens the cover (a theme) wasn't seen yet and the cover came up empty until a redraw.
@@ -68,7 +81,7 @@ struct RootView: View {
         }
         #if DEBUG
         .sheet(item: $demoReading) { r in
-            NavigationStack { ReadingView(reading: r, startCards: ProcessInfo.processInfo.arguments.contains("-openScan")) }
+            NavigationStack { ReadingView(reading: r, justScanned: ProcessInfo.processInfo.arguments.contains("-openScan")) }
                 .preferredColorScheme(scheme)
         }
         .sheet(isPresented: $demoLecturas) { NavigationStack { LecturasView() }.preferredColorScheme(scheme) }
@@ -76,12 +89,11 @@ struct RootView: View {
         #endif
     }
 
-    /// Studies a theme or a tense: the session left midway on it, or a new one going round its stages 1–4, with its new
-    /// cards coming in as there's room.
-    private func start(_ pool: [Card], tab: Tab, label: String, key: String, fresh: [Card]) {
-        if let s = session, !s.isFinished, s.key == key { studying = true; return }
-        let s = StudySession(queue: Scheduler.dailyQueue(pool), tab: tab, label: label, key: key, pool: pool, fresh: fresh,
-                             continuous: true, ctx: ctx)
+    /// Starts a session going round stages 1–4, with new cards coming in as there's room. A tense picks up the session
+    /// left midway on it (`key`); the library always starts afresh, so words just added are in it.
+    private func start(_ pool: [Card], queue: [Card], tab: Tab, label: String, key: String, fresh: [Card]) {
+        if !key.isEmpty, let s = session, !s.isFinished, s.key == key { studying = true; return }
+        let s = StudySession(queue: queue, tab: tab, label: label, key: key, pool: pool, fresh: fresh, continuous: true, ctx: ctx)
         guard !s.isFinished else { return }
         session = s
         studying = true
@@ -95,17 +107,6 @@ struct RootView: View {
         // `-loadSample` fills an empty deck with the sample cards, for the flags below.
         if args.contains("-loadSample") && Deck.allCards(ctx).isEmpty {
             Deck.loadSample(ctx)
-            // `-sampleThemes` also files most of them into themes, a couple merged, the rest left loose.
-            if args.contains("-sampleThemes") {
-                let words = Deck.allCards(ctx).filter { !$0.isConj }
-                var made: [Chunk] = []
-                for (i, name) in ["Saludos", "En el café", "Por la ciudad", "Mi día", "La familia", "Cómo me siento"].enumerated() {
-                    let c = Chunks.create(name, ctx: ctx)
-                    Chunks.file(Array(words.dropFirst(i * 6).prefix(6)), in: c, ctx: ctx)
-                    made.append(c)
-                }
-                Chunks.merge(made[1], made[2], name: "Salir", ctx: ctx)
-            }
         }
         // `-openLecturas` opens Lecturas.
         if args.contains("-openLecturas") {

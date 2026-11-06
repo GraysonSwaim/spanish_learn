@@ -13,6 +13,7 @@ struct SettingsView: View {
     @AppStorage(PrefKey.theme) private var theme = "auto"
     @AppStorage(PrefKey.askMnemonics) private var askMnemonics = true
     @AppStorage(PrefKey.examples) private var examples = Tutor.consented
+    @AppStorage(PrefKey.newPerScan) private var newPerScan = Scheduler.defaultNewPerScan
 
     @State private var iCloud = "Comprobando…"
     @State private var confirmErase = false
@@ -24,6 +25,12 @@ struct SettingsView: View {
                     VStack(alignment: .leading) {
                         Text("Tarjetas por etapa: \(stageCap)")
                         Text("Cuántas caben en cada etapa de la 1 a la 4. Una nueva entra cuando hay sitio en la 1.").font(Typo.text(13)).foregroundStyle(Palette.muted)
+                    }
+                }
+                Stepper(value: $newPerScan, in: 5...40, step: 5) {
+                    VStack(alignment: .leading) {
+                        Text("Palabras nuevas por escaneo: \(newPerScan)")
+                        Text("Cuántas entran en tu biblioteca cada vez, las básicas primero. Las demás pueden esperar: añádelas desde la página, o llegarán con otra.").font(Typo.text(13)).foregroundStyle(Palette.muted)
                     }
                 }
                 Toggle("Pronunciar en voz alta", isOn: $autoSpeak)
@@ -120,11 +127,13 @@ struct HowView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Tu diccionario lo haces tú: las palabras llegan de Añadir, una a una, y de Lecturas, donde marcas las que no conoces o escaneas una página de un libro. Las de una lectura entran juntas en un tema con su nombre; si marcas una que ya tenías, guarda también esa lectura y su frase, para que la recuerdes por más sitios.")
-                Text("Las que añades a mano esperan en Sueltas hasta que las juntas en un tema. Junta las que pasan en el mismo sitio (en la estación: el andén, la maleta, el retraso) más que las del mismo tipo (frutas, colores): se recuerdan mejor juntas. En Inicio, arrastra un tema sobre otro para hacer uno más grande; los dos siguen dentro y puedes estudiar uno solo o todo junto.")
-                Text("Toca un tema para estudiarlo. Cada tarjeta sube cinco etapas, cada una más difícil que la anterior. Si aciertas, sube (toca ¡La sé! o desliza a la derecha). Si fallas (toca Otra vez o desliza a la izquierda), baja una etapa y vuelve unas tarjetas después.")
-                Text("En cada tema, de la 1 a la 4 caben pocas tarjetas a la vez: 5 en cada etapa, o las que digas en Ajustes. Así estudias pocas y las aprendes bien. Una tarjeta solo sube si en la siguiente etapa hay sitio; si no, queda lista y sube en cuanto lo hay. Una nueva entra cuando hay sitio en la 1. Un fallo baja la tarjeta aunque la etapa de abajo esté llena, y no entra ninguna nueva hasta que un acierto vuelve a hacer sitio.")
-                Text("La sesión no se acaba sola: repasas las etapas 1 a 4 del tema sin esperas, tanto como quieras, y sus nuevas van entrando. Las dominadas no tienen límite: vuelven a la semana y, si las aciertas, a las 2 semanas, a las 4, a las 8… Un tema con dominadas por repasar lo dice en su tarjeta.")
+                Text("Tienes una sola biblioteca de palabras, y cada palabra está una sola vez, por muchas páginas en las que salga. Se llena sola con lo que lees.")
+                Text("Escanea una página en Lecturas. Claude saca todas sus palabras y las ordena en tres niveles: básicas, intermedias y avanzadas. Las nuevas entran en tu biblioteca, las básicas primero, hasta el límite que digas en Ajustes.")
+                Text("Luego estudias. Cada palabra nueva te la pregunta una vez: si dices Ya la sé, queda aprendida y no hace falta entrenarla; si dices No la sé, empieza a subir por las etapas. Primero salen las de la página que vas a leer.")
+                Text("Después lees. Toca lo que no entiendas y queda guardado. En amarillo, ya estaba en tu biblioteca, y vuelve a repasarse. En verde, es nueva, y acaba de entrar.")
+                Text("Cada tarjeta sube cinco etapas, cada una más difícil que la anterior. Si aciertas, sube (toca ¡La sé! o desliza a la derecha). Si fallas (toca Otra vez o desliza a la izquierda), baja una etapa y vuelve unas tarjetas después.")
+                Text("De la 1 a la 4 caben pocas tarjetas a la vez: 5 en cada etapa, o las que digas en Ajustes. Así estudias pocas y las aprendes bien. Una tarjeta solo sube si en la siguiente etapa hay sitio; si no, queda lista y sube en cuanto lo hay. Una nueva entra cuando hay sitio en la 1.")
+                Text("La sesión no se acaba sola: repasas sin esperas, tanto como quieras, y las nuevas van entrando. Las dominadas no tienen límite: vuelven a la semana y, si las aciertas, a las 2 semanas, a las 4, a las 8…")
                 ForEach(1...5, id: \.self) { i in
                     HStack(alignment: .top, spacing: 10) {
                         Text("\(i)").font(Typo.display(18)).foregroundStyle(.white)
@@ -137,7 +146,7 @@ struct HowView: View {
                 }
                 Text("En Vocabulario ves la palabra o la expresión (¿Dónde está el baño?, Me da igual), su significado y una frase de ejemplo: con la palabra resaltada cuando la ves en español, y con un hueco cuando eres tú quien la dice o la escribe. Si a una tarjeta le falta la frase, Claude la escribe (Ajustes › Frases de ejemplo).")
                 Text("En Conjugación cada tiempo de cada verbo es una tarjeta: primero ves el verbo, luego su significado y después conjugas la tabla. Primero la estudias, luego la dices en voz alta y te calificas, y desde la etapa 4 escribes las formas. El pronombre es opcional.")
-                Text("Las tarjetas llegan de dos sitios: Añadir, una palabra cada vez, y Lecturas, donde marcas las que no conoces o escaneas una página de un libro. Si una ya está en el mazo, no se repite.")
+                Text("También puedes añadir una palabra a mano con +. Si ya está en tu biblioteca, no se repite.")
                 Text("Si fallas una tarjeta, puedes escribir en ese momento una mnemotecnia: un truco para recordarla. Aparece con la respuesta la próxima vez. Se puede desactivar en Ajustes.")
                 Text("Tus tarjetas y tu progreso se guardan en iCloud y se sincronizan entre todos tus dispositivos con la misma cuenta. Los ajustes, como las tarjetas por etapa, se quedan en cada dispositivo.")
             }

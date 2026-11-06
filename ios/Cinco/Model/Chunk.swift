@@ -1,9 +1,8 @@
 import Foundation
 import SwiftData
 
-/// A theme: a chunk of words the learner put together. Each word is filed in one chunk (`Card.chunkID`). Chunks merge
-/// into bigger ones by pointing at a parent, and the smaller ones stay inside, as deep as the learner likes. Home shows
-/// the chunks with no parent.
+/// No longer used: a theme, from when the library was split into them. Kept in the schema so what's in iCloud stays
+/// readable and the CloudKit schema only ever grows.
 ///
 /// Same CloudKit rules as `Card`: every property has a default, nothing is `.unique`, no relationships.
 @Model
@@ -12,7 +11,7 @@ final class Chunk {
     var name: String = ""
     /// The chunk this one was merged into; "" for one on Home.
     var parentID: String = ""
-    /// Which of the theme colours (`Palette.chunk`).
+    /// Which of the theme colours.
     var color: Int = 0
     var order: Double = 0
     var created: Date = Date.now

@@ -28,7 +28,8 @@ final class Card {
     var frases: String = ""
     /// Tense key -> "yo|tú|él|nosotros|vosotros|ellos".
     var tenses: [String: String] = [:]
-    /// The theme the word is filed in (`Chunk.id`); "" while it's loose, waiting in Sueltas.
+    /// No longer used: the theme the word was filed in, from when the library had themes. Kept so the CloudKit schema
+    /// only ever grows.
     var chunkID: String = ""
     /// Every reading the word was marked in, oldest first, as "title\u{1F}sentence" (`Source`).
     var sources: [String] = []
@@ -71,6 +72,26 @@ final class Card {
     var tenseList: [Tense] { Tense.all.filter { !(tenses[$0.key] ?? "").isEmpty } }
 
     func forms(_ tense: String) -> [String] { TextMatch.splitForms(tenses[tense]) }
+
+    /// 1 foundational, 2 intermediate, 3 advanced; nil until it's been judged. Kept among the tags ("nivel2"), since a new
+    /// property would need the CloudKit schema deployed before TestFlight builds could sync it.
+    var level: Int? {
+        get { tags.split(separator: " ").lazy.compactMap { Self.level(in: $0) }.first }
+        set {
+            var words = visibleTags
+            if let newValue { words.append("nivel\(newValue)") }
+            tags = words.joined(separator: " ")
+        }
+    }
+
+    /// The tags without the level, for showing.
+    var visibleTags: [String] {
+        tags.split(separator: " ").filter { Self.level(in: $0) == nil }.map(String.init)
+    }
+
+    private static func level(in tag: Substring) -> Int? {
+        tag.hasPrefix("nivel") ? Int(tag.dropFirst(5)) : nil
+    }
 
     var sourceList: [Source] { sources.compactMap(Source.init) }
 

@@ -143,9 +143,11 @@ struct StudyView: View {
         }
         .overlay(alignment: .topLeading) {
             if session.canGrade { stamp("¡La sé!", Palette.good, -12).opacity(Double(max(0, dragX) / 110)) }
+            else if session.phase == .intro, canKnow { stamp("Ya la sé", Palette.good, -12).opacity(Double(max(0, dragX) / 110)) }
         }
         .overlay(alignment: .topTrailing) {
             if session.canGrade { stamp("Otra vez", Palette.again, 12).opacity(Double(max(0, -dragX) / 110)) }
+            else if session.phase == .intro, canKnow { stamp("No la sé", Palette.again, 12).opacity(Double(max(0, -dragX) / 110)) }
         }
         .offset(x: dragX)
         .rotationEffect(.degrees(Double(dragX) / 20))
@@ -191,18 +193,33 @@ struct StudyView: View {
 
     private var canSwipe: Bool { onCard }
 
-    /// A new card's one choice, along its foot: pointing right, the way it can also be swiped away.
+    /// A new word's check and its training are one step: you know it and it's done, or you don't and it starts here.
+    /// Each points the way it can also be swiped. A new verb table has only the second, since it can't be judged at a glance.
     private var introTab: some View {
-        let toward = min(1, max(0, dragX) / 110)
-        return Button { session.introDone() } label: {
-            BigLabel("Entendido, pregúntame luego", "Vuelve dentro de unas tarjetas")
-                .lineLimit(1).minimumScaleFactor(0.8)
-                .padding(.leading, 8).padding(.trailing, 24)
+        let toward = min(1, abs(dragX) / 110)
+        return HStack(spacing: 10) {
+            Button { session.introDone() } label: {
+                BigLabel(canKnow ? "No la sé" : "Entendido", canKnow ? "la aprendes ahora" : "vuelve dentro de unas tarjetas")
+                    .lineLimit(1).minimumScaleFactor(0.8)
+                    .padding(.leading, canKnow ? 12 : 8)
+            }
+            .buttonStyle(GradeTabStyle(color: canKnow ? Palette.paper : Palette.accent, text: canKnow ? Palette.ink : .white, right: !canKnow))
+            .scaleEffect(dragX < 0 || !canKnow ? 1 + 0.06 * toward : 1)
+            .opacity(canKnow && dragX > 0 ? 1 - 0.6 * toward : 1)
+            if canKnow {
+                Button { session.alreadyKnown() } label: {
+                    BigLabel("Ya la sé", "no hace falta estudiarla").lineLimit(1).minimumScaleFactor(0.8).padding(.trailing, 12)
+                }
+                .buttonStyle(GradeTabStyle(color: Palette.good, text: Palette.onGood, right: true))
+                .scaleEffect(dragX > 0 ? 1 + 0.06 * toward : 1)
+                .opacity(dragX < 0 ? 1 - 0.6 * toward : 1)
+            }
         }
-        .buttonStyle(GradeTabStyle(color: Palette.accent, text: .white, right: true))
-        .scaleEffect(1 + 0.04 * toward)
         .padding(.horizontal, 12).padding(.bottom, 12)
     }
+
+    /// A word can be skipped as known; a verb's table is always shown.
+    private var canKnow: Bool { !(session.current?.isConj ?? false) }
 
     /// The two grades, along the foot of the card, each pointing the way its swipe goes. Dragging the card
     /// leans on the one it's heading for: that one grows, the other fades.
@@ -271,11 +288,11 @@ struct StudyView: View {
         DragGesture(minimumDistance: 20)
             .onChanged { v in
                 guard canSwipe, abs(v.translation.width) > abs(v.translation.height) else { return }
-                // A new card only goes one way: right, to "Entendido". Leftward it just resists.
-                dragX = session.canGrade || v.translation.width > 0 ? v.translation.width : v.translation.width / 8
+                // A new verb table only goes one way: right, to "Entendido". Leftward it just resists.
+                dragX = session.canGrade || canKnow || v.translation.width > 0 ? v.translation.width : v.translation.width / 8
             }
             .onEnded { v in
-                guard canSwipe, abs(dragX) > 110, session.canGrade || dragX > 0 else {
+                guard canSwipe, abs(dragX) > 110, session.canGrade || canKnow || dragX > 0 else {
                     withAnimation(.easeOut(duration: 0.2)) { dragX = 0 }
                     return
                 }
@@ -284,7 +301,7 @@ struct StudyView: View {
                 withAnimation(.easeIn(duration: 0.2)) { dragX = pass ? 600 : -600 }
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(200))
-                    if session.canGrade { grade(pass) } else { session.introDone() }
+                    if session.canGrade { grade(pass) } else if pass && canKnow { session.alreadyKnown() } else { session.introDone() }
                 }
             }
     }

@@ -182,7 +182,7 @@ enum Deck {
         for c in allCards(ctx) { ctx.delete(c) }
         for l in (try? ctx.fetch(FetchDescriptor<DayLog>())) ?? [] { ctx.delete(l) }
         for r in (try? ctx.fetch(FetchDescriptor<Reading>())) ?? [] { ctx.delete(r) }
-        for c in Chunks.all(ctx) { ctx.delete(c) }
+        for c in (try? ctx.fetch(FetchDescriptor<Chunk>())) ?? [] { ctx.delete(c) }
         try? ctx.save()
     }
 

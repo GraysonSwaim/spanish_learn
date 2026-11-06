@@ -342,14 +342,14 @@ struct DeleteTests {
         let ctx = try store()
         verb(ctx)
         ctx.insert(Reading(title: "x", lines: ["Hola."]))
-        Chunks.create("Tema", ctx: ctx)
+        ctx.insert(Chunk(name: "Tema", color: 0, order: 0))
         _ = Deck.today(ctx)
         try ctx.save()
         Deck.eraseAll(ctx)
         #expect(Deck.allCards(ctx).isEmpty)
         #expect(try ctx.fetch(FetchDescriptor<DayLog>()).isEmpty)
         #expect(try ctx.fetch(FetchDescriptor<Reading>()).isEmpty)
-        #expect(Chunks.all(ctx).isEmpty)
+        #expect(try ctx.fetch(FetchDescriptor<Chunk>()).isEmpty)
     }
 }
 
@@ -495,28 +495,16 @@ struct LecturaTests {
         #expect(Lectura.words(in: text, from: 17, to: 18) == nil)
     }
 
-    @Test func thePagePaintsMarksAndWordsAlreadyInTheDeck() {
+    @Test func thePagePaintsEachTappedWordInItsColour() {
         let text = "Hoy el frutero nos ha regalado unas naranjas porque mi abuela le echa de menos."
         let lines = ["Otra cosa.", text]
-        // "frutero" (2) marked, "echa de menos" (12-14) a phrase.
-        let p = Lectura.paint(text, lines: lines, marks: ["1.2-2", "1.12-14"], known: ["abuela", "frutero"])
+        // "frutero" (2) is new; "naranjas" (7) is in the library; "echa de menos" (12-14) isn't settled.
+        let p = Lectura.paint(text, lines: lines, marks: ["1.2-2", "1.7-7", "1.12-14"], colors: ["1.2-2": .new, "1.7-7": .seen])
         let ns = text as NSString
-        #expect(p.marked.map { ns.substring(with: NSRange(location: $0[0], length: $0[1] - $0[0])) } == ["frutero", "echa de menos"])
-        // A marked word isn't underlined as well.
-        #expect(p.known.map { ns.substring(with: NSRange(location: $0[0], length: $0[1] - $0[0])) } == ["abuela"])
-        // A paragraph that isn't a line has no marks; a short one, no underlines.
-        #expect(Lectura.paint("El frutero.", lines: lines, marks: ["1.2-2"], known: ["frutero"]) == ([], []))
-    }
-
-    @Test func aGlossMakesTheCardAndTheSentenceIsItsExample() {
-        let run = Run(line: 0, first: 1, last: 3, text: "echo de menos")
-        let gloss = Tutor.Gloss(spanish: "echar de menos", english: "to miss (someone)", note: "echo: presente, yo")
-        let rec = Lectura.record(run, gloss: gloss, sentence: "Te echo de menos.")
-        #expect(rec.es == "echar de menos" && rec.en == "to miss (someone)" && rec.ex == "Te echo de menos.")
-        #expect(rec.notes == "echo: presente, yo" && rec.tags == "lectura")
-        // Without a gloss: the words as written, no meaning yet.
-        let plain = Lectura.record(run, gloss: nil, sentence: "Te echo de menos.")
-        #expect(plain.es == "echo de menos" && plain.en.isEmpty)
+        let shown = { (c: MarkColor) in (p[c] ?? []).map { ns.substring(with: NSRange(location: $0[0], length: $0[1] - $0[0])) } }
+        #expect(shown(.new) == ["frutero"] && shown(.seen) == ["naranjas"] && shown(.pending) == ["echa de menos"])
+        // A paragraph that isn't a line has no marks.
+        #expect(Lectura.paint("El frutero.", lines: lines, marks: ["1.2-2"], colors: [:]).isEmpty)
     }
 
     @Test @MainActor func oldReadingsAreRecycled() throws {
@@ -593,56 +581,24 @@ struct PageScanTests {
         #expect(PageText.label([]) == nil)
     }
 
-    @Test func picksBecomeMarksOnTheirWords() {
-        let lines = ["Se encogió de hombros, sin más.", "Echó de menos a su hermano."]
-        let marks = Lectura.marks(for: [.init(line: 0, text: "encogió de hombros"), .init(line: 1, text: "ECHÓ DE MENOS"),
-                                        .init(line: 1, text: "no está"), .init(line: 9, text: "Echó")], lines: lines)
-        #expect(Lectura.runs(lines: lines, marks: marks).map(\.text) == ["encogió de hombros", "Echó de menos"])
-    }
-
-    @Test func howManyToChooseFollowsThePage() {
-        #expect(Lectura.pickCount(["Corta."]) == 8)
-        #expect(Lectura.pickCount([String(repeating: "a", count: 2000)]) == 20)
-        #expect(Lectura.pickCount([String(repeating: "a", count: 12000)]) == 40)
-    }
-
-    @Test @MainActor func aPageStaysAndItsThemeSitsInItsBooks() throws {
+    @Test @MainActor func aPageStays() throws {
         let schema = Schema([Card.self, DayLog.self, Reading.self, Chunk.self])
         let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         let ctx = c.mainContext
-        let one = Reading(title: "Mi libro · pág. 47", lines: ["Hola."])
-        let two = Reading(title: "Mi libro · pág. 48", lines: ["Adiós."])
-        one.book = "Mi libro"; two.book = "Mi libro"
-        #expect(one.book == "Mi libro" && one.url == "libro:Mi libro")
-        one.opened = .now.addingTimeInterval(-90 * 86_400)
-        ctx.insert(one); ctx.insert(two)
-
+        let old = Reading(title: "Mi libro · pág. 47", lines: ["Hola."])
+        old.book = "Mi libro"
+        #expect(old.book == "Mi libro" && old.url == "libro:Mi libro")
+        old.opened = .now.addingTimeInterval(-90 * 86_400)
+        ctx.insert(old)
         Lectura.recycle(ctx)
-        #expect(try ctx.fetch(FetchDescriptor<Reading>()).count == 2)
-
-        let a = Chunks.forReading(one, ctx: ctx)
-        let b = Chunks.forReading(two, ctx: ctx)
-        #expect(a.name == "Pág. 47" && b.name == "Pág. 48")
-        #expect(a.parentID == b.parentID)
-        let top = Chunks.top(Chunks.all(ctx))
-        #expect(top.map(\.name) == ["Mi libro"] && top[0].id == a.parentID)
-        #expect(Chunks.forReading(one, ctx: ctx) === a)
+        #expect(try ctx.fetch(FetchDescriptor<Reading>()).count == 1)
     }
 
-    @Test @MainActor func aPagesSavedWordsCanBeStudiedStraightAway() throws {
-        let schema = Schema([Card.self, DayLog.self, Reading.self, Chunk.self])
-        let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
-        let ctx = c.mainContext
-        let r = Reading(title: "Mi libro · pág. 47", lines: ["Echó de menos a su hermano."])
-        r.book = "Mi libro"
-        ctx.insert(r)
-        Lectura.save(r, new: [(CardRecord(es: "echar de menos", en: "to miss"), "Echó de menos a su hermano.")], existing: [], ctx: ctx)
-        let theme = Chunks.forReading(r, ctx: ctx)
-        let words = Deck.allCards(ctx).filter { $0.chunkID == theme.id }
-        #expect(words.map(\.es) == ["echar de menos"])
-        let session = StudySession(queue: Scheduler.dailyQueue(words), tab: .vocab, label: theme.name, key: "page:" + r.id, pool: words,
-                                   fresh: Scheduler.unseen(words, staggerTenses: false, verbs: []), continuous: true, ctx: ctx)
-        #expect(!session.isFinished)
+    @Test func aLongScanGoesInStretches() {
+        let long = String(repeating: "a", count: 3000)
+        #expect(Tutor.batches([long, long, "corta"]).map(\.count) == [1, 2])
+        #expect(Tutor.batches(["corta"]).count == 1)
+        #expect(Tutor.batches([String(repeating: "b", count: 9000)])[0][0].count == 6000)
     }
 
     /// The real recognizer on a drawn page.
@@ -710,102 +666,148 @@ struct ArticleTextTests {
     }
 }
 
-/// Themes: words filed in chunks, chunks merged into bigger ones, and readings that become themes and sources.
+/// The one library: each word once, foundational words first, fed by pages and by taps.
 @MainActor
-struct ChunkTests {
-    private func store() throws -> ModelContext {
+struct LibraryTests {
+    /// Held for the test: a context doesn't keep its container alive.
+    private let container: ModelContainer
+
+    init() throws {
         let schema = Schema([Card.self, DayLog.self, Reading.self, Chunk.self])
-        let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
-        return ModelContext(c)
+        container = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
     }
 
-    private func words(_ es: [String], ctx: ModelContext) -> [Card] {
-        Deck.importRecords(es.map { CardRecord(es: $0, en: $0 + " (en)") }, into: ctx)
-        let byID = Deck.cardsByID(ctx)
-        return es.map { byID[TextMatch.cardID($0)]! }
+    private func store() throws -> ModelContext { container.mainContext }
+
+    private func add(_ es: String, level: Int? = nil, ctx: ModelContext) -> Card {
+        Deck.importRecords([CardRecord(es: es, en: "x")], into: ctx)
+        let c = Deck.cardsByID(ctx)[TextMatch.cardID(es)]!
+        c.level = level
+        return c
     }
 
-    @Test func aMergedThemeHoldsBothAndItsWords() throws {
-        let ctx = try store()
-        let w = words(["el andén", "la maleta", "la llave", "la habitación", "harto"], ctx: ctx)
-        let station = Chunks.create("Estación", ctx: ctx)
-        let hotel = Chunks.create("Hotel", ctx: ctx)
-        Chunks.file(Array(w[0...1]), in: station, ctx: ctx)
-        Chunks.file(Array(w[2...3]), in: hotel, ctx: ctx)
-        let trip = try #require(Chunks.merge(station, hotel, name: "Viaje", ctx: ctx))
-        let all = Chunks.all(ctx)
-        #expect(Chunks.top(all).map(\.name) == ["Viaje"])
-        #expect(Set(Chunks.children(of: trip.id, in: all).map(\.name)) == ["Estación", "Hotel"])
-        #expect(Chunks.words(in: trip.id, cards: w, chunks: all).count == 4)
-        #expect(Chunks.words(in: hotel.id, cards: w, chunks: all).map(\.es).sorted() == ["la habitación", "la llave"])
-        #expect(Chunks.loose(w, chunks: all).map(\.es) == ["harto"])
-        #expect(Chunks.path(hotel, in: all) == "Viaje › Hotel")
-        // Merged again, as many times as you like.
-        let feelings = Chunks.create("Sentirse", ctx: ctx)
-        Chunks.file([w[4]], in: feelings, ctx: ctx)
-        let big = try #require(Chunks.merge(feelings, trip, name: "Mi vida", ctx: ctx))
-        #expect(Chunks.words(in: big.id, cards: w, chunks: Chunks.all(ctx)).count == 5)
-    }
-
-    @Test func aThemeCantGoInsideItself() throws {
-        let ctx = try store()
-        let a = Chunks.create("A", ctx: ctx)
-        let b = Chunks.create("B", ctx: ctx)
-        #expect(Chunks.nest(b, in: a, ctx: ctx))
-        #expect(!Chunks.nest(a, in: b, ctx: ctx))
-        #expect(Chunks.merge(a, b, name: "C", ctx: ctx) == nil)
-        Chunks.lift(b, ctx: ctx)
-        #expect(b.parentID.isEmpty)
-    }
-
-    @Test func undoingAThemeMovesEverythingUpALevel() throws {
-        let ctx = try store()
-        let w = words(["uno", "dos", "tres"], ctx: ctx)
-        let a = Chunks.create("A", ctx: ctx)
-        let b = Chunks.create("B", ctx: ctx)
-        Chunks.file([w[0]], in: a, ctx: ctx)
-        Chunks.file([w[1]], in: b, ctx: ctx)
-        let ab = try #require(Chunks.merge(a, b, name: "AB", ctx: ctx))
-        Chunks.file([w[2]], in: ab, ctx: ctx)
-        Chunks.dissolve(ab, ctx: ctx)
-        let all = Chunks.all(ctx)
-        #expect(Set(Chunks.top(all).map(\.name)) == ["A", "B"])
-        #expect(Chunks.loose(w, chunks: all).map(\.es) == ["tres"])
-        Chunks.dissolve(a, ctx: ctx)
-        #expect(Set(Chunks.loose(w, chunks: Chunks.all(ctx)).map(\.es)) == ["uno", "tres"])
-    }
-
-    @Test func coloursGoRoundBeforeRepeating() throws {
-        let ctx = try store()
-        var colours: [Int] = []
-        for i in 0..<Palette.chunkCount { colours.append(Chunks.create("\(i)", ctx: ctx).color) }
-        #expect(Set(colours).count == Palette.chunkCount)
-    }
-
-    @Test func aReadingMakesItsThemeAndEveryWordKeepsItsSources() throws {
-        let ctx = try store()
-        let old = words(["la abuela"], ctx: ctx)[0]
-        let home = Chunks.create("Familia", ctx: ctx)
-        Chunks.file([old], in: home, ctx: ctx)
-
-        let r = Reading(title: "En el mercado", lines: ["Voy al mercado con mi abuela. Ella conoce a todos."])
+    private func page(_ lines: [String], words: [PageWord], ctx: ModelContext) -> Reading {
+        let r = Reading(title: "Mi libro · pág. 47", lines: lines)
+        r.book = "Mi libro"
+        r.pageWords = words
         ctx.insert(r)
-        Lectura.save(r, new: [(CardRecord(es: "el mercado", en: "market"), "Voy al mercado con mi abuela.")],
-                     existing: [(old, "Voy al mercado con mi abuela.")], ctx: ctx)
-        let market = try #require(Deck.cardsByID(ctx)[TextMatch.cardID("el mercado")])
-        let theme = try #require(Chunks.all(ctx).first { $0.readingID == r.id })
-        #expect(theme.name == "En el mercado" && market.chunkID == theme.id)
-        #expect(market.sourceList == [Source(title: "En el mercado", sentence: "Voy al mercado con mi abuela.")])
-        // A word already in the deck stays in its theme and gains this reading.
-        #expect(old.chunkID == home.id)
-        #expect(old.sourceList.map(\.title) == ["En el mercado"])
+        return r
+    }
 
-        // A second reading: the same words gain a second source, and the first theme is reused for the first reading.
-        let r2 = Reading(title: "La visita", lines: ["Mi abuela llega el lunes."])
-        ctx.insert(r2)
-        Lectura.save(r2, new: [], existing: [(old, "Mi abuela llega el lunes.")], ctx: ctx)
-        #expect(old.sourceList.map(\.title) == ["En el mercado", "La visita"])
-        #expect(Chunks.forReading(r, ctx: ctx) === theme)
+    @Test func theLevelLivesAmongTheTags() throws {
+        let ctx = try store()
+        let c = add("la mano", ctx: ctx)
+        c.tags = "lectura"
+        #expect(c.level == nil)
+        c.level = 3
+        #expect(c.level == 3 && c.tags == "lectura nivel3" && c.visibleTags == ["lectura"])
+        c.level = 1
+        #expect(c.level == 1 && c.tags == "lectura nivel1")
+    }
+
+    @Test func aWordIsFoundWithOrWithoutItsArticleAndByItsAlternatives() throws {
+        let ctx = try store()
+        let mano = add("la mano", ctx: ctx), coche = add("el coche / el carro", ctx: ctx)
+        let index = Library.index(Deck.allCards(ctx))
+        #expect(Library.find("mano", in: index) === mano)
+        #expect(Library.find("LA MANO", in: index) === mano)
+        #expect(Library.find("el carro", in: index) === coche)
+        #expect(Library.find("tener", in: index) == nil)
+    }
+
+    @Test func aPagesNewWordsGoFoundationalFirstAndSkipTheLibrary() throws {
+        let ctx = try store()
+        _ = add("la mano", ctx: ctx)
+        let discarded = add("el perro", ctx: ctx)
+        discarded.dropped = .now
+        let words = [PageWord(spanish: "la desdicha", level: 3, forms: ["desdicha"]), PageWord(spanish: "mano", level: 1, forms: ["mano"]),
+                     PageWord(spanish: "el perro", level: 1, forms: ["perro"]), PageWord(spanish: "pensar", level: 2, forms: ["pensó"]),
+                     PageWord(spanish: "de", level: 1, forms: ["de"]), PageWord(spanish: "que", level: 1, forms: ["que"])]
+        let new = Library.newWords(words, index: Library.index(Deck.allCards(ctx)))
+        #expect(new.map(\.spanish) == ["de", "que", "pensar", "la desdicha"])
+    }
+
+    @Test func aWordsPlaceIsItsFormAndItsSentence() {
+        let w = PageWord(spanish: "echar de menos", level: 3, forms: ["Echó de menos"])
+        let place = Library.place(of: w, in: ["Otra cosa.", "Llovía. Echó de menos a su hermano. Y lloró."])
+        #expect(place.form == "Echó de menos" && place.sentence == "Echó de menos a su hermano.")
+    }
+
+    @Test func scansThatComeBackInStretchesAreOneList() {
+        let merged = PageWord.merged([[PageWord(spanish: "tener", level: 1, forms: ["tengo"])],
+                                      [PageWord(spanish: "la mano", level: 1, forms: ["mano"]), PageWord(spanish: "tener", level: 1, forms: ["tiene", "tengo"])]])
+        #expect(merged.map(\.spanish) == ["tener", "la mano"])
+        #expect(merged[0].forms == ["tengo", "tiene"])
+    }
+
+    @Test func studyPutsThePageFirstThenFoundationalWords() throws {
+        let ctx = try store()
+        let hard = add("la desdicha", level: 3, ctx: ctx), middle = add("el paraguas", level: 2, ctx: ctx)
+        let basic = add("de", level: 1, ctx: ctx), unjudged = add("la leña", ctx: ctx)
+        let working = add("la mano", level: 1, ctx: ctx), onPage = add("el pie", level: 3, ctx: ctx)
+        working.stage = 2; onPage.stage = 2
+        let all = Deck.allCards(ctx)
+        #expect(Library.plan(all).fresh.map(\.es) == [basic.es, middle.es, unjudged.es, hard.es])
+        let plan = Library.plan(all, first: [hard.id, onPage.id])
+        #expect(plan.fresh.first === hard)
+        #expect(plan.queue.first === onPage)
+    }
+
+    @Test func aNewWordCanBeAlreadyKnown() throws {
+        let ctx = try store()
+        let known = add("de", level: 1, ctx: ctx), other = add("que", level: 1, ctx: ctx)
+        let plan = Library.plan(Deck.allCards(ctx))
+        let s = StudySession(queue: plan.queue, tab: .vocab, pool: plan.pool, fresh: plan.fresh, continuous: true, ctx: ctx)
+        #expect(s.current === known && s.mode == .intro)
+        s.alreadyKnown()
+        #expect(known.stage == 5 && known.interval == Scheduler.knownInterval && !Scheduler.isDue(known))
+        #expect(s.current === other)
+        // Saying it isn't known starts its training instead.
+        s.introDone()
+        #expect(other.stage == 1)
+        // And it can be taken back.
+        s.undo(); s.undo()
+        #expect(known.stage == 0 && other.stage == 0)
+    }
+
+    @Test func aTappedWordInTheLibraryStaysOneCardAndComesBack() async throws {
+        let ctx = try store()
+        let tener = add("tener", ctx: ctx)
+        tener.stage = 5
+        tener.due = .now.addingTimeInterval(30 * 86_400)
+        let r = page(["Tengo un perro."], words: [PageWord(spanish: "tener", level: 1, forms: ["Tengo"])], ctx: ctx)
+        Lectura.mark(&r.marks, line: 0, first: 0, last: 0)
+        #expect(r.markColors["0.0-0"] == .pending)
+
+        // Its form is on the page's list, so this needs no call to Claude.
+        let run = try #require(Library.unresolved(r).first)
+        try await Library.record(run, in: r, ctx: ctx)
+
+        #expect(r.markColors["0.0-0"] == .seen)
+        #expect(Library.unresolved(r).isEmpty)
+        #expect(Deck.allCards(ctx).count == 1)
+        #expect(Scheduler.isDue(tener))
+        #expect(tener.sourceList.map(\.title) == ["Mi libro · pág. 47"])
+        // Taking the tap back leaves the card alone.
+        Library.forget(run, in: r, ctx: ctx)
+        #expect(Deck.allCards(ctx).count == 1 && r.glosses.isEmpty && !r.carded.contains(run.id))
+    }
+
+    @Test func aTappedWordNewToTheLibraryIsAddedAndCanBeTakenBack() async throws {
+        let ctx = try store()
+        let r = page(["Una desdicha enorme."], words: [PageWord(spanish: "la desdicha", level: 3, forms: ["desdicha"])], ctx: ctx)
+        Lectura.mark(&r.marks, line: 0, first: 1, last: 1)
+        let run = try #require(Library.unresolved(r).first)
+        // As if Claude had already answered: no network in tests.
+        r.glosses = [run.id: Tutor.Gloss(spanish: "la desdicha", english: "misfortune", note: "")]
+        try await Library.record(run, in: r, ctx: ctx)
+
+        #expect(r.markColors[run.id] == .new)
+        let c = try #require(Library.find("desdicha", in: Library.index(Deck.allCards(ctx))))
+        #expect(c.es == "la desdicha" && c.level == 3 && c.ex == "Una desdicha enorme." && c.exWord == "desdicha")
+        #expect(Library.cards(on: r, in: Deck.allCards(ctx)).map(\.es) == ["la desdicha"])
+        Library.forget(run, in: r, ctx: ctx)
+        #expect(Deck.allCards(ctx).isEmpty)
     }
 
     @Test func aMarkedWordKeepsJustItsSentence() {

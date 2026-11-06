@@ -16,7 +16,7 @@ struct LecturasView: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     .listRowBackground(Color.clear)
             } footer: {
-                Text("Se abre la página tal cual. Toca las palabras que no conoces, o selecciona una frase; al terminar, lo que marques pasa a tus tarjetas.")
+                Text("Se abre la página tal cual. Toca las palabras que no entiendas, o selecciona una frase, y quedan guardadas en tu biblioteca.")
             }
 
             if ScanCard.available {
@@ -44,7 +44,7 @@ struct LecturasView: View {
                 }
             } footer: {
                 if !readings.isEmpty {
-                    Text("Una lectura que no abras en \(Lectura.keepDays) días se borra sola. Las tarjetas que hiciste con ella se quedan, y las páginas de un libro también.")
+                    Text("Una lectura que no abras en \(Lectura.keepDays) días se borra sola. Sus palabras se quedan en tu biblioteca, y las páginas de un libro también.")
                 }
             }
             .listRowBackground(Palette.paper)
@@ -53,14 +53,14 @@ struct LecturasView: View {
         .scrollContentBackground(.hidden)
         .background(Backdrop())
         .navigationTitle("Lecturas")
-        .navigationDestination(item: $open) { ReadingView(reading: $0, startCards: $0.id == scanned) }
+        .navigationDestination(item: $open) { ReadingView(reading: $0, justScanned: $0.id == scanned) }
     }
 
     private func row(_ r: Reading) -> some View {
         let marked = Lectura.runs(lines: r.lines, marks: r.marks).count
         return VStack(alignment: .leading, spacing: 3) {
             Text(r.title).font(Typo.text(18, .heavy)).foregroundStyle(Palette.ink).lineLimit(1)
-            Text("\(marked) \(marked == 1 ? "marcada" : "marcadas") · \(r.opened.formatted(.relative(presentation: .named)))")
+            Text("\(marked) \(marked == 1 ? "tocada" : "tocadas") · \(r.opened.formatted(.relative(presentation: .named)))")
                 .font(Typo.text(14)).foregroundStyle(Palette.muted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

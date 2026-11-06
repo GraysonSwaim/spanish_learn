@@ -37,20 +37,11 @@ nonisolated enum Palette {
     static let stagesSoft = [dyn(0xEDC0D6, 0x492738), dyn(0xF5E2BC, 0x493E27), dyn(0xC6D9EB, 0x273849),
                              dyn(0xC6DCD1, 0x274938), dyn(0xD3C8E4, 0x342749)]
     static let near = dyn(0xEFAC39, 0xF3C068)
-    /// A highlighter: words marked in a reading.
+    /// Highlighters for words tapped in a reading: yellow when it's in the library already, green when it's new to it,
+    /// and plain while that's being found out.
     static let mark = dyn(0xF2D9A6, 0x765E2D)
-
-    /// Theme colours, as a strong mark and a soft card fill: the stages, then cobalto.
-    nonisolated static let chunkCount = 6
-    private static let chunks: [(Color, Color)] = [
-        (stages[0], stagesSoft[0]), (stages[1], stagesSoft[1]), (stages[2], stagesSoft[2]),
-        (stages[3], stagesSoft[3]), (stages[4], stagesSoft[4]), (sea, seaSoft),
-    ]
-
-    static func chunk(_ i: Int) -> (mark: Color, fill: Color) {
-        let c = chunks[((i % chunkCount) + chunkCount) % chunkCount]
-        return (c.0, c.1)
-    }
+    static let markNew = dyn(0xBFE3C8, 0x2F6B47)
+    static let markPending = dyn(0xE7E1D8, 0x4A4640)
 
     static func mood(_ m: Mood) -> Color {
         switch m {
@@ -142,6 +133,15 @@ struct SoftButtonStyle: ButtonStyle {
             .overlay { if plain { shape.strokeBorder(Palette.edge, lineWidth: 1.5) } }
             .scaleEffect(down ? 0.985 : 1)
             .animation(.spring(duration: 0.18), value: down)
+    }
+}
+
+/// Presses in a little.
+struct PressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(duration: 0.18), value: configuration.isPressed)
     }
 }
 

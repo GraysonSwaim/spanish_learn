@@ -14,7 +14,7 @@ nonisolated struct Run: Hashable, Identifiable {
     var id: String { "\(line).\(first)-\(last)" }
 }
 
-/// Text rules for Lecturas: splitting a pasted text into lines and words, and grouping marked words into runs.
+/// Text rules for Lecturas: splitting a text into lines and words, and grouping tapped words into runs.
 nonisolated enum Lectura {
     /// Readings not opened for this long are deleted.
     static let keepDays = 30
@@ -121,22 +121,6 @@ nonisolated enum Lectura {
         return nil
     }
 
-    /// Marks for the words Claude chose on a scanned page, skipping any it can't find in its line.
-    static func marks(for picks: [Tutor.Pick], lines: [String]) -> [String] {
-        var out: [String] = []
-        for p in picks {
-            guard let line = lines[safe: p.line], let places = find(p.text, in: line),
-                  let first = places.first, let last = places.last else { continue }
-            mark(&out, line: p.line, first: first, last: last)
-        }
-        return out
-    }
-
-    /// How many words to choose from a page: about 20 from a full one, a few less from a short one.
-    static func pickCount(_ lines: [String]) -> Int {
-        min(40, max(8, lines.joined().count / 100))
-    }
-
     // MARK: on the article's own page
 
     /// The word places a stretch of a paragraph touches, `start..<end` counted in UTF-16 units as the page counts them.
@@ -148,39 +132,18 @@ nonisolated enum Lectura {
         return a...b
     }
 
-    /// Shorter paragraphs than this are menus and captions: words already in the deck aren't underlined in them.
-    static let pageMinWords = 8
-
-    /// What the page paints on one of its paragraphs, as UTF-16 [start, end] pairs: the stretches marked in it (when it's
-    /// one of the reading's lines), and the words in it already in the deck.
-    static func paint(_ text: String, lines: [String], marks: [String], known: Set<String>) -> (marked: [[Int]], known: [[Int]]) {
-        let ws = words(text)
-        let rs = ws.map { NSRange($0, in: text) }
-        var marked: [[Int]] = [], covered = Set<Int>()
-        if let i = lines.firstIndex(of: text) {
-            for s in spans(marks, line: i, text: text) where s.upperBound < rs.count {
-                marked.append([rs[s.lowerBound].location, NSMaxRange(rs[s.upperBound])])
-                covered.formUnion(s)
-            }
-        }
-        guard ws.count >= pageMinWords else { return (marked, []) }
-        let inDeck = ws.indices.filter { !covered.contains($0) && known.contains(TextMatch.strip(String(text[ws[$0]]))) }
-        return (marked, inDeck.map { [rs[$0].location, NSMaxRange(rs[$0])] })
-    }
-
-    /// The deck's one-word fronts, stripped and without articles, to show which words of a reading are already cards.
-    static func knownWords(_ cards: [Card]) -> Set<String> {
-        var out = Set<String>()
-        for c in cards where !c.isConj && !c.isDropped {
-            for alt in TextMatch.alternatives(c.es) {
-                let bare = TextMatch.noArticle(alt)
-                if !bare.isEmpty && !bare.contains(" ") { out.insert(bare) }
-            }
+    /// What the page paints on one of its paragraphs, by colour, as UTF-16 [start, end] pairs.
+    static func paint(_ text: String, lines: [String], marks: [String], colors: [String: MarkColor]) -> [MarkColor: [[Int]]] {
+        guard let i = lines.firstIndex(of: text) else { return [:] }
+        let rs = words(text).map { NSRange($0, in: text) }
+        var out: [MarkColor: [[Int]]] = [:]
+        for s in spans(marks, line: i, text: text) where s.upperBound < rs.count {
+            let color = colors["\(i).\(s.lowerBound)-\(s.upperBound)"] ?? .pending
+            out[color, default: []].append([rs[s.lowerBound].location, NSMaxRange(rs[s.upperBound])])
         }
         return out
     }
 
-    /// A card for a run: Claude's draft when there is one, else the words as they stand.
     /// The sentence a run is in, cut from its line (a whole paragraph of an article).
     static func sentence(of run: Run, in line: String) -> String {
         let w = words(line)
@@ -190,37 +153,10 @@ nonisolated enum Lectura {
         let s = line[tok.tokenRange(at: w[run.first].lowerBound)].trimmingCharacters(in: .whitespacesAndNewlines)
         return s.isEmpty ? line : s
     }
-
-    static func record(_ run: Run, gloss: Tutor.Gloss?, sentence: String) -> CardRecord {
-        CardRecord(es: gloss?.spanish ?? run.text, en: gloss?.english ?? "", ex: sentence, exWord: run.text,
-                   notes: gloss?.note ?? "", tags: "lectura")
-    }
 }
 
 @MainActor
 extension Lectura {
-    /// Saves a reading's marked words. New words become cards filed in the reading's own theme; a word already in the
-    /// deck stays in its theme. Either way the card keeps this reading, and the sentence, as one of its sources.
-    static func save(_ reading: Reading, new: [(rec: CardRecord, sentence: String)], existing: [(card: Card, sentence: String)],
-                     ctx: ModelContext) {
-        if !new.isEmpty {
-            Deck.importRecords(new.map(\.rec), into: ctx)
-            let chunk = Chunks.forReading(reading, ctx: ctx)
-            let byID = Deck.cardsByID(ctx)
-            for (rec, sentence) in new {
-                guard let c = byID[TextMatch.cardID(rec.es)] else { continue }
-                if c.chunkID.isEmpty { c.chunkID = chunk.id }
-                c.addSource(title: reading.title, sentence: sentence)
-            }
-        }
-        for (c, sentence) in existing {
-            c.addSource(title: reading.title, sentence: sentence)
-            // Due now: it comes up in the next session, at the stage it's at.
-            if c.stage > 0 { c.due = .now }
-        }
-        try? ctx.save()
-    }
-
     /// Deletes readings not opened in `keepDays`, and the oldest past `keepCount`. Pages of a book stay, however slowly
     /// the book goes.
     static func recycle(_ ctx: ModelContext, now: Date = .now) {

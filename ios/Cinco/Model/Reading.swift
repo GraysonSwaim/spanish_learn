@@ -1,7 +1,8 @@
 import Foundation
 import SwiftData
 
-/// A pasted Spanish text, read line by line (Lecturas). Words marked while reading become cards.
+/// A Spanish text being read (Lecturas): an article, or a scanned page of a book. Words tapped while reading are recorded
+/// in the library.
 /// Same CloudKit rules as `Card`: every property has a default, no relationships. Readings not opened for a while are
 /// deleted (`Lectura.recycle`).
 @Model
@@ -22,12 +23,14 @@ final class Reading {
     var back: [String] = []
     /// Words marked as unknown, as "line.word" (the word's place among its line's words).
     var marks: [String] = []
-    /// Phrases already made into cards (or brought forward), by `Run.key`.
+    /// Words tapped that are settled: found in the library, or added to it. By `Run.id`.
     var carded: [String] = []
-    /// No longer written, like `english`: Claude's checks of those translations.
+    /// A scanned page's words, as JSON (`pageWords`). Once held Claude's checks of translations, which nothing reads now;
+    /// reused rather than adding a field, for the same reason as `url`.
     var checkData: Data?
+    /// No longer written, like `english`.
     var backCheckData: Data?
-    /// The cards Claude drafted, as JSON (`[String: Tutor.Gloss]`).
+    /// What each tapped word turned out to be, as JSON (`[String: Tutor.Gloss]`).
     var glossData: Data?
 
     init(title: String, lines: [String]) {
@@ -42,6 +45,22 @@ final class Reading {
     var book: String? {
         get { url.hasPrefix(Self.bookPrefix) ? String(url.dropFirst(Self.bookPrefix.count)) : nil }
         set { url = newValue.map { Self.bookPrefix + $0 } ?? "" }
+    }
+
+    /// Every word on a scanned page, once its text has been through Claude.
+    var pageWords: [PageWord]? {
+        get { checkData.flatMap { try? JSONDecoder().decode([PageWord].self, from: $0) } }
+        set { checkData = newValue.flatMap { try? JSONEncoder().encode($0) } }
+    }
+
+    /// The colour of each tapped word, by `Run.id`.
+    var markColors: [String: MarkColor] {
+        let g = glosses
+        var out: [String: MarkColor] = [:]
+        for run in Lectura.runs(lines: lines, marks: marks) {
+            out[run.id] = !carded.contains(run.id) ? .pending : g[run.id]?.isNew == true ? .new : .seen
+        }
+        return out
     }
 
     var glosses: [String: Tutor.Gloss] {

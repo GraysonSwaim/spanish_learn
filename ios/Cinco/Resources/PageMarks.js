@@ -132,23 +132,26 @@
 
   const style = document.createElement("style");
   style.textContent = `
-    ::highlight(cinco-mark) { background-color: #FFE08A; color: #2B2622; }
-    ::highlight(cinco-known) { text-decoration: underline dotted #2A9D99 2px; text-underline-offset: 3px; }
+    ::highlight(cinco-seen) { background-color: #FFE08A; color: #2B2622; }
+    ::highlight(cinco-new) { background-color: #BFE3C8; color: #2B2622; }
+    ::highlight(cinco-pending) { background-color: #E7E1D8; color: #2B2622; }
   `;
   (document.head || document.documentElement).appendChild(style);
-  const marked = new Highlight(), known = new Highlight();
-  CSS.highlights.set("cinco-mark", marked);
-  CSS.highlights.set("cinco-known", known);
-  // From Swift: [text, marked stretches, known words], each stretch [start, end].
+  const seen = new Highlight(), fresh = new Highlight(), pending = new Highlight();
+  CSS.highlights.set("cinco-seen", seen);
+  CSS.highlights.set("cinco-new", fresh);
+  CSS.highlights.set("cinco-pending", pending);
+  // From Swift: [text, in the library, new to it, not settled yet], each stretch [start, end].
   let painted = [];
 
   function apply() {
-    marked.clear();
-    known.clear();
-    for (const [text, m, k] of painted) {
+    for (const h of [seen, fresh, pending]) h.clear();
+    for (const [text, ...colours] of painted) {
       for (const b of byText.get(text) || []) {
-        for (const [s, e] of m) { const r = range(b, s, e); if (r) marked.add(r); }
-        for (const [s, e] of k) { const r = range(b, s, e); if (r) known.add(r); }
+        colours.forEach((stretches, c) => {
+          const h = [seen, fresh, pending][c];
+          for (const [s, e] of stretches) { const r = range(b, s, e); if (r) h.add(r); }
+        });
       }
     }
   }

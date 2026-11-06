@@ -4,7 +4,7 @@ import os
 import FoundationModels
 #endif
 
-/// Claude for Lecturas: drafts cards from the words marked in a reading, and writes example sentences for cards. The app never holds
+/// Claude for the library: lists a scanned page's words, makes cards of them and of words tapped while reading, and writes example sentences. The app never holds
 /// the API key; it asks the proxy in `proxy/`, which holds the key, writes the prompts and keeps each phone to a daily
 /// allowance. When Claude can't answer (today's allowance used, offline, busy) or isn't asked, Apple's on-device model
 /// helps instead, on phones that have it, with a smaller job (see "On the phone").
@@ -50,6 +50,8 @@ enum Tutor {
         var spanish: String
         var english: String
         var note: String
+        /// Once a tapped word is settled: whether it was new to the library. nil before that.
+        var isNew: Bool? = nil
     }
 
     enum Failure: Error {
@@ -81,7 +83,7 @@ enum Tutor {
     }
 
     static let consentTitle = "¿Enviar a Claude?"
-    static let consentMessage = "Para rellenar las tarjetas, las palabras que marques y sus frases se envían a Claude, la IA de Anthropic. No se envía nada más tuyo, y no se guarda para entrenar modelos."
+    static let consentMessage = "Para hacer tus tarjetas, las palabras que toques y sus frases se envían a Claude, la IA de Anthropic. No se envía nada más tuyo, y no se guarda para entrenar modelos."
 
     /// A scanned page sends far more than a few marked words, so it's asked about on its own. A yes covers the words too.
     static var scanConsented: Bool {
@@ -92,7 +94,7 @@ enum Tutor {
         }
     }
 
-    static let scanConsentMessage = "Para elegir las palabras, el texto de la página y las palabras de tu mazo se envían a Claude, la IA de Anthropic. La foto se queda en el iPhone, y nada se guarda para entrenar modelos."
+    static let scanConsentMessage = "Para sacar sus palabras, el texto de la página se envía a Claude, la IA de Anthropic. La foto se queda en el iPhone, y nada se guarda para entrenar modelos."
 
     /// The phone this is, to the proxy: a random ID made once, so each phone's allowance is counted on its own.
     private static var device: String {
@@ -138,32 +140,63 @@ enum Tutor {
         return reply.items
     }
 
-    /// A word or phrase Claude chose on a scanned page: the line it's in, and the words as they stand there.
-    nonisolated struct Pick: Codable, Equatable {
-        var line: Int
-        var text: String
+    /// A scan's paragraphs in stretches of about a page, each its own call: a long list comes back slowly.
+    nonisolated static func batches(_ lines: [String], size: Int = 4000) -> [[String]] {
+        var out: [[String]] = []
+        var current: [String] = []
+        var count = 0
+        for line in lines {
+            if !current.isEmpty, count + line.count > size {
+                out.append(current)
+                current = []
+                count = 0
+            }
+            current.append(String(line.prefix(6000)))
+            count += line.count
+        }
+        if !current.isEmpty { out.append(current) }
+        return out
     }
 
-    /// The words of a scanned page worth studying before reading it. Only Claude does this: choosing them takes judging
-    /// Spanish, which the on-device model does badly.
-    static func pick(lines: [String], known: [String], max: Int) async throws(Failure) -> [Pick] {
+    /// Every different word of a scanned page. Only Claude does this: it takes judging Spanish, which the on-device
+    /// model does badly.
+    static func words(lines: [String]) async throws(Failure) -> [PageWord] {
         if demo {
             try? await Task.sleep(for: .milliseconds(700))
-            return lines.enumerated().compactMap { i, line in
-                Lectura.words(line).map { String(line[$0]) }.max { $0.count < $1.count }.map { Pick(line: i, text: $0) }
+            let all = lines.flatMap { line in Lectura.words(line).map { String(line[$0]) } }
+            return PageWord.merged([all.map { PageWord(spanish: $0.lowercased(), level: min(3, max(1, $0.count / 3)), forms: [$0]) }])
+        }
+        struct Body: Encodable { let device: String; let lines: [String] }
+        struct Reply: Decodable { let items: [PageWord] }
+        let device = device
+        // All at once: the list is the slow part of a scan.
+        let calls = batches(lines).map { part in
+            Task { () -> Result<[PageWord], Failure> in
+                do throws(Failure) {
+                    let reply: Reply = try await post("words", Body(device: device, lines: part), timeout: 120)
+                    return .success(reply.items)
+                } catch {
+                    return .failure(error)
+                }
             }
         }
-        struct Body: Encodable { let device: String; let lines: [String]; let known: [String]; let max: Int }
-        struct Reply: Decodable { let items: [Pick] }
-        // As many whole paragraphs as the proxy takes.
-        var room = 16_000
-        let sent = lines.prefix { line in
-            room -= line.count
-            return room >= 0
-        }.map { String($0.prefix(6000)) }
-        let body = Body(device: device, lines: sent, known: known.prefix(500).map { String($0.prefix(60)) }, max: max)
-        let reply: Reply = try await post("pick", body, timeout: 60)
-        return reply.items
+        var parts: [[PageWord]] = []
+        for call in calls {
+            switch await call.value {
+            case .success(let words): parts.append(words)
+            case .failure(let failure): throw failure
+            }
+        }
+        return PageWord.merged(parts)
+    }
+
+    /// How hard each word is: 1 foundational, 2 intermediate, 3 advanced.
+    static func levels(_ items: [String]) async throws(Failure) -> [Int] {
+        if demo { return items.map { _ in 2 } }
+        struct Body: Encodable { let device: String; let items: [String] }
+        struct Reply: Decodable { let levels: [Int] }
+        let reply: Reply = try await post("levels", Body(device: device, items: items.prefix(40).map { String($0.prefix(120)) }), timeout: 60)
+        return reply.levels
     }
 
     nonisolated struct ExampleInput: Encodable {

@@ -6,16 +6,17 @@ SwiftUI with SwiftData, syncing cards and progress through iCloud (CloudKit).
 
 ```
 Cinco/Model/Card.swift        Card and DayLog, the SwiftData models (CloudKit-safe: defaults, no unique, no relationships)
-Cinco/Model/Chunk.swift       Chunk, a theme: words point at it by chunkID, merged chunks at their parent by parentID
-Cinco/Logic/Chunks.swift      reading and changing the theme tree: words in a theme, merging, nesting, undoing
+Cinco/Model/Chunk.swift       Chunk, a theme from before the one library: unused, kept in the CloudKit schema
 Cinco/Logic/Scheduler.swift   the five-stage schedule, pure functions
 Cinco/Logic/StudySession.swift one sitting: queue, reveal steps, grading, undo
 Cinco/Logic/TextMatch.swift   answer checking, and the hash(strip()) card ids
 Cinco/Logic/CardRecord.swift  a card as it comes in, and CardJSON (the sample deck)
 Cinco/Logic/Deck.swift        adding cards, verb tables -> conj cards, merging iCloud duplicates
 Cinco/Model/Reading.swift     Reading, a pasted text for Lecturas (same CloudKit rules)
-Cinco/Logic/Lectura.swift     lines, words and marked runs of a reading; recycling old readings
-Cinco/Logic/Tutor.swift       Claude through the proxy in ../proxy: drafting cards, example sentences
+Cinco/Logic/Lectura.swift     lines, words and tapped runs of a reading; recycling old readings
+Cinco/Logic/Library.swift     the one library: each word once, what to study first, feeding it pages and taps
+Cinco/Logic/PageScan.swift    scanned pages back into paragraphs
+Cinco/Logic/Tutor.swift       Claude through the proxy in ../proxy: a page's words, cards, levels, example sentences
 Cinco/Views/                  the screens
 CincoTests/                   tests
 ```
@@ -45,45 +46,51 @@ Tests: `xcodebuild test -project Cinco.xcodeproj -scheme 'Choca Cinco' -destinat
 
 Debug builds take launch arguments for the simulator:
 
-- `-loadSample` loads the sample deck (`samples/deck.json`, read from the repo, not shipped) into an empty store, for the flags here;
-  with `-sampleThemes` most of it is filed into themes, two of them merged.
-- `-open sueltas` opens Agrupar; `-open <theme name>` opens that theme.
+- `-loadSample` loads the sample deck (`samples/deck.json`, read from the repo, not shipped) into an empty store, for the flags here.
+- `-openScan` opens a sample scanned page as if just scanned; `-scanSample` makes the scan card use that page instead of the camera.
 - `-demo vocab|conj <steps> [stage]` opens a verb card at a stage and advances it that many reveal steps.
 - `-tutorDemo` gives Lecturas canned answers instead of Claude; `-tutorURL http://localhost:8787` uses a proxy running on the Mac.
 - `-studyNewest <n>` starts a session with the n most recently added word cards; `-studyCard <spanish>` with one card.
 
 ## Home
 
-How many words there are, the loose ones (Sueltas › Agrupar), and the themes on top (`Chunks.top`) as cards; one
-holding smaller themes shows them stacked behind it. Tap a theme to study it (one with themes inside opens instead,
-with «Todo junto» at the top); drag one onto another to merge them or put one inside the other; press and hold to
-rename, take it out, or undo it. Each theme is studied as its own pipeline (`StudyAction`, owned by RootView, picks a
-session left midway back up by its key). Verbs' tables are studied by tense from the Conjugación chips below.
+The library by level, and one button to study it (`Library.plan`): the whole library is one pipeline, with new words
+coming in foundational first. Each session starts afresh, so words just added are in it. Verbs' tables are studied by
+tense from the Conjugación chips below, and those sessions can be picked up by their key (`StudyAction`, owned by RootView).
 
 Words and phrases are one kind of card; a card is a verb only because it has tables. After an answer, «Dónde la
 leíste» lists every reading the word was marked in, with its sentence, and «Más frases» a verb's own sentences.
 
 ## Lecturas
 
-Home › Lecturas: paste a link to a Spanish article and it opens on the article's own page (`PageReader`), its text
-read meanwhile into one line per paragraph for the Texto view. It's the main way words get in. Tap
-the words you don't know, or hold and slide across a phrase, to mark them (each shows roughly what it means, from
-Apple's translation on the phone); words already in the deck are underlined with dots. **Tarjetas** turns the marked
-words into cards: Claude drafts the dictionary form, the meaning in that sentence and a note, and the sentence becomes
-the example. A word already in the deck is brought forward for review instead.
+The library is fed by what's read, and each word is in it once (`Library`): a card is found by its Spanish without its
+article, and by each of its alternatives.
 
-New words from a reading are filed in the reading's theme (`Chunks.forReading`), and each word keeps the reading's
-title and its own sentence (`Lectura.sentence`, cut from the paragraph) in `Card.sources`, which outlive the reading.
+**Scanning a book** (`ScanCard`, `Logic/PageScan.swift`): Apple's document camera takes up to 5 pages, and Vision reads
+them on the phone; the photos go no further. `PageText` puts the printed lines back into paragraphs from where they sit
+on the page (first-line indents, dialogue dashes, gaps, words hyphenated across lines), and sets aside the page number
+and running head. Then `ReadingView.takeWords`:
 
-Readings not opened for 30 days are deleted, except pages of a book.
+1. Claude lists every different word on the page, with its dictionary form, its level and its forms there (`Tutor.words`,
+   the proxy's `/words`, about 30 seconds a page). The list is kept with the reading (`Reading.pageWords`).
+2. Words not in the library go in, foundational first, up to Ajustes › Palabras nuevas por escaneo (`Library.addNext`, 25
+   unless changed). Each sentence on the page becomes that card's example. Once those are studied, the page offers the
+   next batch; otherwise they wait for another page.
+3. The page offers to study, its words first (`Library.plan(first:)`), and the session comes back to it. A new word is
+   a check and the start of training in one: "Ya la sé" (`Scheduler.alreadyKnown`, Dominada, checked in a month), or "No
+   la sé" (`introDone`, into stage 1). Reading is never held back.
 
-**Scanning a book** (`ScanCard`, `Logic/PageScan.swift`): for reading on paper, with the study before the reading. Apple's
-document camera takes up to 5 pages, and Vision reads them on the phone; the photos go no further. `PageText` puts the
-printed lines back into paragraphs from where they sit on the page (first-line indents, dialogue dashes, gaps, words
-hyphenated across lines), and sets aside the page number and running head. Claude picks the words to study (`Tutor.pick`,
-the proxy's `/pick`), which are marked on the reading and drafted as usual in `ReadingCardsView`. A page's theme sits
-inside its book's (`Chunks.forReading`), and the reading offers to study it (`ReadingView`), which comes back to the page.
-The book's name is kept in `Reading.url` (`Reading.book`), so there's no new CloudKit field.
+**Tapping while reading** (`Library.record`): tap a word, or hold and slide across a phrase, and it's recorded straight
+away. Yellow: it's in the library already, gains this reading as a source, and comes back for review. Green: it's new, and
+a card is added. It's grey until that's settled. Colours appear only on tapped words. The page's list usually knows the
+form; otherwise Claude's card gives the dictionary form, on an article too. Without Claude (declined, offline, out for
+the day), Apple's on-device model gives the meaning, keeping the words as tapped.
+
+Readings not opened for 30 days are deleted, except pages of a book. Their words stay.
+
+**No new CloudKit fields.** TestFlight builds use the production schema, so this reuses fields already there: the level
+is a tag (`nivel2`, `Card.level`), the book's name is in `Reading.url`, the page's word list in `Reading.checkData`.
+`Chunk` and `Card.chunkID`, from when the library was split into themes, stay in the schema unused.
 
 **The article's text** (`ReadingView.readArticle`, when a reading from a link has no lines yet): `ArticleReader` loads the page in an
 offscreen `WKWebView`, so sites that turn away a plain download still answer, and runs `Resources/ArticleExtract.js`
@@ -95,6 +102,4 @@ always gives the same text. Paragraphs already marked on the page keep their pla
 still read on the page, its lines coming from the paragraphs marked there.
 
 Claude is reached through the Cloudflare Worker in `../proxy`, which holds the API key; the app asks once before
-sending anything. Without Claude (declined, offline, out for the day), Apple's on-device model takes a smaller job: it
-gives a marked word's meaning in its sentence, keeping the words as marked.
-
+sending anything, and again before sending a whole page.

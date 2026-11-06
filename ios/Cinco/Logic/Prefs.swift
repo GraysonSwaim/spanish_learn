@@ -16,6 +16,8 @@ enum PrefKey {
     static let askMnemonics = "askMnemonics"
     /// Example sentences from Claude (`Examples`).
     static let examples = "exampleSentences"
+    /// How many new words one scan adds to the library.
+    static let newPerScan = "newPerScan"
 }
 
 struct Prefs {
@@ -25,6 +27,7 @@ struct Prefs {
     var vosotros = false
     var voiceLang = "es-MX"
     var askMnemonics = true
+    var newPerScan = Scheduler.defaultNewPerScan
 
     static var current: Prefs {
         let d = UserDefaults.standard
@@ -35,6 +38,7 @@ struct Prefs {
         p.vosotros = d.bool(forKey: PrefKey.vosotros)
         p.voiceLang = d.string(forKey: PrefKey.voiceLang) ?? "es-MX"
         if d.object(forKey: PrefKey.askMnemonics) != nil { p.askMnemonics = d.bool(forKey: PrefKey.askMnemonics) }
+        if d.object(forKey: PrefKey.newPerScan) != nil { p.newPerScan = min(40, max(5, d.integer(forKey: PrefKey.newPerScan))) }
         return p
     }
 }

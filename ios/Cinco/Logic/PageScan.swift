@@ -178,13 +178,6 @@ nonisolated enum PageScan {
         return "\(book) · \(label)"
     }
 
-    /// The page's own theme, inside its book's: "Pág. 47".
-    static func pageName(_ title: String, book: String) -> String {
-        let prefix = "\(book) · "
-        let name = title.hasPrefix(prefix) ? String(title.dropFirst(prefix.count)) : title
-        return name.prefix(1).uppercased() + name.dropFirst()
-    }
-
     private static func orientation(_ o: UIImage.Orientation) -> CGImagePropertyOrientation {
         switch o {
         case .up: .up

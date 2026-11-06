@@ -2,11 +2,11 @@ import SwiftUI
 import SwiftData
 import VisionKit
 
-/// Scan a page of the book you're reading: its text becomes a reading, and Claude picks the words to study before you
-/// read it. The book's name is asked once and remembered.
+/// Scan a page of the book you're reading: its text becomes a reading, and its words feed the library (`ReadingView`).
+/// The book's name is asked once and remembered.
 struct ScanCard: View {
     @Environment(\.modelContext) private var ctx
-    /// The scanned page, opened to choose its words.
+    /// The scanned page, opened to take its words.
     let onCreate: (Reading) -> Void
 
     @AppStorage("scanBook") private var book = ""
@@ -36,7 +36,7 @@ struct ScanCard: View {
                     .background { Gloss(color: Palette.accent, shape: RoundedRectangle(cornerRadius: 6), lift: 0.6) }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Escanear un libro").font(Typo.display(22)).foregroundStyle(Palette.ink)
-                    Text("Estudia las palabras difíciles de una página antes de leerla.")
+                    Text("Sus palabras entran en tu biblioteca: las estudias y luego la lees.")
                         .font(Typo.text(15)).foregroundStyle(Palette.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -80,7 +80,7 @@ struct ScanCard: View {
             }
             Button("Cancelar", role: .cancel) {}
         } message: {
-            Text("Las palabras de cada página se guardan en un tema con su nombre.")
+            Text("Sus páginas se guardan en Lecturas con ese nombre.")
         }
         .fullScreenCover(isPresented: $scanning) {
             PageCamera { images in

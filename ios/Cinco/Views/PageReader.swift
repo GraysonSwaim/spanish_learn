@@ -24,13 +24,13 @@ final class PageHandle {
 }
 
 /// The article's own page, as it was published, with Lecturas' marking on it (`PageMarks.js`): tap a word, or select a
-/// phrase the usual way. Marks, and words already in the deck, are painted on the page. Links don't leave the article,
+/// phrase the usual way. Words picked are painted on the page in their colours. Links don't leave the article,
 /// and the commonest ad networks aren't loaded.
 struct PageReader: UIViewRepresentable {
     let url: URL
     let lines: [String]
     let marks: [String]
-    let known: Set<String>
+    let colors: [String: MarkColor]
     let handle: PageHandle
     /// A word tapped: its paragraph, and where in it.
     let onTap: (_ paragraph: String, _ at: Int) -> Void
@@ -106,7 +106,7 @@ struct PageReader: UIViewRepresentable {
         private var painted: Painted?
 
         private struct Painted: Equatable {
-            var lines: [String], marks: [String], known: Set<String>, texts: [String]
+            var lines: [String], marks: [String], colors: [String: MarkColor], texts: [String]
         }
 
         init(_ parent: PageReader) { self.parent = parent }
@@ -114,12 +114,12 @@ struct PageReader: UIViewRepresentable {
         /// Sends the page what to paint, when that has changed.
         func paint() {
             let p = parent
-            let now = Painted(lines: p.lines, marks: p.marks, known: p.known, texts: texts)
+            let now = Painted(lines: p.lines, marks: p.marks, colors: p.colors, texts: texts)
             guard now != painted, let web, !texts.isEmpty else { return }
             painted = now
             let list: [[Any]] = texts.compactMap { t in
-                let (m, k) = Lectura.paint(t, lines: p.lines, marks: p.marks, known: p.known)
-                return m.isEmpty && k.isEmpty ? nil : [t, m, k]
+                let paint = Lectura.paint(t, lines: p.lines, marks: p.marks, colors: p.colors)
+                return paint.isEmpty ? nil : [t, paint[.seen] ?? [], paint[.new] ?? [], paint[.pending] ?? []]
             }
             web.callAsyncJavaScript("cinco.paint(list)", arguments: ["list": list], in: nil, in: PageReader.world)
         }

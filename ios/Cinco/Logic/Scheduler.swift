@@ -65,6 +65,10 @@ enum Scheduler {
     static let defaultCap = 5
     /// Days before a newly mastered card is reviewed.
     static let masteredInterval = 7
+    /// New words one scan adds to the library, unless Ajustes says otherwise.
+    static let defaultNewPerScan = 25
+    /// Days before a word first seen as "Ya la sé" is checked.
+    static let knownInterval = 30
     /// A Dominada card due within this window counts as due now.
     static let lookahead: TimeInterval = 15 * 60
 
@@ -142,6 +146,17 @@ enum Scheduler {
         c.interval = 0
         c.due = now
         c.seen = now
+    }
+
+    /// A new word the learner already knows skips the training: it's in the library as Dominada, and checked in a month.
+    /// A miss then sends it to Producir like any other.
+    static func alreadyKnown(_ c: Card, now: Date = .now) {
+        c.stage = 5
+        c.ready = false
+        c.interval = knownInterval
+        c.due = day(knownInterval, after: now)
+        c.seen = now
+        c.lastReviewed = now
     }
 
     /// Right: the card is ready to move up and does if there's room (`settle`). A Dominada card's wait doubles, but

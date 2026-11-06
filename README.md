@@ -5,7 +5,7 @@ mastery, each harder than the last, and only a few cards are in play at once.
 
 ```
 ios/       the app (SwiftUI + SwiftData, synced through iCloud); see ios/README.md
-proxy/     the Cloudflare Worker that reaches Claude for Lecturas
+proxy/     the Cloudflare Worker that reaches Claude for the library
 ```
 
 ## The five stages
@@ -28,18 +28,21 @@ There's no waiting in stages 1–4: the session goes round them for as long as y
 due mixed in. Mastered cards are the spaced repetition: a week, then the wait doubles each time one is right after its
 wait is up (an early review leaves it alone). A miss sends it back to Produce.
 
-## Themes
+## The library
 
-You build the dictionary yourself, from **Añadir** (one word at a time) and **Lecturas** (words marked while reading),
-and you chunk it into themes. A reading's words arrive together in a theme named after it; a word marked that's
-already in the dictionary keeps its theme and gains the reading, and its sentence, as another source to remember it by.
-Words added by hand wait in Sueltas until you group them. Drag one theme onto another to make a bigger one: the
-smaller ones stay inside, as deep as you like. Tapping a theme studies it, with its own pipeline; there's no single
-"study" button.
+There's one library of words, each in it once however many pages it turns up on, and one button to study it. It's built
+from what you read, in three steps:
 
-Grouping follows the research on learning words in sets (Tinkham 1993, 1997; Waring 1997): new words of the same kind
-(fruits, colours, opposites) learned together interfere with each other, while words that belong to one scene (on the
-platform: the train, the suitcase, the delay) are learned more easily together.
+1. **Feed it pages.** Scan a page of your book in Lecturas. Claude lists every word on it in dictionary form, sorted into
+   foundational, intermediate and advanced, and the new ones go into the library, foundational first, up to a limit per
+   scan (25 unless changed in Ajustes).
+2. **Study.** Each new word is one quick step: "Ya la sé" and it's done, or "No la sé" and its training starts here. The
+   page's own words come first.
+3. **Read.** Tap what you don't understand and it's recorded. Yellow: it's already in the library, and comes back for
+   review. Green: it's new, and just went in.
+
+You study what you'll actually read, so there's no starter deck: the commonest words arrive first because they're on
+every page. Words can also be added one at a time with **+**, or marked on an article from a link.
 
 Why this order: recognizing a word (Spanish to English) is much easier than producing it (English to Spanish), and
 production is what speaking requires. Early stages build recognition cheaply, later stages force production. Keeping
