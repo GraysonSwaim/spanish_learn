@@ -137,6 +137,12 @@ struct RootView: View {
                 """))
             r.marks = ["0.6-6", "1.12-14", "2.7-7"]
             ctx.insert(r)
+            // `-knowSample` adds words already studied, for the highlighting of words you know.
+            if args.contains("-knowSample") {
+                Deck.importRecords(["el mercado", "conocer", "comprar", "regalar", "volver", "la casa", "la bolsa", "cocinar"]
+                    .map { CardRecord(es: $0, en: "(demo)") }, into: ctx)
+                for c in Deck.allCards(ctx) { c.stage = 3 }
+            }
             demoReading = r
             return
         }

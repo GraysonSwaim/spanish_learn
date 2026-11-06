@@ -132,24 +132,27 @@
 
   const style = document.createElement("style");
   style.textContent = `
+    ::highlight(cinco-known) { background-color: #FFF3CC; color: #2B2622; }
     ::highlight(cinco-seen) { background-color: #FFE08A; color: #2B2622; }
     ::highlight(cinco-new) { background-color: #BFE3C8; color: #2B2622; }
     ::highlight(cinco-pending) { background-color: #E7E1D8; color: #2B2622; }
   `;
   (document.head || document.documentElement).appendChild(style);
-  const seen = new Highlight(), fresh = new Highlight(), pending = new Highlight();
+  const seen = new Highlight(), fresh = new Highlight(), pending = new Highlight(), known = new Highlight();
+  // Registered first, so a tapped word's colour is painted over it.
+  CSS.highlights.set("cinco-known", known);
   CSS.highlights.set("cinco-seen", seen);
   CSS.highlights.set("cinco-new", fresh);
   CSS.highlights.set("cinco-pending", pending);
-  // From Swift: [text, in the library, new to it, not settled yet], each stretch [start, end].
+  // From Swift: [text, in the library, new to it, not settled yet, known], each stretch [start, end].
   let painted = [];
 
   function apply() {
-    for (const h of [seen, fresh, pending]) h.clear();
+    for (const h of [seen, fresh, pending, known]) h.clear();
     for (const [text, ...colours] of painted) {
       for (const b of byText.get(text) || []) {
         colours.forEach((stretches, c) => {
-          const h = [seen, fresh, pending][c];
+          const h = [seen, fresh, pending, known][c];
           for (const [s, e] of stretches) { const r = range(b, s, e); if (r) h.add(r); }
         });
       }

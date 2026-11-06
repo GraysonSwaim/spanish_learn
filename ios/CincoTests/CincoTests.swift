@@ -996,3 +996,107 @@ struct AddWordTests {
     }
 }
 
+struct KnownWordsTests {
+    /// The words of a line that `spans` found, as written there.
+    private func found(_ known: KnownWords, _ line: String, page: [PageWord] = [], lemmas: [String?]? = nil) -> [String] {
+        let ws = Lectura.words(line)
+        return known.spans(in: line, page: page, lemmas: lemmas).map { String(line[ws[$0.lowerBound].lowerBound..<ws[$0.upperBound].upperBound]) }
+    }
+
+    /// No lemmas, as on a phone without them.
+    private func plain(_ line: String) -> [String?] { Lectura.words(line).map { _ in nil } }
+
+    @Test func aWordIsFoundWithoutItsArticleAndWithoutAccents() {
+        let known = KnownWords([("el papel", ""), ("el café", "")])
+        let line = "El papel y el cafe."
+        #expect(found(known, line, lemmas: plain(line)) == ["papel", "cafe"])
+    }
+
+    @Test func aFormIsFoundByItsLemma() {
+        let line = "El papel huele a tabaco"
+        let lemmas: [String?] = ["el", "papel", "oler", "a", "tabaco"]
+        #expect(found(KnownWords([("oler", "")]), line, lemmas: lemmas) == ["huele"])
+        #expect(found(KnownWords([("oler", "")]), line, lemmas: plain(line)) == [])
+    }
+
+    @Test func theFormItWasMetInCountsWithoutLemmas() {
+        let line = "El papel huele a tabaco"
+        #expect(found(KnownWords([("oler", "huele")]), line, lemmas: plain(line)) == ["huele"])
+    }
+
+    @Test func aPhraseIsFoundAsOneAndInItsForms() {
+        let known = KnownWords([("echar de menos", "")])
+        let line = "Mi abuela le echa de menos hoy"
+        let lemmas: [String?] = ["mi", "abuela", "usted", "echar", "de", "menos", "hoy"]
+        #expect(found(known, line, lemmas: lemmas) == ["echa de menos"])
+        // Punctuation between its words makes it something else.
+        let cut = "Lo echa, de menos"
+        #expect(found(known, cut, lemmas: ["lo", "echar", "de", "menos"]) == [])
+    }
+
+    @Test func aLongerPhraseWinsOverAWordInIt() {
+        let known = KnownWords([("la casa", ""), ("casa de campo", "")])
+        let line = "Una casa de campo"
+        #expect(found(known, line, lemmas: plain(line)) == ["casa de campo"])
+    }
+
+    @Test func aReflexiveVerbIsFoundWithoutItsPronoun() {
+        let line = "Se sentía cansada"
+        #expect(found(KnownWords([("sentirse", "")]), line, lemmas: ["usted", "sentir", "cansado"]) == ["sentía"])
+        // Words that only end like one aren't cut down.
+        #expect(found(KnownWords([("la clase", "")]), "Cla", lemmas: [nil]) == [])
+    }
+
+    @Test func pronounsDontPassForTheirLemmasButArticlesDo() {
+        let line = "Se fue a la casa"
+        let lemmas: [String?] = ["usted", "ir", "a", "el", "casa"]
+        #expect(found(KnownWords([("usted", "")]), line, lemmas: lemmas) == [])
+        #expect(found(KnownWords([("el", "")]), line, lemmas: lemmas) == ["la"])
+    }
+
+    @Test func aScannedPagesListDecidesWhichWordAFormIs() {
+        let line = "Como la sopa"
+        let page = [PageWord(spanish: "como", level: 1, forms: ["Como"]), PageWord(spanish: "la sopa", level: 1, forms: ["sopa"]),
+                    PageWord(spanish: "el", level: 1, forms: ["la"])]
+        let lemmas: [String?] = ["comer", "el", "sopa"]
+        // Apple says comer, the page says como, which isn't known.
+        #expect(found(KnownWords([("comer", "")]), line, page: page, lemmas: lemmas) == [])
+        // And "la" is el here, which is.
+        #expect(found(KnownWords([("el", "")]), line, page: page, lemmas: lemmas) == ["la"])
+    }
+
+    @Test func wordsNextToEachOtherStaySeparate() {
+        let line = "mi casa vieja"
+        #expect(found(KnownWords([("la casa", ""), ("viejo", "vieja")]), line, lemmas: plain(line)) == ["casa", "vieja"])
+    }
+
+    @Test func thePageIsToldWhereInUTF16() {
+        let text = "Ayer 🙂 el niño compró papel."
+        let ns = text as NSString
+        let shown = KnownWords([("el papel", ""), ("el niño", "")]).stretches(in: text)
+            .map { ns.substring(with: NSRange(location: $0[0], length: $0[1] - $0[0])) }
+        #expect(shown == ["niño", "papel"])
+    }
+
+    @Test func noWordsFindNothing() {
+        #expect(found(KnownWords([]), "El papel", lemmas: [nil, nil]) == [])
+    }
+
+    @Test @MainActor func onlyWhatsBeenStudiedCounts() throws {
+        let schema = Schema([Card.self, DayLog.self, Reading.self, Chunk.self])
+        let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+        let ctx = c.mainContext
+        let make = { (es: String, stage: Int) -> Card in
+            let card = Card(id: TextMatch.cardID(es), es: es, en: "x", order: 0)
+            card.stage = stage
+            ctx.insert(card)
+            return card
+        }
+        let cards = [make("nuevo", 0), make("estudiado", 1), make("dominado", 5), make("descartado", 3)]
+        cards[3].dropped = .now
+        let verb = make("tenido", 3)
+        verb.kind = .conj
+        let line = "nuevo estudiado dominado descartado tenido"
+        #expect(found(Library.known(cards + [verb]), line, lemmas: plain(line)) == ["estudiado", "dominado"])
+    }
+}

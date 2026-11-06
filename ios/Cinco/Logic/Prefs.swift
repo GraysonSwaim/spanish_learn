@@ -18,6 +18,8 @@ enum PrefKey {
     static let examples = "exampleSentences"
     /// How many new words one scan adds to the library.
     static let newPerScan = "newPerScan"
+    /// Whether a reading highlights the words you know (`KnownWords`).
+    static let highlightKnown = "highlightKnown"
 }
 
 struct Prefs {

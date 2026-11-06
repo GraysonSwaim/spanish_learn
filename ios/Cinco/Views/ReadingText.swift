@@ -2,14 +2,16 @@ import SwiftUI
 import UIKit
 @preconcurrency import Translation
 
-/// One line of a reading, set as running text. Tap a word to pick it; hold on a word and slide to pick a phrase. Only
-/// words picked are coloured (a phrase as one band), by what `MarkColor` says of them. A UITextView underneath, since
-/// SwiftUI's Text can't say which word is under a finger.
+/// One line of a reading, set as running text. Tap a word to pick it; hold on a word and slide to pick a phrase. Words
+/// picked are coloured (a phrase as one band) by what `MarkColor` says of them, over the paler band of the words you know.
+/// A UITextView underneath, since SwiftUI's Text can't say which word is under a finger.
 struct ReadingText: UIViewRepresentable {
     let text: String
     let words: [Range<String.Index>]
     /// The picked runs in this line, as word places, with their colours.
     let spans: [(span: ClosedRange<Int>, color: MarkColor)]
+    /// The words you know in this line (`KnownWords`).
+    let known: [ClosedRange<Int>]
     /// A word tapped, with where it is in this view.
     let onTap: (Int, CGRect) -> Void
     /// A phrase picked by sliding, with where it is.
@@ -43,7 +45,7 @@ struct ReadingText: UIViewRepresentable {
         let c = context.coordinator
         c.parent = self
         c.colors = .init(ink: resolve(Palette.ink, context), seen: resolve(Palette.mark, context), new: resolve(Palette.markNew, context),
-                         pending: resolve(Palette.markPending, context))
+                         pending: resolve(Palette.markPending, context), known: resolve(Palette.markKnown, context))
         c.render()
     }
 
@@ -64,7 +66,7 @@ struct ReadingText: UIViewRepresentable {
 
     final class Coordinator: NSObject {
         struct Colors {
-            var ink, seen, new, pending: UIColor
+            var ink, seen, new, pending, known: UIColor
 
             func of(_ c: MarkColor) -> UIColor {
                 switch c {
@@ -76,7 +78,7 @@ struct ReadingText: UIViewRepresentable {
         }
 
         var parent: ReadingText
-        var colors = Colors(ink: .label, seen: .systemYellow, new: .systemGreen, pending: .systemGray5)
+        var colors = Colors(ink: .label, seen: .systemYellow, new: .systemGreen, pending: .systemGray5, known: .systemGray6)
         weak var view: UITextView?
         /// The phrase under the finger while sliding.
         private var picking: ClosedRange<Int>?
@@ -96,6 +98,9 @@ struct ReadingText: UIViewRepresentable {
             para.lineSpacing = 6
             let s = NSMutableAttributedString(string: p.text, attributes: [.font: font, .foregroundColor: colors.ink, .paragraphStyle: para])
             let rs = ranges
+            for span in p.known {
+                if let r = range(span, rs) { s.addAttribute(.backgroundColor, value: colors.known, range: r) }
+            }
             for (span, color) in p.spans + (picking.map { [($0, MarkColor.pending)] } ?? []) {
                 guard let r = range(span, rs) else { continue }
                 s.addAttribute(.backgroundColor, value: colors.of(color), range: r)

@@ -31,6 +31,8 @@ struct PageReader: UIViewRepresentable {
     let lines: [String]
     let marks: [String]
     let colors: [String: MarkColor]
+    /// The words to highlight as known, if any.
+    let known: KnownWords?
     let handle: PageHandle
     /// A word tapped: its paragraph, and where in it.
     let onTap: (_ paragraph: String, _ at: Int) -> Void
@@ -104,9 +106,18 @@ struct PageReader: UIViewRepresentable {
         /// The page's paragraphs, as it last read them.
         private var texts: [String] = []
         private var painted: Painted?
+        /// The known words of each paragraph, and what they were found from: a long page takes a moment, so it's off the
+        /// main thread, and paints when it's ready.
+        private var known: [String: [[Int]]] = [:]
+        private var knownFrom: KnownSource?
+        private var finding: Task<Void, Never>?
 
         private struct Painted: Equatable {
-            var lines: [String], marks: [String], colors: [String: MarkColor], texts: [String]
+            var lines: [String], marks: [String], colors: [String: MarkColor], texts: [String], known: [String: [[Int]]]
+        }
+
+        private struct KnownSource: Equatable {
+            var known: KnownWords?, texts: [String]
         }
 
         init(_ parent: PageReader) { self.parent = parent }
@@ -114,14 +125,37 @@ struct PageReader: UIViewRepresentable {
         /// Sends the page what to paint, when that has changed.
         func paint() {
             let p = parent
-            let now = Painted(lines: p.lines, marks: p.marks, colors: p.colors, texts: texts)
+            findKnown()
+            let now = Painted(lines: p.lines, marks: p.marks, colors: p.colors, texts: texts, known: known)
             guard now != painted, let web, !texts.isEmpty else { return }
             painted = now
             let list: [[Any]] = texts.compactMap { t in
                 let paint = Lectura.paint(t, lines: p.lines, marks: p.marks, colors: p.colors)
-                return paint.isEmpty ? nil : [t, paint[.seen] ?? [], paint[.new] ?? [], paint[.pending] ?? []]
+                let knownHere = known[t] ?? []
+                if paint.isEmpty, knownHere.isEmpty { return nil }
+                return [t, paint[.seen] ?? [], paint[.new] ?? [], paint[.pending] ?? [], knownHere]
             }
             web.callAsyncJavaScript("cinco.paint(list)", arguments: ["list": list], in: nil, in: PageReader.world)
+        }
+
+        private func findKnown() {
+            let source = KnownSource(known: parent.known, texts: texts)
+            guard source != knownFrom else { return }
+            knownFrom = source
+            finding?.cancel()
+            guard let words = source.known else {
+                known = [:]
+                return
+            }
+            let texts = source.texts
+            finding = Task {
+                let found = await Task.detached(priority: .userInitiated) {
+                    Dictionary(texts.map { ($0, words.stretches(in: $0)) }, uniquingKeysWith: { a, _ in a })
+                }.value
+                guard !Task.isCancelled else { return }
+                known = found
+                paint()
+            }
         }
 
         func userContentController(_ ucc: WKUserContentController, didReceive message: WKScriptMessage) {

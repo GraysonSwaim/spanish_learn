@@ -42,6 +42,8 @@ nonisolated enum Palette {
     static let mark = dyn(0xF2D9A6, 0x765E2D)
     static let markNew = dyn(0xBFE3C8, 0x2F6B47)
     static let markPending = dyn(0xE7E1D8, 0x4A4640)
+    /// A word you know, not tapped: the same yellow, paler, so a tap still shows.
+    static let markKnown = dyn(0xFAF0D8, 0x43371E)
 
     static func mood(_ m: Mood) -> Color {
         switch m {

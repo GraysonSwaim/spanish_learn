@@ -3,7 +3,8 @@ import SwiftData
 
 /// One reading, set like the article it came from. A scanned page first feeds the library: its new words go in, to be
 /// studied from here, and the session comes back to the page to read it. Tap a word you don't understand, or hold and
-/// slide across a phrase, and it's recorded: yellow if it's in the library already, green if it's new to it.
+/// slide across a phrase, and it's recorded: yellow if it's in the library already, green if it's new to it. Words you
+/// know are already highlighted, more palely, until that's turned off.
 /// A reading made from a link can also be read on the article's own page (`PageReader`), tapped the same way.
 struct ReadingView: View {
     @Environment(\.modelContext) private var ctx
@@ -12,11 +13,14 @@ struct ReadingView: View {
     /// Take the page's words straight away, for a page just scanned.
     var justScanned = false
     @Query(sort: \Card.order) private var cards: [Card]
+    @AppStorage(PrefKey.highlightKnown) private var highlightKnown = true
 
     enum Mode { case page, text }
 
     @State private var mode = Mode.page
     @State private var words: [[Range<String.Index>]] = []
+    /// The words you know, by line.
+    @State private var knownSpans: [[ClosedRange<Int>]] = []
     /// The word or phrase whose meaning is showing.
     @State private var lookup: Lookup?
     /// What's selected on the page.
@@ -45,9 +49,10 @@ struct ReadingView: View {
 
     var body: some View {
         let colors = reading.markColors
+        let known = highlightKnown ? Library.known(cards) : nil
         Group {
             if onPage, let url = pageURL {
-                PageReader(url: url, lines: reading.lines, marks: reading.marks, colors: colors, handle: page,
+                PageReader(url: url, lines: reading.lines, marks: reading.marks, colors: colors, known: known, handle: page,
                            onTap: pageTapped, onSelect: pageSelected, onFail: { pageFailed = true })
             } else {
                 lines(colors)
@@ -66,6 +71,15 @@ struct ReadingView: View {
                     .fixedSize()
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    highlightKnown.toggle()
+                } label: {
+                    Image(systemName: "highlighter").foregroundStyle(highlightKnown ? Palette.accent : Palette.muted)
+                }
+                .accessibilityLabel("Resaltar las que ya sabes")
+                .accessibilityAddTraits(highlightKnown ? .isSelected : [])
+            }
         }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
@@ -81,6 +95,12 @@ struct ReadingView: View {
         }
         .task {
             if justScanned, isBook, reading.pageWords == nil { takeWords() }
+        }
+        .task(id: KnownLines(known: known, lines: reading.lines, page: reading.pageWords ?? [])) {
+            guard let known else { knownSpans = []; return }
+            let (lines, page) = (reading.lines, reading.pageWords ?? [])
+            let found = await Task.detached(priority: .userInitiated) { known.spans(lines: lines, page: page) }.value
+            if !Task.isCancelled { knownSpans = found }
         }
         .alert("¿Enviar la página a Claude?", isPresented: $askScanConsent) {
             Button("Enviar") { Tutor.scanConsented = true; takeWords() }
@@ -99,7 +119,7 @@ struct ReadingView: View {
                 Text(reading.title).font(Typo.display(28)).foregroundStyle(Palette.ink)
                 Text(pageFailed && reading.lines.isEmpty ? "No se pudo abrir la página del artículo, ni leer su texto."
                      : pageFailed ? "No se pudo abrir la página del artículo; aquí está su texto. Toca lo que no entiendas y queda guardado."
-                     : "Toca lo que no entiendas, o mantén pulsado y desliza para una frase. Amarillo: ya estaba en tu biblioteca. Verde: es nueva.")
+                     : "Toca lo que no entiendas, o mantén pulsado y desliza para una frase. Amarillo: ya estaba en tu biblioteca. Verde: es nueva." + (highlightKnown ? " Amarillo pálido: ya la has estudiado." : ""))
                     .font(Typo.text(15)).foregroundStyle(Palette.muted)
                     .padding(.bottom, 8)
 
@@ -124,7 +144,7 @@ struct ReadingView: View {
         let spans = Lectura.spans(reading.marks, line: i, text: line).map { s in
             (span: s, color: colors["\(i).\(s.lowerBound)-\(s.upperBound)"] ?? MarkColor.pending)
         }
-        return ReadingText(text: line, words: words[safe: i] ?? [], spans: spans,
+        return ReadingText(text: line, words: words[safe: i] ?? [], spans: spans, known: knownSpans[safe: i] ?? [],
                            onTap: { w, rect in tapped(line: i, word: w, rect: rect) },
                            onPick: { span, rect in picked(line: i, span: span, rect: rect) })
             .popover(isPresented: Binding(get: { lookup?.line == i }, set: { if !$0 { lookup = nil } }),
@@ -258,6 +278,7 @@ struct ReadingView: View {
     private func load() {
         words = reading.lines.map(Lectura.words)
         reading.opened = .now
+        KnownWords.fetchLemmas()
         if reading.lines.isEmpty, let url = pageURL { Task { await readArticle(url) } }
         if !Tutor.needsConsent { settle() }
     }
@@ -351,6 +372,13 @@ struct ReadingView: View {
         guard l.words.upperBound < ws.count else { return nil }
         return String(line[ws[l.words.lowerBound].lowerBound..<ws[l.words.upperBound].upperBound])
     }
+}
+
+/// What the known words in a reading's lines depend on.
+private struct KnownLines: Equatable {
+    let known: KnownWords?
+    let lines: [String]
+    let page: [PageWord]
 }
 
 /// A word or phrase being looked up, and where it is in its line.

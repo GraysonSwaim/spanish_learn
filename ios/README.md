@@ -84,9 +84,14 @@ and running head. Then `ReadingView.takeWords`:
 
 **Tapping while reading** (`Library.record`): tap a word, or hold and slide across a phrase, and it's recorded straight
 away. Yellow: it's in the library already, gains this reading as a source, and comes back for review. Green: it's new, and
-a card is added. It's grey until that's settled. Colours appear only on tapped words. The page's list usually knows the
-form; otherwise Claude's card gives the dictionary form, on an article too. Without Claude (declined, offline, out for
-the day), Apple's on-device model gives the meaning, keeping the words as tapped.
+a card is added. It's grey until that's settled. The page's list usually knows the form; otherwise Claude's card gives the
+dictionary form, on an article too. Without Claude (declined, offline, out for the day), Apple's on-device model gives the
+meaning, keeping the words as tapped.
+
+**Words you know** (`KnownWords`) are highlighted before any tap, in a paler yellow, on scanned pages and articles alike:
+every word studied or marked "Ya la sé" (stage above 0, not set aside). The highlighter in the reading's toolbar turns this
+on and off. A page's list decides which word a form is; otherwise it's the spelling, then Apple's lemma (`huele` is oler).
+Tapping a highlighted word records it like any other.
 
 Readings not opened for 30 days are deleted, except pages of a book. Their words stay.
 
