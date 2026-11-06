@@ -78,7 +78,7 @@ enum Scheduler {
     /// Days before a word first seen as "Ya la sé" is checked: past the short waits, since it's said to be known.
     static let knownInterval = 7
     /// A Dominada card due within this window counts as due now, so the same time tomorrow needn't be to the minute.
-    static let lookahead: TimeInterval = 4 * 3600
+    nonisolated static let lookahead: TimeInterval = 4 * 3600
 
     /// The wait after a right answer: 1, 2 and 4 days, a week, then double.
     static func nextInterval(_ days: Int) -> Int {

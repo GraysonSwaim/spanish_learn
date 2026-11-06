@@ -93,6 +93,16 @@ Below the study button, worked out from what's already stored (`Stats`, `Library
   are every answer per day, from `DayLog`, tables included.
 - **Lo que viene:** the next 14 days if every answer is right, so a word on 24 hours shows up 2 and 6 days on (`Stats.ahead`).
 
+## Keeping cards quick
+
+A SwiftData view that reads every card redoes its work on each answer, even out of sight, so studying must not pay for what's
+under it. With 1,000 words this was the whole of the lag between cards: about 150 ms from Home, about a second from a reading.
+
+- While a session covers the screen (`sessionCovers`), Home's page (`HomePage`) and a reading's `LibraryWatch` come out of the
+  view tree, and they're rebuilt once as it closes. Home's bar stays: taking away a `NavigationLink` closes what it opened.
+- A reading works out what it needs off the main thread (`ReadingLibrary`), so closing a session or tapping a word doesn't stall.
+- Don't read cards in `StudyView`'s body: it would be redrawn for any card that changes, and it's redrawn several times per card.
+
 ## Lecturas
 
 The library is fed by what's read, and each word is in it once (`Library`): a card is found by its Spanish without its

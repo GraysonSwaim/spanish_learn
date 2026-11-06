@@ -193,11 +193,13 @@ private struct SplitBar: View {
         GeometryReader { geo in
             let shown = parts.filter { $0.count > 0 }
             let total = CGFloat(shown.reduce(0) { $0 + $1.count })
-            let room = geo.size.width - CGFloat(max(0, shown.count - 1)) * 2
+            // Every part gets enough to see, and the rest is shared out, so the parts always add up to the width.
+            let least: CGFloat = 3
+            let room = max(0, geo.size.width - CGFloat(max(0, shown.count - 1)) * 2 - least * CGFloat(shown.count))
             HStack(spacing: 2) {
                 ForEach(shown.indices, id: \.self) { i in
                     RoundedRectangle(cornerRadius: 2).fill(shown[i].color)
-                        .frame(width: max(3, room * CGFloat(shown[i].count) / max(1, total)))
+                        .frame(width: least + room * CGFloat(shown[i].count) / max(1, total))
                 }
             }
         }

@@ -12,8 +12,10 @@ struct ReadingView: View {
     @Bindable var reading: Reading
     /// Just made: its words go in and are studied before it's read.
     let isNew: Bool
-    @Query(sort: \Card.order) private var cards: [Card]
     @AppStorage(PrefKey.highlightKnown) private var highlightKnown = true
+    @Environment(\.sessionCovers) private var covered
+    /// What this page needs from the library, kept up to date by `LibraryWatch`.
+    @State private var library = ReadingLibrary()
 
     enum Mode { case page, text }
 
@@ -52,16 +54,9 @@ struct ReadingView: View {
     private var pageURL: URL? { reading.url.isEmpty || reading.book != nil ? nil : URL(string: reading.url) }
     private var onPage: Bool { mode == .page && pageURL != nil && !pageFailed }
     private var isBook: Bool { reading.book != nil }
-    /// This page's cards in the library.
-    private var pageCards: [Card] { Library.cards(on: reading, in: cards) }
-    /// The page's words waiting to go into the library.
-    private var waiting: Int {
-        reading.pageWords.map { Library.newWords($0, index: Library.index(cards)).count } ?? 0
-    }
-
     var body: some View {
         let colors = reading.markColors
-        let known = highlightKnown ? Library.known(cards) : nil
+        let known = library.known
         Group {
             if preparing {
                 preparingView
@@ -74,6 +69,9 @@ struct ReadingView: View {
             }
         }
         .background(Backdrop())
+        .background {
+            if !covered { LibraryWatch(reading: reading, highlight: highlightKnown, library: $library).equatable() }
+        }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if pageURL != nil, !pageFailed, !reading.lines.isEmpty, !preparing {
@@ -233,10 +231,7 @@ struct ReadingView: View {
     /// What's next for this page: its words going in, studying them, and more of them when you want them. Reading is
     /// never held back by any of it.
     private var actions: some View {
-        let onThisPage = pageCards
-        let toStudy = Library.toStudy(onThisPage).count
-        let unseen = onThisPage.contains { $0.stage == 0 }
-        return VStack(spacing: 8) {
+        VStack(spacing: 8) {
             if let working {
                 HStack(spacing: 10) {
                     ProgressView()
@@ -252,9 +247,9 @@ struct ReadingView: View {
                     Text("Ya sabes todas sus palabras.").font(Typo.text(14, .bold)).foregroundStyle(Palette.good)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                if toStudy > 0 {
+                if library.toStudy > 0 {
                     Button { studyPage() } label: {
-                        Text("Estudiar estas palabras · \(toStudy)").frame(maxWidth: .infinity)
+                        Text("Estudiar estas palabras · \(library.toStudy)").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white, size: 18))
                 }
@@ -263,9 +258,9 @@ struct ReadingView: View {
                         Text(isBook ? "Sacar las palabras de esta página" : "Sacar las palabras de este artículo").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, size: 18))
-                } else if waiting > 0, !unseen {
+                } else if library.waiting > 0, !library.unseen {
                     Button(action: addMore) {
-                        Text("Añadir \(min(waiting, Prefs.current.newPerScan)) más · quedan \(waiting)").frame(maxWidth: .infinity)
+                        Text("Añadir \(min(library.waiting, Prefs.current.newPerScan)) más · quedan \(library.waiting)").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, size: 18))
                 }
@@ -446,6 +441,78 @@ struct ReadingView: View {
         let ws = Lectura.words(line)
         guard l.words.upperBound < ws.count else { return nil }
         return String(line[ws[l.words.lowerBound].lowerBound..<ws[l.words.upperBound].upperBound])
+    }
+}
+
+/// What a reading needs from the library. A long library takes a while to go through, so it's worked out off the main thread
+/// from a plain copy of the cards: the same answers `Library.cards(on:in:)` and `Library.newWords` give.
+nonisolated struct ReadingLibrary: Equatable, Sendable {
+    /// The words to highlight, if that's on.
+    var known: KnownWords?
+    /// The page's cards to learn, or back for review.
+    var toStudy = 0
+    /// Whether any of the page's cards hasn't been met yet.
+    var unseen = false
+    /// The page's words waiting to go into the library.
+    var waiting = 0
+
+    struct Word: Equatable, Sendable {
+        let id: String, es: String, exWord: String, stage: Int, due: Date, sources: [String]
+        let isConj: Bool, isDropped: Bool
+    }
+
+    /// What the answers depend on.
+    struct Inputs: Equatable, Sendable {
+        let words: [Word]
+        let title: String
+        let page: [PageWord]?
+        let highlight: Bool
+    }
+
+    init() {}
+
+    init(_ s: Inputs, now: Date = .now) {
+        known = s.highlight ? KnownWords(s.words.filter { !$0.isConj && !$0.isDropped && $0.stage > 0 }.map { ($0.es, $0.exWord) }) : nil
+
+        let cards = s.words.filter { !$0.isConj }
+        var index: [String: Word] = [:]
+        for c in cards {
+            for k in Library.keys(c.es) where index[k] == nil { index[k] = c }
+        }
+        let found = { (es: String) in Library.keys(es).lazy.compactMap { index[$0] }.first }
+        var onPage = (s.page ?? []).compactMap { found($0.spanish) }
+        onPage += cards.filter { c in c.sources.contains { Source($0)?.title == s.title } }
+        var seen = Set<String>()
+        onPage = onPage.filter { !$0.isDropped && seen.insert($0.id).inserted }
+
+        toStudy = onPage.count { $0.stage < 5 || $0.due <= now.addingTimeInterval(Scheduler.lookahead) }
+        unseen = onPage.contains { $0.stage == 0 }
+        waiting = (s.page ?? []).count { found($0.spanish) == nil }
+    }
+}
+
+/// Keeps `ReadingLibrary` up to date, apart from the reading, so it can stop while a session covers the screen. The reading
+/// itself has to stay, as it holds the page, and looks at no card: it only redraws when one of these answers changes.
+private struct LibraryWatch: View, Equatable {
+    let reading: Reading
+    let highlight: Bool
+    @Binding var library: ReadingLibrary
+    @Query(sort: \Card.order) private var cards: [Card]
+
+    /// A binding never compares equal, and the work here shouldn't be redone each time the reading redraws.
+    nonisolated static func == (a: LibraryWatch, b: LibraryWatch) -> Bool {
+        a.reading === b.reading && a.highlight == b.highlight
+    }
+
+    var body: some View {
+        let source = ReadingLibrary.Inputs(
+            words: cards.map { ReadingLibrary.Word(id: $0.id, es: $0.es, exWord: $0.exWord, stage: $0.stage, due: $0.due,
+                                                   sources: $0.sources, isConj: $0.isConj, isDropped: $0.isDropped) },
+            title: reading.title, page: reading.pageWords, highlight: highlight)
+        Color.clear.task(id: source) {
+            let found = await Task.detached(priority: .userInitiated) { ReadingLibrary(source) }.value
+            if !Task.isCancelled { library = found }
+        }
     }
 }
 

@@ -1412,3 +1412,50 @@ struct StatsTests {
         #expect(Stats.struggling([less, once, held, hard]).map(\.lapses) == [4, 2])
     }
 }
+
+/// The off-main-thread answers for a reading have to match the ones studying goes by.
+struct ReadingLibraryTests {
+    @Test @MainActor func answersMatchTheLibrary() throws {
+        let schema = Schema([Card.self, DayLog.self, Reading.self, Chunk.self])
+        let ctx = ModelContext(try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)))
+        let make = { (es: String, stage: Int, due: Int) -> Card in
+            let c = Card(id: TextMatch.cardID(es), es: es, en: "x", order: Double(es.count))
+            (c.stage, c.due) = (stage, Calendar.current.date(byAdding: .day, value: due, to: .now)!)
+            ctx.insert(c)
+            return c
+        }
+        _ = make("el perro", 0, 0)                  // on the page, new
+        _ = make("el gato", 3, 0)                   // on the page, learning
+        _ = make("la casa", 5, 9)                   // on the page, not due
+        _ = make("el libro", 5, -1)                 // on the page, due
+        let tapped = make("la mesa", 2, 0)          // only tapped there
+        tapped.addSource(title: "Página", sentence: "Una mesa.")
+        let away = make("la silla", 3, 0)           // on the page, but set aside
+        away.dropped = .now
+        _ = make("el coche", 3, 0)                  // not on this page
+
+        let r = Reading(title: "Página", lines: ["x"])
+        r.pageWords = ["perro", "gato", "casa", "libro", "silla", "pan", "agua"].map { PageWord(spanish: $0, level: 1, forms: [$0]) }
+        ctx.insert(r)
+
+        let cards = Deck.allCards(ctx)
+        let got = ReadingLibrary(ReadingLibrary.Inputs(
+            words: cards.map { .init(id: $0.id, es: $0.es, exWord: $0.exWord, stage: $0.stage, due: $0.due, sources: $0.sources, isConj: $0.isConj, isDropped: $0.isDropped) },
+            title: r.title, page: r.pageWords, highlight: true))
+
+        let onPage = Library.cards(on: r, in: cards)
+        #expect(got.toStudy == Library.toStudy(onPage).count)
+        #expect(got.toStudy == 4)
+        #expect(got.unseen == onPage.contains { $0.stage == 0 })
+        #expect(got.unseen)
+        #expect(got.waiting == Library.newWords(r.pageWords!, index: Library.index(cards)).count)
+        #expect(got.waiting == 2)
+        #expect(got.known == Library.known(cards))
+    }
+
+    @Test func noHighlightingNoWords() {
+        let got = ReadingLibrary(ReadingLibrary.Inputs(words: [], title: "x", page: nil, highlight: false))
+        #expect(got.known == nil && got.toStudy == 0 && !got.unseen && got.waiting == 0)
+    }
+}
+

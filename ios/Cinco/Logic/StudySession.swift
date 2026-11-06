@@ -102,12 +102,9 @@ final class StudySession {
         next()
     }
 
-    /// Whether getting the card on screen right moves it up now, rather than leaving it ready for a place to open.
-    var passMovesUp: Bool {
-        guard let c = current else { return false }
-        if c.stage >= 4 { return true }
-        return pool.filter { !$0.isDropped && $0.stage == c.stage + 1 }.count < prefs.stageCap
-    }
+    /// Whether getting the card on screen right moves it up now, rather than leaving it ready for a place to open. Worked
+    /// out once per card (`next`): it looks at the whole library, and the view asks each time it's redrawn.
+    private(set) var passMovesUp = false
 
     // MARK: what's on the card
 
@@ -158,6 +155,7 @@ final class StudySession {
         verdict = nil
         typed = ""
         cells = [:]
+        passMovesUp = c.stage >= 4 || pool.count { !$0.isDropped && $0.stage == c.stage + 1 } < prefs.stageCap
         if prefs.autoSpeak && (mode == .intro || mode == .esEn) { speak() }
     }
 

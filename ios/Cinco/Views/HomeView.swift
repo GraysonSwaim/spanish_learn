@@ -1,14 +1,79 @@
 import SwiftUI
 import SwiftData
 
-/// Home: the day's mosaic, the library of words, and one button to study it. Verbs' tables, when there are any, are
-/// studied by tense below.
+/// Home: the page of the library, under the bar. The bar stays while a session covers the screen, since a link taken away
+/// would close what it opened, and so does the filling-in of new cards.
 struct HomeView: View {
     @Environment(\.modelContext) private var ctx
+    @Environment(\.sessionCovers) private var covered
+
+    @Binding var session: StudySession?
+    /// How many cards there are, as last seen by the page: a change sets off filling them in.
+    @State private var cardCount: Int?
+
+    var body: some View {
+        Group {
+            if covered {
+                Color.clear
+            } else {
+                HomePage(session: $session, cardCount: $cardCount)
+            }
+        }
+        // Plaster under the clock and round the bar, so the page scrolls away behind them rather than through them.
+        .safeAreaInset(edge: .top, spacing: 0) { Color.clear.frame(height: 0).background(Palette.bg, ignoresSafeAreaEdges: .top) }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            bar.padding(.top, 8).frame(maxWidth: .infinity).background(Palette.bg, ignoresSafeAreaEdges: .bottom)
+        }
+        // New cards get their example sentences in the background.
+        .task(id: cardCount) {
+            guard cardCount != nil else { return }
+            await Library.fillLevels(ctx)
+            await Examples.fill(ctx)
+        }
+        .background(Backdrop())
+        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    // MARK: the bar
+
+    private var bar: some View {
+        HStack {
+            NavigationLink { BrowseView() } label: { barItem("Palabras", icon: "list.bullet") }
+            NavigationLink { LecturasView() } label: {
+                Image(systemName: "plus").font(.system(size: 22, weight: .heavy)).foregroundStyle(.white)
+                    .frame(width: 54, height: 54)
+                    .background { Gloss(color: Palette.accent, shape: RoundedRectangle(cornerRadius: 6), lift: 0.6) }
+            }
+            .frame(maxWidth: .infinity)
+            .accessibilityLabel("Añadir: una lectura o una palabra")
+            NavigationLink { SettingsView() } label: { barItem("Ajustes", icon: "gearshape.fill") }
+        }
+        .buttonStyle(PressStyle())
+        .padding(8)
+        .panel(radius: 28, shadow: 6)
+        .padding(.horizontal, 16).padding(.bottom, 4)
+        .frame(maxWidth: 560)
+    }
+
+    private func barItem(_ title: String, icon: String) -> some View {
+        VStack(spacing: 3) {
+            Image(systemName: icon).font(.system(size: 19, weight: .bold)).frame(height: 24)
+            Text(title).font(Typo.text(12, .heavy))
+        }
+        .foregroundStyle(Palette.ink)
+        .frame(maxWidth: .infinity, minHeight: 50)
+        .contentShape(.rect)
+    }
+}
+
+/// The day's mosaic, the library of words, and one button to study it. Verbs' tables, when there are any, are studied by
+/// tense below.
+private struct HomePage: View {
     @Environment(\.study) private var study
     @Query(sort: \Card.order) private var cards: [Card]
 
     @Binding var session: StudySession?
+    @Binding var cardCount: Int?
 
     var body: some View {
         let words = cards.filter { !$0.isConj && !$0.isDropped }
@@ -47,20 +112,11 @@ struct HomeView: View {
         // `-scrollBottom` opens at the end of the page, for screenshots of what's below the fold.
         .defaultScrollAnchor(ProcessInfo.processInfo.arguments.contains("-scrollBottom") ? .bottom : .top)
         #endif
-        // Plaster under the clock and round the bar, so the page scrolls away behind them rather than through them.
-        .safeAreaInset(edge: .top, spacing: 0) { Color.clear.frame(height: 0).background(Palette.bg, ignoresSafeAreaEdges: .top) }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            bar.padding(.top, 8).frame(maxWidth: .infinity).background(Palette.bg, ignoresSafeAreaEdges: .bottom)
+        .onChange(of: cards.count, initial: true) { old, new in
+            // Cards deleted (Explorar, or Ajustes › Borrar todos los datos) may be in a session left midway: start over.
+            if new < old { session = nil }
+            cardCount = new
         }
-        // Cards deleted (Explorar, or Ajustes › Borrar todos los datos) may be in a session left midway: start over.
-        .onChange(of: cards.count) { old, new in if new < old { session = nil } }
-        // New cards get their example sentences in the background.
-        .task(id: cards.count) {
-            await Library.fillLevels(ctx)
-            await Examples.fill(ctx)
-        }
-        .background(Backdrop())
-        .toolbar(.hidden, for: .navigationBar)
     }
 
     /// What's waiting, and the one way into studying it.
@@ -128,37 +184,6 @@ struct HomeView: View {
         let verbs = cards.filter { !$0.isConj && $0.isVerb }
         study(pool, queue: Scheduler.dailyQueue(pool), tab: .conj, label: name, key: "conj:" + key,
               fresh: Scheduler.unseen(pool, staggerTenses: key == Tense.random, verbs: verbs))
-    }
-
-    // MARK: the bar
-
-    private var bar: some View {
-        HStack {
-            NavigationLink { BrowseView() } label: { barItem("Palabras", icon: "list.bullet") }
-            NavigationLink { LecturasView() } label: {
-                Image(systemName: "plus").font(.system(size: 22, weight: .heavy)).foregroundStyle(.white)
-                    .frame(width: 54, height: 54)
-                    .background { Gloss(color: Palette.accent, shape: RoundedRectangle(cornerRadius: 6), lift: 0.6) }
-            }
-            .frame(maxWidth: .infinity)
-            .accessibilityLabel("Añadir: una lectura o una palabra")
-            NavigationLink { SettingsView() } label: { barItem("Ajustes", icon: "gearshape.fill") }
-        }
-        .buttonStyle(PressStyle())
-        .padding(8)
-        .panel(radius: 28, shadow: 6)
-        .padding(.horizontal, 16).padding(.bottom, 4)
-        .frame(maxWidth: 560)
-    }
-
-    private func barItem(_ title: String, icon: String) -> some View {
-        VStack(spacing: 3) {
-            Image(systemName: icon).font(.system(size: 19, weight: .bold)).frame(height: 24)
-            Text(title).font(Typo.text(12, .heavy))
-        }
-        .foregroundStyle(Palette.ink)
-        .frame(maxWidth: .infinity, minHeight: 50)
-        .contentShape(.rect)
     }
 }
 
