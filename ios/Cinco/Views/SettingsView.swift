@@ -133,7 +133,7 @@ struct HowView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Tienes una sola biblioteca de palabras, y cada palabra está una sola vez, por muchas páginas en las que salga. Se llena sola con lo que lees.")
-                Text("Escanea una página en Lecturas. Claude saca todas sus palabras y las ordena en tres niveles: básicas, intermedias y avanzadas. Las nuevas entran en tu biblioteca, las básicas primero, hasta el límite que digas en Ajustes.")
+                Text("Toca + y escanea una página. Claude saca todas sus palabras y las ordena en tres niveles: básicas, intermedias y avanzadas. Las nuevas entran en tu biblioteca, las básicas primero, hasta el límite que digas en Ajustes.")
                 Text("Luego estudias. Cada palabra nueva te la pregunta una vez: si dices Ya la sé, queda aprendida y no hace falta entrenarla; si dices No la sé, empieza a subir por las etapas. Primero salen las de la página que vas a leer.")
                 Text("Después lees. Toca lo que no entiendas y queda guardado. En amarillo, ya estaba en tu biblioteca, y vuelve a repasarse. En verde, es nueva, y acaba de entrar.")
                 Text("Cada tarjeta sube cinco etapas, cada una más difícil que la anterior. Si aciertas, sube (toca ¡La sé! o desliza a la derecha). Si fallas (toca Otra vez o desliza a la izquierda), baja una etapa y vuelve unas tarjetas después.")
@@ -151,7 +151,7 @@ struct HowView: View {
                 }
                 Text("En Vocabulario ves la palabra o la expresión (¿Dónde está el baño?, Me da igual), su significado y una frase de ejemplo: con la palabra resaltada cuando la ves en español, y con un hueco cuando eres tú quien la dice o la escribe. Si a una tarjeta le falta la frase, Claude la escribe (Ajustes › Frases de ejemplo).")
                 Text("En Conjugación cada tiempo de cada verbo es una tarjeta: primero ves el verbo, luego su significado y después conjugas la tabla. Primero la estudias, luego la dices en voz alta y te calificas, y desde la etapa 4 escribes las formas. El pronombre es opcional.")
-                Text("También puedes añadir una palabra a mano con +. Si ya está en tu biblioteca, no se repite.")
+                Text("Con + también puedes añadir una sola palabra: escríbela con su significado, y Claude corrige cómo se escribe y añade una frase de ejemplo y su nivel. Si ya está en tu biblioteca, no se repite.")
                 Text("Si un significado te parece mal, toca ¿Está bien? bajo la respuesta: lo compara con Apple Traducir y Apple Intelligence, y con un toque lo cambias. Para mirar todas tus palabras de una vez, está Ajustes › Revisar mi biblioteca.")
                 Text("Si fallas una tarjeta, puedes escribir en ese momento una mnemotecnia: un truco para recordarla. Aparece con la respuesta la próxima vez. Se puede desactivar en Ajustes.")
                 Text("Tus tarjetas y tu progreso se guardan en iCloud y se sincronizan entre todos tus dispositivos con la misma cuenta. Los ajustes, como las tarjetas por etapa, se quedan en cada dispositivo.")

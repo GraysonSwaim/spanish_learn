@@ -98,6 +98,8 @@ enum Tutor {
         }
     }
 
+    static let addConsentMessage = "Para completar la tarjeta, la palabra y su significado se envían a Claude, la IA de Anthropic. No se envía nada más tuyo, y no se guarda para entrenar modelos."
+
     static let scanConsentMessage = "Para sacar sus palabras, el texto de la página se envía a Claude, la IA de Anthropic. La foto se queda en el iPhone, y nada se guarda para entrenar modelos."
 
     /// The phone this is, to the proxy: a random ID made once, so each phone's allowance is counted on its own.
@@ -117,6 +119,8 @@ enum Tutor {
         /// The dictionary form when it's already decided (the page's word list has it): the card goes under this, and only
         /// its meaning is asked for. Empty for Claude to work it out.
         var word = ""
+        /// English that tells which sense is meant, when there is some.
+        var english = ""
     }
 
     /// A card for each marked word or phrase, in order. Claude first, unless `claude` is false; the on-device model when
@@ -141,7 +145,7 @@ enum Tutor {
         struct Body: Encodable { let device: String; let items: [GlossInput] }
         struct Reply: Decodable { let items: [Gloss] }
         let body = Body(device: device, items: items.prefix(40).map {
-            GlossInput(text: String($0.text.prefix(120)), sentence: String($0.sentence.prefix(600)), word: String($0.word.prefix(120)))
+            GlossInput(text: String($0.text.prefix(120)), sentence: String($0.sentence.prefix(600)), word: String($0.word.prefix(120)), english: String($0.english.prefix(600)))
         })
         let reply: Reply = try await post("gloss", body, timeout: 60)
         return reply.items

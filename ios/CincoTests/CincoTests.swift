@@ -965,3 +965,34 @@ struct MeaningReviewTests {
     }
 }
 
+struct AddWordTests {
+    private func gloss(_ es: String) -> Tutor.Gloss { Tutor.Gloss(spanish: es, english: "from Claude", note: "") }
+
+    @Test(arguments: [("cafe", "el café"), ("muneca", "la muñeca"), ("ano", "el año"), ("Mesa", "la mesa"), ("tener", "tener")])
+    func claudeCorrectsHowItsWritten(typed: String, answer: String) {
+        #expect(Library.corrected(typed, by: gloss(answer)) == answer)
+    }
+
+    @Test func claudeCantSwapTheWordForAnother() {
+        #expect(Library.corrected("olía", by: gloss("oler")) == "olía")
+    }
+
+    @MainActor @Test func withoutClaudeItsSavedAsTypedAndOnlyOnce() async throws {
+        let schema = Schema([Card.self, DayLog.self, Reading.self, Chunk.self])
+        let ctx = ModelContext(try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)))
+
+        guard case .new(let c) = await Library.addWord(es: "el papel", en: "paper", claude: false, ctx: ctx) else {
+            Issue.record("not added")
+            return
+        }
+        #expect(c.es == "el papel" && c.en == "paper" && c.ex.isEmpty && c.stage == 0)
+        // The same word without its article is the same word.
+        guard case .already(let same) = await Library.addWord(es: "papel", en: "role", claude: false, ctx: ctx) else {
+            Issue.record("added twice")
+            return
+        }
+        #expect(same === c && c.en == "paper")
+        #expect(Deck.allCards(ctx).count == 1)
+    }
+}
+

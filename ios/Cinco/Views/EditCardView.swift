@@ -1,11 +1,11 @@
 import SwiftUI
 import SwiftData
 
-/// Adds a card by hand or edits one. A verb's tables are edited here too, six forms per tense.
+/// Edits a card. A verb's tables are edited here too, six forms per tense.
 struct EditCardView: View {
     @Environment(\.modelContext) private var ctx
     @Environment(\.dismiss) private var dismiss
-    let card: Card?
+    let card: Card
 
     @State private var rec = CardRecord()
     /// Tense key -> six forms, while editing.
@@ -20,14 +20,12 @@ struct EditCardView: View {
                 TextField("Mi coche es rojo.", text: $rec.ex, axis: .vertical).labeled("Ejemplo")
                 TextField("My car is red.", text: $rec.exEn, axis: .vertical).labeled("Ejemplo en inglés")
                 TextField("En España, coche; en México, carro", text: $rec.notes, axis: .vertical).labeled("Notas")
-                if card != nil {
-                    TextField("Coche suena a «coach»: un autobús", text: $rec.mnemonic, axis: .vertical).labeled("Mnemotecnia")
-                }
+                TextField("Coche suena a «coach»: un autobús", text: $rec.mnemonic, axis: .vertical).labeled("Mnemotecnia")
             }
             verbSections
         }
         .font(Typo.text(16))
-        .navigationTitle(card == nil ? "Nueva tarjeta" : "Editar tarjeta")
+        .navigationTitle("Editar tarjeta")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
@@ -80,7 +78,7 @@ struct EditCardView: View {
     }
 
     private func load() {
-        guard let c = card else { return }
+        let c = card
         rec = CardRecord(es: c.es, en: c.en, ex: c.ex, exEn: c.exEn, exWord: c.exWord, notes: c.notes, tags: c.tags,
                          frases: c.frases.split(separator: "|").joined(separator: "\n"), tenses: c.tenses, mnemonic: c.mnemonic)
         forms = c.tenses.mapValues { TextMatch.splitForms($0) }

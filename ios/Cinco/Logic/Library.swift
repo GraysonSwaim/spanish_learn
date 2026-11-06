@@ -143,6 +143,37 @@ enum Library {
         return (form, form)
     }
 
+    // MARK: a word typed in
+
+    enum Added {
+        case new(Card)
+        /// It's in the library already, so it isn't added again.
+        case already(Card)
+    }
+
+    /// A card from just the word and its meaning. Claude corrects how the word is written; the example sentence and the
+    /// level follow in the background (`Examples`, `fillLevels`). Without Claude the card is saved as typed, so nothing typed
+    /// is ever lost. nil if it couldn't be saved.
+    static func addWord(es: String, en: String, claude: Bool, ctx: ModelContext) async -> Added? {
+        if let c = find(es, in: index(Deck.allCards(ctx))) { return .already(c) }
+        var written = es
+        let question = Tutor.GlossInput(text: es, sentence: "(no sentence: the learner typed this word and its meaning)", english: en)
+        if claude, let g = (try? await Tutor.gloss([question]))?.first { written = corrected(es, by: g) }
+        let rec = CardRecord(es: written, en: en)
+        // Looked at again: its corrected form may be there, and a tap may have added it while Claude was answering.
+        if let c = find(rec.es, in: index(Deck.allCards(ctx))) { return .already(c) }
+        guard Deck.save(rec, editing: nil, ctx: ctx) == nil, let c = Deck.cardsByID(ctx)[TextMatch.cardID(rec.es)] else { return nil }
+        return .new(c)
+    }
+
+    /// How a typed word should be written: Claude can add an article, an accent or a ñ ("cafe" is "el café"), which its
+    /// meaning decides ("ano" with "year" is "el año"), but it can't swap the word for another. Only the spelling is taken:
+    /// without a sentence, Claude's notes are about the entry rather than the word, and the meaning is the learner's.
+    nonisolated static func corrected(_ es: String, by g: Tutor.Gloss) -> String {
+        let plain = { TextMatch.noArticle($0).replacingOccurrences(of: "ñ", with: "n") }
+        return plain(g.spanish) == plain(es) ? g.spanish : es
+    }
+
     // MARK: words tapped while reading
 
     /// Words tapped that aren't settled yet: not found in the library or added to it.

@@ -80,7 +80,7 @@ struct ScanCard: View {
             }
             Button("Cancelar", role: .cancel) {}
         } message: {
-            Text("Sus páginas se guardan en Lecturas con ese nombre.")
+            Text("Sus páginas se guardan en Tus lecturas con ese nombre.")
         }
         .fullScreenCover(isPresented: $scanning) {
             PageCamera { images in

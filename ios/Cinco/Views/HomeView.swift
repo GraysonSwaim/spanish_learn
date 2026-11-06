@@ -9,7 +9,6 @@ struct HomeView: View {
     @Query(sort: \Card.order) private var cards: [Card]
 
     @Binding var session: StudySession?
-    @State private var editing: EditTarget?
 
     var body: some View {
         let words = cards.filter { !$0.isConj && !$0.isDropped }
@@ -31,7 +30,7 @@ struct HomeView: View {
                 .padding(.top, 8)
 
                 if words.isEmpty {
-                    Text("Tu biblioteca empieza vacía. Escanea una página del libro que lees, en Lecturas, y sus palabras entran aquí para que las estudies. También puedes añadirlas una a una con +.")
+                    Text("Tu biblioteca empieza vacía. Toca + para escanear una página del libro que lees, y sus palabras entran aquí para que las estudies. También puedes añadirlas una a una.")
                         .font(Typo.text(17)).foregroundStyle(Palette.muted).padding(.top, 32)
                 } else {
                     library(words).padding(.top, 18)
@@ -53,9 +52,6 @@ struct HomeView: View {
         }
         .background(Backdrop())
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(item: $editing) { t in
-            NavigationStack { EditCardView(card: t.card) }
-        }
     }
 
     /// How the library stands by level, and the one way into studying it.
@@ -133,14 +129,13 @@ struct HomeView: View {
     private var bar: some View {
         HStack {
             NavigationLink { BrowseView() } label: { barItem("Palabras", icon: "list.bullet") }
-            NavigationLink { LecturasView() } label: { barItem("Lecturas", icon: "book.fill") }
-            Button { editing = EditTarget(card: nil) } label: {
+            NavigationLink { LecturasView() } label: {
                 Image(systemName: "plus").font(.system(size: 22, weight: .heavy)).foregroundStyle(.white)
                     .frame(width: 54, height: 54)
                     .background { Gloss(color: Palette.accent, shape: RoundedRectangle(cornerRadius: 6), lift: 0.6) }
             }
             .frame(maxWidth: .infinity)
-            .accessibilityLabel("Añadir una palabra")
+            .accessibilityLabel("Añadir: una lectura o una palabra")
             NavigationLink { SettingsView() } label: { barItem("Ajustes", icon: "gearshape.fill") }
         }
         .buttonStyle(PressStyle())
@@ -162,8 +157,8 @@ struct HomeView: View {
 }
 
 struct EditTarget: Identifiable {
-    let card: Card?
-    var id: String { card?.id ?? "new" }
+    let card: Card
+    var id: String { card.id }
 }
 
 struct MenuRowLabel: View {
