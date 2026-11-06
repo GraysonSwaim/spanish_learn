@@ -918,3 +918,50 @@ struct MeaningCheckTests {
     }
 }
 
+@MainActor
+struct MeaningReviewTests {
+    private func card(_ id: String, en: String = "paper", kind: Card.Kind = .word) -> Card {
+        Card(id: id, kind: kind, es: id, en: en, order: 0)
+    }
+
+    @Test func onlyWordsWhoseCurrentMeaningIsUncheckedAreChecked() {
+        let new = card("nueva"), same = card("igual"), changed = card("cambiada", en: "role")
+        let dropped = card("descartada"), conj = card("verbo:presente", kind: .conj)
+        dropped.dropped = .now
+        let entries = ["igual": MeaningReview.Entry(en: "paper", doubtful: false),
+                       "cambiada": MeaningReview.Entry(en: "paper", doubtful: true)]
+        #expect(MeaningReview.toCheck([new, same, changed, dropped, conj], entries: entries).map(\.id) == ["nueva", "cambiada"])
+    }
+
+    @Test func aDoubtOnlyHoldsForTheMeaningThatWasChecked() {
+        let doubted = card("dudosa"), fine = card("bien"), changed = card("cambiada", en: "role"), new = card("nueva")
+        let entries = ["dudosa": MeaningReview.Entry(en: "paper", doubtful: true),
+                       "bien": MeaningReview.Entry(en: "paper", doubtful: false),
+                       "cambiada": MeaningReview.Entry(en: "paper", doubtful: true)]
+        #expect(MeaningReview.doubtful([doubted, fine, changed, new], entries: entries).map(\.id) == ["dudosa"])
+    }
+
+    @Test func eachTextIsAskedForOnce() {
+        let c = Card(id: "x", es: "el papel", en: "paper", order: 0)
+        c.exWord = "papel"
+        c.ex = " Un papel doblado. "
+        #expect(MeaningReview.texts(of: c) == ["el papel", "papel", "Un papel doblado."])
+        c.exWord = "EL PAPEL"
+        c.ex = ""
+        #expect(MeaningReview.texts(of: c) == ["el papel"])
+    }
+
+    @Test func aMatchOnTheWordAgreesWithoutAskingTheModel() async {
+        let c = Card(id: "x", es: "oler", en: "to smell", order: 0)
+        #expect(await MeaningReview.verdict(for: c, english: ["oler": "to smell"]) == .agrees)
+    }
+
+    @Test func aMeaningFromTheSameSentenceIsDoubted() async {
+        let c = Card(id: "x", es: "oler", en: "paper", order: 0)
+        c.exWord = "huele"
+        c.ex = "El papel huele a tabaco."
+        let english = ["oler": "to smell", "huele": "smells", "El papel huele a tabaco.": "The paper smells like tobacco."]
+        #expect(await MeaningReview.verdict(for: c, english: english) == .doubtful)
+    }
+}
+

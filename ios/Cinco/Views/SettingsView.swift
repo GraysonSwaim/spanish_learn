@@ -74,6 +74,11 @@ struct SettingsView: View {
                 Text("Habla la mejor voz de iOS instalada. Para que suene mucho mejor, descarga una voz Mejorada o Premium en Ajustes › Accesibilidad › Contenido leído › Voces › Español.")
             }
             Section {
+                NavigationLink("Revisar mi biblioteca") { ReviewLibraryView() }
+            } footer: {
+                Text("Busca significados equivocados, comparando tus palabras con Apple Traducir y Apple Intelligence.")
+            }
+            Section {
                 NavigationLink("Cómo funciona") { HowView() }
             }
             Section("Aspecto") {
@@ -147,6 +152,7 @@ struct HowView: View {
                 Text("En Vocabulario ves la palabra o la expresión (¿Dónde está el baño?, Me da igual), su significado y una frase de ejemplo: con la palabra resaltada cuando la ves en español, y con un hueco cuando eres tú quien la dice o la escribe. Si a una tarjeta le falta la frase, Claude la escribe (Ajustes › Frases de ejemplo).")
                 Text("En Conjugación cada tiempo de cada verbo es una tarjeta: primero ves el verbo, luego su significado y después conjugas la tabla. Primero la estudias, luego la dices en voz alta y te calificas, y desde la etapa 4 escribes las formas. El pronombre es opcional.")
                 Text("También puedes añadir una palabra a mano con +. Si ya está en tu biblioteca, no se repite.")
+                Text("Si un significado te parece mal, toca ¿Está bien? bajo la respuesta: lo compara con Apple Traducir y Apple Intelligence, y con un toque lo cambias. Para mirar todas tus palabras de una vez, está Ajustes › Revisar mi biblioteca.")
                 Text("Si fallas una tarjeta, puedes escribir en ese momento una mnemotecnia: un truco para recordarla. Aparece con la respuesta la próxima vez. Se puede desactivar en Ajustes.")
                 Text("Tus tarjetas y tu progreso se guardan en iCloud y se sincronizan entre todos tus dispositivos con la misma cuenta. Los ajustes, como las tarjetas por etapa, se quedan en cada dispositivo.")
             }

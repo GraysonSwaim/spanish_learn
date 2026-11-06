@@ -1,4 +1,6 @@
 import Foundation
+// A session isn't marked Sendable, though it's only ever used by one task at a time here.
+@preconcurrency import Translation
 
 /// A second opinion on a card's meaning, from Apple's tools on the phone. Claude writes the meanings because it's far
 /// more accurate: tested 2026-11-06 on 52 tricky words in their sentences, Claude got all of them, Apple Translate 65–73%
@@ -68,6 +70,16 @@ nonisolated enum MeaningCheck {
         if w.last == "e" { w = w.dropLast() }
         if w.last == "y" { w = w.dropLast() + "i" }
         return String(w)
+    }
+
+    /// Apple Translate's English for each text.
+    static func translate(_ texts: [String], with session: TranslationSession) async throws -> [String: String] {
+        let requests = texts.indices.map { TranslationSession.Request(sourceText: texts[$0], clientIdentifier: String($0)) }
+        var out: [String: String] = [:]
+        for r in try await session.translations(from: requests) {
+            if let i = r.clientIdentifier.flatMap({ Int($0) }) { out[texts[i]] = r.targetText }
+        }
+        return out
     }
 
     /// Apple Translate's word as a card would put it: "the paper" is "paper". Empty when it only gave the word back.

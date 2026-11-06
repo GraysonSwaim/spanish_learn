@@ -1,7 +1,6 @@
 import SwiftUI
 import SwiftData
-// A session isn't marked Sendable, though each one here makes a single call.
-@preconcurrency import Translation
+import Translation
 
 /// "¿Está bien?": for when a card's meaning looks wrong. Apple Translate and, if they disagree, Apple Intelligence give a
 /// second opinion on the phone, Claude can be asked again, and one tap puts any of their answers on the card.
@@ -21,17 +20,9 @@ struct CheckMeaningSheet: View {
     @State private var askingClaude = false
     @State private var claudeProblem: String?
 
-    nonisolated private struct Translated: Hashable, Sendable {
+    private struct Translated: Hashable {
         let spanish: String
         let english: String
-    }
-
-    /// The card's word first, then the form and the sentence it was met in.
-    private var toTranslate: [String] {
-        var seen = Set<String>()
-        return [card.es, card.exWord, card.ex]
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty && seen.insert(TextMatch.strip($0)).inserted }
     }
 
     var body: some View {
@@ -59,8 +50,8 @@ struct CheckMeaningSheet: View {
             .frame(maxWidth: 640, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
-        .translationTask(source: Locale.Language(identifier: "es"), target: Locale.Language(identifier: "en")) { @Sendable [texts = toTranslate] session in
-            await check(translated: try? await Self.translate(texts, with: session))
+        .translationTask(source: Locale.Language(identifier: "es"), target: Locale.Language(identifier: "en")) { @Sendable [texts = MeaningReview.texts(of: card)] session in
+            await check(english: try? await MeaningCheck.translate(texts, with: session))
         }
         #if DEBUG
         .task {
@@ -132,7 +123,10 @@ struct CheckMeaningSheet: View {
                 .buttonStyle(SoftButtonStyle(fill: Palette.paper, text: Palette.ink, size: 17))
                 .disabled(askingClaude)
             }
-            Button("Dejarla así") { dismiss() }
+            Button("Dejarla así") {
+                MeaningReview.settle(card)
+                dismiss()
+            }
                 .buttonStyle(SoftButtonStyle(fill: Palette.paper, text: Palette.ink, size: 17))
         }
     }
@@ -164,28 +158,13 @@ struct CheckMeaningSheet: View {
 
     // MARK: asking
 
-    nonisolated private static func translate(_ texts: [String], with session: TranslationSession) async throws -> [Translated] {
-        let requests = texts.indices.map { TranslationSession.Request(sourceText: texts[$0], clientIdentifier: String($0)) }
-        let responses = try await session.translations(from: requests)
-        var english = [Int: String]()
-        for r in responses { if let i = r.clientIdentifier.flatMap({ Int($0) }) { english[i] = r.targetText } }
-        return texts.indices.compactMap { i in english[i].map { Translated(spanish: texts[i], english: $0) } }
-    }
-
     /// Apple Translate has answered, or couldn't. The on-device model is only asked what that leaves open.
-    private func check(translated apple: [Translated]?) async {
+    private func check(english: [String: String]?) async {
         guard checking else { return }
-        let results = apple ?? []
-        translated = results
-        let example = card.ex.trimmingCharacters(in: .whitespacesAndNewlines)
-        let word = results.filter { $0.spanish != example }.map(\.english)
-        let sentence = results.first { $0.spanish == example }?.english ?? ""
-
-        let settled = MeaningCheck.settled(meaning: card.en, word: word, sentence: sentence)
-        var accepts: Bool?
-        if settled == nil { accepts = await Tutor.onDeviceAccepts(spanish: card.es, sentence: card.ex, english: card.en) }
-        if settled != .agrees { modelMeaning = (try? await Tutor.gloss([question], claude: false))?.first?.english }
-        verdict = settled ?? MeaningCheck.unsettled(meaning: card.en, word: word, sentence: sentence, modelAccepts: accepts)
+        let answers = english ?? [:]
+        translated = MeaningReview.texts(of: card).compactMap { t in answers[t].map { Translated(spanish: t, english: $0) } }
+        verdict = await MeaningReview.verdict(for: card, english: answers)
+        if verdict != .agrees { modelMeaning = (try? await Tutor.gloss([question], claude: false))?.first?.english }
         checking = false
     }
 
@@ -218,6 +197,7 @@ struct CheckMeaningSheet: View {
         card.en = english
         if let note { card.notes = note }
         try? ctx.save()
+        MeaningReview.settle(card)
         dismiss()
     }
 }

@@ -50,6 +50,7 @@ struct RootView: View {
     #if DEBUG
     @State private var demoReading: Reading?
     @State private var demoLecturas = false
+    @State private var demoReview = false
     #endif
 
     var body: some View {
@@ -85,6 +86,7 @@ struct RootView: View {
                 .preferredColorScheme(scheme)
         }
         .sheet(isPresented: $demoLecturas) { NavigationStack { LecturasView() }.preferredColorScheme(scheme) }
+        .sheet(isPresented: $demoReview) { NavigationStack { ReviewLibraryView() }.preferredColorScheme(scheme) }
         .task { startDemo() }
         #endif
     }
@@ -111,6 +113,11 @@ struct RootView: View {
         // `-openLecturas` opens Lecturas.
         if args.contains("-openLecturas") {
             demoLecturas = true
+            return
+        }
+        // `-openReview` opens Revisar mi biblioteca, with the first few words in doubt.
+        if args.contains("-openReview") {
+            demoReview = true
             return
         }
         // `-openScan` opens a sample scanned page, as if just scanned.
