@@ -24,7 +24,12 @@ Each call sets aside its whole `max_tokens` (thinking counts as output) and a to
 everyone together about 18 cents, if someone found the URL and spent it all. Real use is far below: checking a 30-line
 reading costs about 0.2 cents, a gloss of 20 words about 0.1.
 
-The backstop is the workspace's spend limit in the Anthropic Console.
+The owner's phones get their own, larger caps: at most about 90 cents a day per phone. They're counted apart, so they aren't
+held back by everyone's cap and don't use it up. Their device IDs are in a secret rather than in the repo, because knowing an ID
+is all it takes to spend from its allowance. To add a phone, see "Day to day".
+
+The backstop is the workspace's spend limit in the Anthropic Console. The owner's caps can pass a low one over a month, and then
+every call fails until it's raised.
 
 ## Set up (once)
 
@@ -47,13 +52,16 @@ The backstop is the workspace's spend limit in the Anthropic Console.
 - Local run: put `ANTHROPIC_API_KEY=...` in `proxy/.dev.vars` (git-ignored), `npm run dev`, then launch the app in the
   simulator with `-tutorURL http://localhost:8787`.
 - Change a cap or the model in `wrangler.toml`, then `npm run deploy`.
+- To give a phone the owner's caps: run `npx wrangler tail`, use Claude on that phone (tap a word, say), and copy the `device`
+  from the log. Then run `npx wrangler secret put OWNER_DEVICES` and paste the IDs, separated by commas, including any already
+  there, as it replaces the old list. It takes effect straight away. Deleting the app makes a new ID.
 
 ## Errors the app sees
 
 | Status | Body | Meaning |
 |---|---|---|
 | 400 | `bad_request` | Over the request limits (80 lines of 600 characters, 40 marked words or cards, 6,000 characters of a page) |
-| 429 | `budget` | This phone, or everyone, is out for today |
+| 429 | `budget` | This phone, or everyone, is out for today. An owner's phone runs out of only its own caps |
 | 422 | `refused` | Claude declined |
 | 502 | `too_long`, `bad_reply`, `upstream` | Reply cut off or malformed, or the API call failed |
 | 503 | `busy` | Anthropic rate limit or overload |

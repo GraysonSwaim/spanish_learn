@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import * as z from "zod/v4";
-import { Budget } from "./budget";
+import { Budget, OWNER_PREFIX } from "./budget";
 
 export { Budget };
 
@@ -18,6 +18,10 @@ interface Env {
   GLOBAL_DAILY_OUTPUT_TOKENS: string;
   DEVICE_DAILY_INPUT_TOKENS: string;
   GLOBAL_DAILY_INPUT_TOKENS: string;
+  OWNER_DAILY_OUTPUT_TOKENS: string;
+  OWNER_DAILY_INPUT_TOKENS: string;
+  /** A secret, not in wrangler.toml: the owner's phones' device IDs, separated by commas. */
+  OWNER_DEVICES?: string;
 }
 
 // MARK: what the app sends
@@ -325,13 +329,18 @@ interface Ask<T extends z.ZodType> {
 async function ask<T extends z.ZodType>(env: Env, a: Ask<T>): Promise<Response> {
   const inputCeiling = PROMPT_OVERHEAD + a.content.length;
   const budget = env.BUDGET.get(env.BUDGET.idFromName("all"));
-  const day = await budget.reserve(a.device, { output: a.maxTokens, input: inputCeiling }, {
-    deviceOutput: Number(env.DEVICE_DAILY_OUTPUT_TOKENS),
+  const owner = isOwner(env, a.device);
+  const counted = owner ? OWNER_PREFIX + a.device : a.device;
+  const day = await budget.reserve(counted, { output: a.maxTokens, input: inputCeiling }, {
+    deviceOutput: Number(owner ? env.OWNER_DAILY_OUTPUT_TOKENS : env.DEVICE_DAILY_OUTPUT_TOKENS),
     globalOutput: Number(env.GLOBAL_DAILY_OUTPUT_TOKENS),
-    deviceInput: Number(env.DEVICE_DAILY_INPUT_TOKENS),
+    deviceInput: Number(owner ? env.OWNER_DAILY_INPUT_TOKENS : env.DEVICE_DAILY_INPUT_TOKENS),
     globalInput: Number(env.GLOBAL_DAILY_INPUT_TOKENS),
   });
-  if (!day) return json({ error: "budget" }, 429);
+  if (!day) {
+    console.log(JSON.stringify({ device: a.device, owner, over: "budget" }));
+    return json({ error: "budget" }, 429);
+  }
 
   let used = 0;
   let read = 0;
@@ -352,7 +361,7 @@ async function ask<T extends z.ZodType>(env: Env, a: Ask<T>): Promise<Response> 
     });
     used = response.usage.output_tokens;
     read = response.usage.input_tokens;
-    console.log(JSON.stringify({ model: response.model, input: read, output: used, stop: response.stop_reason }));
+    console.log(JSON.stringify({ device: a.device, owner, model: response.model, input: read, output: used, stop: response.stop_reason }));
 
     if (response.stop_reason === "refusal") return json({ error: "refused" }, 422);
     // Cut off at the cap: the JSON is unfinished.
@@ -374,8 +383,14 @@ async function ask<T extends z.ZodType>(env: Env, a: Ask<T>): Promise<Response> 
     throw error;
   } finally {
     // What was set aside becomes what was spent (nothing, when the call failed).
-    await budget.settle(a.device, day, { output: used - a.maxTokens, input: read - inputCeiling });
+    await budget.settle(counted, day, { output: used - a.maxTokens, input: read - inputCeiling });
   }
+}
+
+/** Whether this is one of the owner's phones. The app writes a device ID in capitals, and it's easy to paste in either. */
+function isOwner(env: Env, device: string): boolean {
+  const id = device.toLowerCase();
+  return (env.OWNER_DEVICES ?? "").split(",").some((d) => d.trim().toLowerCase() === id);
 }
 
 /** Input tokens a call takes beyond the learner's text: the instructions and the reply schema, with room to spare. */

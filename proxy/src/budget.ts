@@ -6,6 +6,9 @@ export interface Tokens {
   input: number;
 }
 
+/** What an owner's phone is counted under. A device from the app is always a UUID, so it can't claim to be one. */
+export const OWNER_PREFIX = "owner:";
+
 export interface Caps {
   deviceOutput: number;
   globalOutput: number;
@@ -27,7 +30,8 @@ export class Budget extends DurableObject<object> {
   }
 
   /** Sets aside the most one call could cost, before it's made. Returns the day it was counted on, or null when it would
-   *  pass the phone's or everyone's allowance for today, and then nothing is set aside. */
+   *  pass the phone's or everyone's allowance for today, and then nothing is set aside. An owner's phone answers only to
+   *  its own caps, and isn't counted in everyone's, so neither gets in the way of the other. */
   reserve(device: string, cost: Tokens, caps: Caps): string | null {
     const day = today();
     // Earlier days' counts are no longer needed.
@@ -35,9 +39,11 @@ export class Budget extends DurableObject<object> {
     const mine = this.sql.exec<{ o: number; i: number }>(
       "SELECT COALESCE(SUM(output), 0) AS o, COALESCE(SUM(input), 0) AS i FROM spent WHERE day = ? AND device = ?", day, device).one();
     const all = this.sql.exec<{ o: number; i: number }>(
-      "SELECT COALESCE(SUM(output), 0) AS o, COALESCE(SUM(input), 0) AS i FROM spent WHERE day = ?", day).one();
-    if (mine.o + cost.output > caps.deviceOutput || all.o + cost.output > caps.globalOutput
-      || mine.i + cost.input > caps.deviceInput || all.i + cost.input > caps.globalInput) return null;
+      "SELECT COALESCE(SUM(output), 0) AS o, COALESCE(SUM(input), 0) AS i FROM spent WHERE day = ? AND device NOT LIKE ?",
+      day, `${OWNER_PREFIX}%`).one();
+    const overMine = mine.o + cost.output > caps.deviceOutput || mine.i + cost.input > caps.deviceInput;
+    const overAll = all.o + cost.output > caps.globalOutput || all.i + cost.input > caps.globalInput;
+    if (overMine || (overAll && !device.startsWith(OWNER_PREFIX))) return null;
     this.sql.exec(
       `INSERT INTO spent (day, device, output, input) VALUES (?, ?, ?, ?)
        ON CONFLICT (day, device) DO UPDATE SET output = output + excluded.output, input = input + excluded.input`,

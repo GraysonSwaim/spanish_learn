@@ -26,6 +26,9 @@ GLOBAL_DAILY_OUTPUT_TOKENS = "240000"
 DEVICE_DAILY_INPUT_TOKENS = "300000"
 # Everyone together: at most 6 cents a day.
 GLOBAL_DAILY_INPUT_TOKENS = "600000"
+# The owner's phones (the OWNER_DEVICES secret), counted apart from everyone: 10 times a phone's caps, at most 90 cents a day.
+OWNER_DAILY_OUTPUT_TOKENS = "1200000"
+OWNER_DAILY_INPUT_TOKENS = "3000000"
 
 # One counter for everyone, so the caps hold even when requests arrive at the same moment.
 [[durable_objects.bindings]]
