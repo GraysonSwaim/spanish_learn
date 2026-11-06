@@ -100,6 +100,8 @@ enum Tutor {
 
     static let addConsentMessage = "Para completar la tarjeta, la palabra y su significado se envían a Claude, la IA de Anthropic. No se envía nada más tuyo, y no se guarda para entrenar modelos."
 
+    static let articleConsentMessage = "Para sacar sus palabras, el texto del artículo se envía a Claude, la IA de Anthropic. Nada se guarda para entrenar modelos."
+
     static let scanConsentMessage = "Para sacar sus palabras, el texto de la página se envía a Claude, la IA de Anthropic. La foto se queda en el iPhone, y nada se guarda para entrenar modelos."
 
     /// The phone this is, to the proxy: a random ID made once, so each phone's allowance is counted on its own.
@@ -169,7 +171,15 @@ enum Tutor {
         return out
     }
 
-    /// Every different word of a scanned page. Only Claude does this: it takes judging Spanish, which the on-device
+    /// The stretches of a reading that go for its word list: about the 5 pages a scan can hold. A long article's calls set
+    /// aside enough of the day's allowance, all at once, to use it up; and it's more than one sitting's study anyway.
+    nonisolated static let maxWordBatches = 5
+
+    nonisolated static func firstPages(_ lines: [String]) -> [String] {
+        batches(lines).prefix(maxWordBatches).flatMap(\.self)
+    }
+
+    /// Every different word of a reading. Only Claude does this: it takes judging Spanish, which the on-device
     /// model does badly.
     static func words(lines: [String]) async throws(Failure) -> [PageWord] {
         if demo {

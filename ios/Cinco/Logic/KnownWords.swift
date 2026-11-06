@@ -82,9 +82,9 @@ nonisolated struct KnownWords: Equatable, Sendable {
     }
 
     /// The known words of a paragraph on an article's page, as UTF-16 [start, end] pairs.
-    func stretches(in text: String) -> [[Int]] {
+    func stretches(in text: String, page: [PageWord] = []) -> [[Int]] {
         let ranges = Lectura.words(text).map { NSRange($0, in: text) }
-        return spans(in: text).map { [ranges[$0.lowerBound].location, NSMaxRange(ranges[$0.upperBound])] }
+        return spans(in: text, page: page).map { [ranges[$0.lowerBound].location, NSMaxRange(ranges[$0.upperBound])] }
     }
 
     /// Each form on a page's list, with the dictionary words it's a form of.

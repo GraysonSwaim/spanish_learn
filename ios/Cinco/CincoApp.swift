@@ -52,11 +52,15 @@ struct RootView: View {
     @State private var demoLecturas = false
     @State private var demoReview = false
     @State private var demoSettings = false
+    @State private var demoNew: Reading?
     #endif
 
     var body: some View {
         NavigationStack {
             HomeView(session: $session)
+                #if DEBUG
+                .navigationDestination(item: $demoNew) { ReadingView(reading: $0, isNew: true) }
+                #endif
         }
         .environment(\.study, StudyAction(run: start))
         .tint(Palette.accentInk)
@@ -86,7 +90,7 @@ struct RootView: View {
         }
         #if DEBUG
         .sheet(item: $demoReading) { r in
-            NavigationStack { ReadingView(reading: r, justScanned: ProcessInfo.processInfo.arguments.contains("-openScan")) }
+            NavigationStack { ReadingView(reading: r, isNew: ProcessInfo.processInfo.arguments.contains("-openScan")) }
                 .preferredColorScheme(scheme)
         }
         .sheet(isPresented: $demoLecturas) { NavigationStack { LecturasView() }.preferredColorScheme(scheme) }
@@ -120,6 +124,14 @@ struct RootView: View {
             for c in Deck.allCards(ctx) where !c.isConj {
                 (c.stage, c.interval, c.due) = (5, 1, .distantPast)
             }
+        }
+        // `-openNew <url>` makes a new reading of that article, as pasting its link does.
+        if let i = args.firstIndex(of: "-openNew"), i + 1 < args.count, let url = URL(string: args[i + 1]) {
+            let r = Reading(title: ArticleText.site(url), lines: [])
+            r.url = url.absoluteString
+            ctx.insert(r)
+            demoNew = r
+            return
         }
         // `-openSettings` opens Ajustes.
         if args.contains("-openSettings") {

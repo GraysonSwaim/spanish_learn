@@ -1,8 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// One reading, set like the article it came from. A scanned page first feeds the library: its new words go in, to be
-/// studied from here, and the session comes back to the page to read it. Tap a word you don't understand, or hold and
+/// One reading, set like the article it came from. A new reading, scanned or from a link, first feeds the library: its new
+/// words go in, they're studied straight away, and the session comes back here to read it. Tap a word you don't understand, or hold and
 /// slide across a phrase, and it's recorded: yellow if it's in the library already, green if it's new to it. Words you
 /// know are already highlighted, more palely, until that's turned off.
 /// A reading made from a link can also be read on the article's own page (`PageReader`), tapped the same way.
@@ -10,8 +10,8 @@ struct ReadingView: View {
     @Environment(\.modelContext) private var ctx
     @Environment(\.study) private var study
     @Bindable var reading: Reading
-    /// Take the page's words straight away, for a page just scanned.
-    var justScanned = false
+    /// Just made: its words go in and are studied before it's read.
+    let isNew: Bool
     @Query(sort: \Card.order) private var cards: [Card]
     @AppStorage(PrefKey.highlightKnown) private var highlightKnown = true
 
@@ -30,12 +30,24 @@ struct ReadingView: View {
 
     /// Taking the page's words.
     @State private var working: String?
+    /// A new reading's words are on their way, and study comes next.
+    @State private var preparing: Bool
+    /// Whether this is still on screen, so a session doesn't open over wherever the learner has gone.
+    @State private var onScreen = false
+    /// A new reading turned out to have nothing to study.
+    @State private var allKnown = false
     @State private var problem: String?
     @State private var askScanConsent = false
     @State private var askConsent = false
     /// Tapped words are settled one at a time, by this.
     @State private var settling = false
     @State private var settleFailed = Set<String>()
+
+    init(reading: Reading, isNew: Bool = false) {
+        self.reading = reading
+        self.isNew = isNew
+        _preparing = State(initialValue: isNew && reading.pageWords == nil)
+    }
 
     private var pageURL: URL? { reading.url.isEmpty || reading.book != nil ? nil : URL(string: reading.url) }
     private var onPage: Bool { mode == .page && pageURL != nil && !pageFailed }
@@ -51,8 +63,11 @@ struct ReadingView: View {
         let colors = reading.markColors
         let known = highlightKnown ? Library.known(cards) : nil
         Group {
-            if onPage, let url = pageURL {
-                PageReader(url: url, lines: reading.lines, marks: reading.marks, colors: colors, known: known, handle: page,
+            if preparing {
+                preparingView
+            } else if onPage, let url = pageURL {
+                PageReader(url: url, lines: reading.lines, marks: reading.marks, colors: colors, known: known,
+                           page: reading.pageWords ?? [], handle: page,
                            onTap: pageTapped, onSelect: pageSelected, onFail: { pageFailed = true })
             } else {
                 lines(colors)
@@ -61,7 +76,7 @@ struct ReadingView: View {
         .background(Backdrop())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if pageURL != nil, !pageFailed, !reading.lines.isEmpty {
+            if pageURL != nil, !pageFailed, !reading.lines.isEmpty, !preparing {
                 ToolbarItem(placement: .principal) {
                     Picker("Vista", selection: $mode) {
                         Text("Original").tag(Mode.page)
@@ -82,20 +97,24 @@ struct ReadingView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 8) {
-                if onPage { pagePanel(colors) }
-                actions
+            if !preparing {
+                VStack(spacing: 8) {
+                    if onPage { pagePanel(colors) }
+                    actions
+                }
             }
         }
-        .onAppear(perform: load)
+        .onAppear {
+            onScreen = true
+            load()
+        }
+        .onDisappear { onScreen = false }
         .onChange(of: reading.lines.count) { words = reading.lines.map(Lectura.words) }
         .onChange(of: mode) {
             lookup = nil
             selection = nil
         }
-        .task {
-            if justScanned, isBook, reading.pageWords == nil { takeWords() }
-        }
+        .task { await begin() }
         .task(id: KnownLines(known: known, lines: reading.lines, page: reading.pageWords ?? [])) {
             guard let known else { knownSpans = []; return }
             let (lines, page) = (reading.lines, reading.pageWords ?? [])
@@ -104,13 +123,31 @@ struct ReadingView: View {
         }
         .alert("¿Enviar la página a Claude?", isPresented: $askScanConsent) {
             Button("Enviar") { Tutor.scanConsented = true; takeWords() }
-            Button("Cancelar", role: .cancel) {}
-        } message: { Text(Tutor.scanConsentMessage) }
+            Button("Cancelar", role: .cancel) { preparing = false }
+        } message: { Text(isBook ? Tutor.scanConsentMessage : Tutor.articleConsentMessage) }
         .alert(Tutor.consentTitle, isPresented: $askConsent) {
             Button("Enviar") { Tutor.consented = true; settle() }
             if Tutor.onDeviceAvailable { Button("Solo en el iPhone") { settle(claude: false) } }
             Button("Cancelar", role: .cancel) {}
         } message: { Text(Tutor.consentMessage) }
+    }
+
+    /// While a new reading's words are on their way. Reading is never held back: it can be read straight away.
+    private var preparingView: some View {
+        VStack(spacing: 14) {
+            Spacer()
+            ProgressView()
+            Text(working ?? "Preparando…").font(Typo.text(17, .bold)).foregroundStyle(Palette.ink)
+            Text("Primero estudias las palabras que no sabes, y luego lo lees.")
+                .font(Typo.text(15)).foregroundStyle(Palette.muted)
+                .multilineTextAlignment(.center)
+            Spacer()
+            Button("Leer sin estudiar") { preparing = false }
+                .font(Typo.text(16, .bold))
+                .padding(.bottom, 16)
+        }
+        .padding(.horizontal, 24)
+        .frame(maxWidth: .infinity)
     }
 
     private func lines(_ colors: [String: MarkColor]) -> some View {
@@ -211,15 +248,19 @@ struct ReadingView: View {
                     Text(problem).font(Typo.text(14, .bold)).foregroundStyle(Palette.again)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                if allKnown {
+                    Text("Ya sabes todas sus palabras.").font(Typo.text(14, .bold)).foregroundStyle(Palette.good)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 if toStudy > 0 {
-                    Button(action: studyPage) {
+                    Button { studyPage() } label: {
                         Text("Estudiar estas palabras · \(toStudy)").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white, size: 18))
                 }
-                if isBook, reading.pageWords == nil {
+                if reading.pageWords == nil, !reading.lines.isEmpty {
                     Button(action: takeWords) {
-                        Text("Sacar las palabras de esta página").frame(maxWidth: .infinity)
+                        Text(isBook ? "Sacar las palabras de esta página" : "Sacar las palabras de este artículo").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, size: 18))
                 } else if waiting > 0, !unseen {
@@ -240,18 +281,39 @@ struct ReadingView: View {
 
     /// The whole library, this page's words first.
     private func studyPage() {
-        let plan = Library.plan(cards, first: Set(pageCards.map(\.id)))
+        let all = Deck.allCards(ctx)
+        let plan = Library.plan(all, first: Set(Library.cards(on: reading, in: all).map(\.id)))
         study(plan.pool, queue: plan.queue, label: reading.title, fresh: plan.fresh)
+    }
+
+    /// What opening a reading sets going: an article's text if it hasn't got it yet, then, for a new one, its words.
+    private func begin() async {
+        var article: Article?
+        if reading.lines.isEmpty, let url = pageURL {
+            working = "Leyendo el artículo…"
+            article = await readArticle(url)
+            working = nil
+        }
+        guard preparing else { return }
+        if reading.lines.isEmpty {
+            problem = "No encontré el texto de este artículo, así que no hay tarjetas. Puedes leerlo igual."
+            preparing = false
+        } else if article?.isSpanish == false {
+            problem = "Este artículo no parece estar en español, así que no he sacado sus palabras."
+            preparing = false
+        } else {
+            takeWords()
+        }
     }
 
     /// Reads the page's words and adds the first of the new ones to the library.
     private func takeWords() {
         guard Tutor.scanConsented else { askScanConsent = true; return }
-        working = "Leyendo las palabras de la página…"
+        working = isBook ? "Leyendo las palabras de la página…" : "Leyendo las palabras del artículo…"
         problem = nil
         Task {
             do throws(Tutor.Failure) {
-                if reading.pageWords == nil { reading.pageWords = try await Tutor.words(lines: reading.lines) }
+                if reading.pageWords == nil { reading.pageWords = try await Tutor.words(lines: Tutor.firstPages(reading.lines)) }
                 try? ctx.save()
                 working = "Preparando tus tarjetas…"
                 try await Library.addNext(from: reading, limit: Prefs.current.newPerScan, ctx: ctx)
@@ -259,6 +321,19 @@ struct ReadingView: View {
                 problem = error.message
             }
             working = nil
+            studyFirst()
+        }
+    }
+
+    /// A new reading's words are in: on to studying them, unless they've been left for later or there's nothing to study.
+    private func studyFirst() {
+        guard preparing else { return }
+        preparing = false
+        guard problem == nil, onScreen else { return }
+        if Library.toStudy(Library.cards(on: reading, in: Deck.allCards(ctx))).isEmpty {
+            allKnown = true
+        } else {
+            studyPage()
         }
     }
 
@@ -279,7 +354,6 @@ struct ReadingView: View {
         words = reading.lines.map(Lectura.words)
         reading.opened = .now
         KnownWords.fetchLemmas()
-        if reading.lines.isEmpty, let url = pageURL { Task { await readArticle(url) } }
         if !Tutor.needsConsent { settle() }
     }
 
@@ -303,12 +377,13 @@ struct ReadingView: View {
         if Tutor.needsConsent { askConsent = true } else { settle() }
     }
 
-    /// The article's text, for the Texto view and in case the page won't open. Paragraphs already marked on the page
-    /// keep their place, so their marks still point at them.
-    private func readArticle(_ url: URL) async {
-        guard let a = try? await ArticleReader.read(url) else { return }
+    /// The article's text, for its words, the Texto view, and in case the page won't open. Paragraphs already marked on
+    /// the page keep their place, so their marks still point at them.
+    private func readArticle(_ url: URL) async -> Article? {
+        guard let a = try? await ArticleReader.read(url) else { return nil }
         reading.lines += Lectura.lines(a.text).filter { !reading.lines.contains($0) }
         if !a.title.isEmpty, reading.title == ArticleText.site(url) { reading.title = a.title }
+        return a
     }
 
     /// A tap on a new word records it; on one already tapped, shows the phrase it's in.

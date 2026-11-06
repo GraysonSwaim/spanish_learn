@@ -1250,3 +1250,39 @@ struct KnownWordsTests {
         #expect(found(Library.known(cards + [verb]), line, lemmas: plain(line)) == ["estudiado", "dominado"])
     }
 }
+
+struct ArticleWordsTests {
+    /// A long article's word list stops after about 5 pages, at a paragraph's end, from the start.
+    @Test func aLongArticleSendsOnlyItsFirstPages() {
+        let paragraph = String(repeating: "palabra ", count: 200)
+        let lines = (0..<40).map { "\($0) " + paragraph }
+        let sent = Tutor.firstPages(lines)
+        #expect(Array(lines.prefix(sent.count)) == sent)
+        #expect(sent.count < lines.count)
+        #expect(Tutor.batches(sent).count == Tutor.maxWordBatches)
+        // A short one goes whole.
+        #expect(Tutor.firstPages(Array(lines.prefix(3))) == Array(lines.prefix(3)))
+    }
+
+    /// An article gets a word list the way a page does, so its words count as that reading's.
+    @Test @MainActor func aReadingFromALinkGetsItsCardsLikeAScannedOne() throws {
+        let schema = Schema([Card.self, DayLog.self, Reading.self, Chunk.self])
+        let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+        let ctx = c.mainContext
+        let known = Card(id: TextMatch.cardID("oler"), es: "oler", en: "to smell", order: 0)
+        known.stage = 5
+        known.due = .distantFuture
+        let learning = Card(id: TextMatch.cardID("el papel"), es: "el papel", en: "paper", order: 1)
+        learning.stage = 2
+        ctx.insert(known)
+        ctx.insert(learning)
+        let r = Reading(title: "elpais.com", lines: ["El papel huele a tabaco."])
+        r.url = "https://elpais.com/x"
+        r.pageWords = [PageWord(spanish: "oler", level: 1, forms: ["huele"]), PageWord(spanish: "el papel", level: 1, forms: ["papel"]),
+                       PageWord(spanish: "el tabaco", level: 2, forms: ["tabaco"])]
+        let all = Deck.allCards(ctx)
+        #expect(Library.newWords(r.pageWords!, index: Library.index(all)).map(\.spanish) == ["el tabaco"])
+        // What's left to study is what isn't known: not a word mastered and not yet due.
+        #expect(Library.toStudy(Library.cards(on: r, in: all)).map(\.es) == ["el papel"])
+    }
+}

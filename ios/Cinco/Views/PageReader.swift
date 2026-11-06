@@ -33,6 +33,8 @@ struct PageReader: UIViewRepresentable {
     let colors: [String: MarkColor]
     /// The words to highlight as known, if any.
     let known: KnownWords?
+    /// The article's word list, which says which word a form is.
+    let page: [PageWord]
     let handle: PageHandle
     /// A word tapped: its paragraph, and where in it.
     let onTap: (_ paragraph: String, _ at: Int) -> Void
@@ -117,7 +119,7 @@ struct PageReader: UIViewRepresentable {
         }
 
         private struct KnownSource: Equatable {
-            var known: KnownWords?, texts: [String]
+            var known: KnownWords?, page: [PageWord], texts: [String]
         }
 
         init(_ parent: PageReader) { self.parent = parent }
@@ -139,7 +141,7 @@ struct PageReader: UIViewRepresentable {
         }
 
         private func findKnown() {
-            let source = KnownSource(known: parent.known, texts: texts)
+            let source = KnownSource(known: parent.known, page: parent.page, texts: texts)
             guard source != knownFrom else { return }
             knownFrom = source
             finding?.cancel()
@@ -147,10 +149,10 @@ struct PageReader: UIViewRepresentable {
                 known = [:]
                 return
             }
-            let texts = source.texts
+            let (texts, page) = (source.texts, source.page)
             finding = Task {
                 let found = await Task.detached(priority: .userInitiated) {
-                    Dictionary(texts.map { ($0, words.stretches(in: $0)) }, uniquingKeysWith: { a, _ in a })
+                    Dictionary(texts.map { ($0, words.stretches(in: $0, page: page)) }, uniquingKeysWith: { a, _ in a })
                 }.value
                 guard !Task.isCancelled else { return }
                 known = found

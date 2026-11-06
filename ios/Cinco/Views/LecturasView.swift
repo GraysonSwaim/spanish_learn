@@ -7,13 +7,16 @@ struct LecturasView: View {
     @Environment(\.modelContext) private var ctx
     @Query(sort: \Reading.opened, order: .reverse) private var readings: [Reading]
     @State private var open: Reading?
-    /// The page just scanned: it opens on choosing its words.
-    @State private var scanned: String?
+    /// The reading just made: its words go in and are studied before it's read.
+    @State private var justMade: String?
 
     var body: some View {
         List {
             Section {
-                NewReadingCard { open = $0 }
+                NewReadingCard { r in
+                    justMade = r.id
+                    open = r
+                }
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     .listRowBackground(Color.clear)
             }
@@ -21,7 +24,7 @@ struct LecturasView: View {
             if ScanCard.available {
                 Section {
                     ScanCard { r in
-                        scanned = r.id
+                        justMade = r.id
                         open = r
                     }
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -60,7 +63,7 @@ struct LecturasView: View {
         .background(Backdrop())
         .navigationTitle("Añadir")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(item: $open) { ReadingView(reading: $0, justScanned: $0.id == scanned) }
+        .navigationDestination(item: $open) { ReadingView(reading: $0, isNew: $0.id == justMade) }
     }
 
     private func row(_ r: Reading) -> some View {
@@ -184,8 +187,8 @@ struct AddWordCard: View {
     }
 }
 
-/// A link to an article, and nothing else: it opens straight on the article's own page. Its text is read meanwhile
-/// (`ReadingView.readArticle`).
+/// A link to an article, and nothing else. Like a scanned page, its words go into the library and are studied, and then
+/// it's read on the article's own page (`ReadingView.begin`).
 struct NewReadingCard: View {
     @Environment(\.modelContext) private var ctx
     let onCreate: (Reading) -> Void
@@ -204,7 +207,7 @@ struct NewReadingCard: View {
                     .background { Gloss(color: Palette.sea, shape: RoundedRectangle(cornerRadius: 6), lift: 0.6) }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Nueva lectura").font(Typo.display(22)).foregroundStyle(Palette.ink)
-                    Text("Lee un artículo en español donde se publicó.")
+                    Text("Sus palabras entran en tu biblioteca: las estudias y luego lo lees donde se publicó.")
                         .font(Typo.text(15)).foregroundStyle(Palette.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -277,8 +280,7 @@ struct NewReadingCard: View {
         }
     }
 
-    /// A reading of the link's page, opened on it. Its lines come as the article's text is read, and as paragraphs
-    /// are marked on the page.
+    /// A reading of the link's page. Its lines come as the article's text is read, and as paragraphs are marked on the page.
     private func start() {
         guard let url else { return }
         let r = Reading(title: ArticleText.site(url), lines: [])

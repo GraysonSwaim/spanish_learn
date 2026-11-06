@@ -87,17 +87,23 @@ No new fields: this is `due`, `interval`, `lastReviewed`, which were already syn
 The library is fed by what's read, and each word is in it once (`Library`): a card is found by its Spanish without its
 article, and by each of its alternatives.
 
+**Every new reading goes the same way**, scanned or from a link (`ReadingView.begin`): its words go into the library, the
+study session opens by itself, and closing it leaves you on the reading. A link's article text is read first. With no
+text, or text that isn't Spanish, it just opens to read. "Leer sin estudiar" is always there, and nothing is locked. The
+word list covers the first 5 stretches of about a page each (`Tutor.firstPages`), since a long article would otherwise use
+up the day's allowance; words past that can still be tapped.
+
 **Scanning a book** (`ScanCard`, `Logic/PageScan.swift`): Apple's document camera takes up to 5 pages, and Vision reads
 them on the phone; the photos go no further. `PageText` puts the printed lines back into paragraphs from where they sit
 on the page (first-line indents, dialogue dashes, gaps, words hyphenated across lines), and sets aside the page number
-and running head. Then `ReadingView.takeWords`:
+and running head. Then, for a link's article too, `ReadingView.takeWords`:
 
 1. Claude lists every different word on the page, with its dictionary form, its level and its forms there (`Tutor.words`,
    the proxy's `/words`, about 30 seconds a page). The list is kept with the reading (`Reading.pageWords`).
 2. Words not in the library go in, foundational first, up to Ajustes › Palabras nuevas por escaneo (`Library.addNext`, 25
    unless changed). Each sentence on the page becomes that card's example. Once those are studied, the page offers the
    next batch; otherwise they wait for another page.
-3. The page offers to study, its words first (`Library.plan(first:)`), and the session comes back to it. A new word is
+3. Study opens, its words first (`Library.plan(first:)`), and the session comes back to it. A new word is
    a check and the start of training in one: "Ya la sé" (`Scheduler.alreadyKnown`, Dominada, checked in a week), or "No
    la sé" (`introDone`, into stage 1). Reading is never held back.
 
