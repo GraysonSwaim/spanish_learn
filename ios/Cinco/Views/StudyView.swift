@@ -21,8 +21,14 @@ struct StudyView: View {
     /// A short note after a card is set aside, with a way to take it back.
     @State private var droppedNote: String?
     @FocusState private var focus: Field?
+    @State private var answerFocused = false
+    /// The keyboard squeezes the card while it's up, so what sits at the card's foot waits for it to go. It would land on
+    /// the answer otherwise.
+    @State private var keyboardUp = false
+    /// In case the keyboard never says it has gone.
+    @State private var stoppedWaiting = false
 
-    private enum Field: Hashable { case answer, cell(Int) }
+    private enum Field: Hashable { case cell(Int) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,6 +58,17 @@ struct StudyView: View {
         .padding(.bottom, 8)
         .background(Backdrop())
         .animation(.snappy(duration: 0.25), value: onCard)
+        .animation(.easeInOut(duration: 0.2), value: rightTyped)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in keyboardUp = true }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
+            withAnimation(.snappy(duration: 0.25)) { keyboardUp = false }
+        }
+        .task(id: "\(session.step).\(session.phase)") {
+            stoppedWaiting = false
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            withAnimation(.snappy(duration: 0.25)) { stoppedWaiting = true }
+        }
         .onChange(of: session.step, initial: true) {
             typed = ""; grid = [:]; dragX = 0; showSentences = false
         }
@@ -59,6 +76,19 @@ struct StudyView: View {
         .onAppear {
             if ProcessInfo.processInfo.arguments.contains("-openMnemonic") { mnemonicFor = session.current }
             if ProcessInfo.processInfo.arguments.contains("-checkDemo") { checkingMeaning = session.current }
+        }
+        // `-autoAnswer right|wrong` types the answer on each typed card, to see what submitting it looks like.
+        .task(id: session.step) {
+            let args = ProcessInfo.processInfo.arguments
+            guard let i = args.firstIndex(of: "-autoAnswer"), i + 1 < args.count, session.mode == .type, let c = session.current else { return }
+            answerFocused = true
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            typed = args[i + 1] == "right" ? c.es : "algo"
+            try? await Task.sleep(for: .seconds(0.5))
+            guard !Task.isCancelled else { return }
+            // As the keyboard's return key does.
+            UIApplication.shared.sendAction(#selector(UIResponder.pressReturnForDemo), to: nil, from: nil, for: nil)
         }
         #endif
         .sheet(item: $checkingMeaning) { c in CheckMeaningSheet(card: c).checkSheetStyle() }
@@ -71,7 +101,7 @@ struct StudyView: View {
         }
         .onChange(of: session.phase) { _, p in
             if p == .prompt, let c = session.current {
-                if session.mode == .type { focus = .answer }
+                if session.mode == .type { answerFocused = true }
                 if session.mode == .grid { focus = session.asked(session.forms(of: c)).first.map(Field.cell) }
             }
         }
@@ -132,7 +162,11 @@ struct StudyView: View {
         GeometryReader { g in
             let band = min(200, g.size.height * 0.28)
             VStack(spacing: 0) {
-                Mosaic(word: c.isConj ? session.verb(of: c)?.es ?? c.es : c.es).frame(height: band)
+                // Drawn at one size and cropped: a mosaic's pattern follows its shape, and the keyboard shouldn't reshuffle it.
+                Mosaic(word: c.isConj ? session.verb(of: c)?.es ?? c.es : c.es)
+                    .frame(height: 200)
+                    .frame(height: band, alignment: .top)
+                    .clipped()
                 ScrollView {
                     cardContent(c).frame(maxWidth: .infinity, minHeight: g.size.height - band)
                 }
@@ -143,9 +177,15 @@ struct StudyView: View {
         .panel(radius: 6)
         .overlay(alignment: .topLeading) { dropButton(c).opacity(dragX == 0 ? 1 : 0) }
         .overlay(alignment: .bottom) {
-            if session.canGrade { gradeTabs.transition(.opacity.combined(with: .offset(y: 12))) }
-            else if session.phase == .intro { introTab.transition(.opacity.combined(with: .offset(y: 12))) }
-            else if let hint = tapHint { tapPill(hint).opacity(dragX == 0 ? 1 : 0).transition(.opacity) }
+            if !keyboardUp || stoppedWaiting {
+                if session.canGrade {
+                    if !rightTyped { gradeTabs.transition(.opacity.combined(with: .offset(y: 12))) }
+                } else if session.phase == .intro {
+                    introTab.transition(.opacity.combined(with: .offset(y: 12)))
+                } else if let hint = tapHint {
+                    tapPill(hint).opacity(dragX == 0 ? 1 : 0).transition(.opacity)
+                }
+            }
         }
         .overlay(alignment: .topLeading) {
             if session.canGrade { stamp("¡La sé!", Palette.good, -12).opacity(Double(max(0, dragX) / 110)) }
@@ -195,7 +235,10 @@ struct StudyView: View {
     }
 
     /// Whether the card's own buttons are showing, in place of the button under it.
-    private var onCard: Bool { session.canGrade || session.phase == .intro }
+    private var onCard: Bool { (session.canGrade && !rightTyped) || session.phase == .intro }
+
+    /// Typed exactly right: nothing to decide, and the card moves on by itself (`StudySession.autoPass`).
+    private var rightTyped: Bool { session.canGrade && session.verdict == .exact }
 
     private var canSwipe: Bool { onCard }
 
@@ -364,7 +407,7 @@ struct StudyView: View {
             kicker("Escríbelo en español")
             english(c.en)
             example(c, blank: !revealed, english: true)
-            if revealed {
+            if revealed && !rightTyped {
                 answerBlock {
                     word(c.es)
                     VerdictTag(verdict: session.verdict ?? .skip, typed: session.typed)
@@ -373,23 +416,34 @@ struct StudyView: View {
                 }
             } else {
                 HStack(spacing: 8) {
-                    TextField("…", text: $typed)
-                        .font(Typo.text(22, .bold))
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .focused($focus, equals: .answer)
-                        .submitLabel(.done)
-                        .onSubmit { session.check(typed) }
+                    AnswerField(text: $typed, focused: $answerFocused) { session.check(typed) }
                         .padding(.horizontal, 16).padding(.vertical, 14)
                         .background(Palette.sunk, in: .rect(cornerRadius: 6))
-                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(focus == .answer ? Palette.sea.opacity(0.6) : Palette.edge, lineWidth: 1.5))
+                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(answerFocused ? Palette.sea.opacity(0.6) : Palette.edge, lineWidth: 1.5))
                     Button("Comprobar") { session.check(typed) }
                         .buttonStyle(SoftButtonStyle(fill: Palette.sea, text: .white, radius: 18, size: 18))
                         .fixedSize()
                 }
+                // Right, the box becomes the answer in the same place, so nothing on the card moves.
+                .opacity(rightTyped ? 0 : 1)
+                .allowsHitTesting(!rightTyped)
+                .accessibilityHidden(rightTyped)
+                .overlay { if rightTyped { rightAnswer(c) } }
                 .padding(.top, 22)
             }
         }
+    }
+
+    private func rightAnswer(_ c: Card) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 22, weight: .bold)).foregroundStyle(Palette.good)
+            Text(c.es).font(Typo.text(22, .heavy)).foregroundStyle(Palette.ink).lineLimit(1).minimumScaleFactor(0.5)
+        }
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Palette.goodSoft, in: .rect(cornerRadius: 6))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("¡Correcto! \(c.es)")
     }
 
     // MARK: in a sentence
@@ -633,6 +687,65 @@ struct StudyView: View {
     }
 }
 
+/// The box a typed answer goes in. A UITextField underneath, since SwiftUI's always lets go of the keyboard on return, and
+/// taking it back makes the keyboard and the whole card dip. This keeps it for the next card.
+private struct AnswerField: UIViewRepresentable {
+    @Binding var text: String
+    @Binding var focused: Bool
+    let onSubmit: () -> Void
+
+    func makeUIView(context: Context) -> UITextField {
+        let f = UITextField()
+        f.delegate = context.coordinator
+        f.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .editingChanged)
+        f.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: UIFont(name: "BricolageGrotesque-SemiBold", size: 22) ?? .boldSystemFont(ofSize: 22))
+        f.adjustsFontForContentSizeCategory = true
+        f.textAlignment = .center
+        f.placeholder = "…"
+        f.autocapitalizationType = .none
+        f.autocorrectionType = .no
+        f.spellCheckingType = .no
+        f.returnKeyType = .done
+        f.accessibilityLabel = "Tu respuesta en español"
+        f.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        f.setContentHuggingPriority(.required, for: .vertical)
+        return f
+    }
+
+    func updateUIView(_ f: UITextField, context: Context) {
+        context.coordinator.parent = self
+        if f.text != text { f.text = text }
+        if focused != f.isFirstResponder {
+            // Next turn, since a field just made isn't in its window yet.
+            DispatchQueue.main.async { [wanted = focused] in
+                if wanted { f.becomeFirstResponder() } else { f.resignFirstResponder() }
+            }
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var parent: AnswerField
+
+        init(_ parent: AnswerField) { self.parent = parent }
+
+        @objc func changed(_ f: UITextField) { parent.text = f.text ?? "" }
+
+        func textFieldShouldReturn(_ f: UITextField) -> Bool {
+            parent.onSubmit()
+            return false
+        }
+
+        func textFieldDidBeginEditing(_ f: UITextField) { parent.focused = true }
+
+        func textFieldDidEndEditing(_ f: UITextField) {
+            // Also called as the field goes from the screen, in the middle of an update.
+            DispatchQueue.main.async { [parent] in parent.focused = false }
+        }
+    }
+}
+
 /// Two lines on a big button: what it does, and a small note.
 /// A grade button shaped like an arrow tab, pointing the way the card swipes for that grade. Paper ones get a hairline.
 private struct GradeTabStyle: ButtonStyle {
@@ -756,3 +869,11 @@ nonisolated struct Line: Shape {
         Path { p in p.move(to: CGPoint(x: 0, y: r.midY)); p.addLine(to: CGPoint(x: r.maxX, y: r.midY)) }
     }
 }
+
+#if DEBUG
+extension UIResponder {
+    @objc func pressReturnForDemo() {
+        if let field = self as? UITextField { _ = field.delegate?.textFieldShouldReturn?(field) }
+    }
+}
+#endif
