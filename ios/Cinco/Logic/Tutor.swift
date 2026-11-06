@@ -59,6 +59,9 @@ enum Tutor {
         case allowance
         case refused
         case busy
+        /// Claude's side answered, with something that couldn't be used.
+        case server
+        /// No answer at all: most likely the connection.
         case other
         /// Only the on-device model was asked, and it had no answer.
         case onDevice
@@ -68,6 +71,7 @@ enum Tutor {
             case .allowance: "Claude ya no ayuda más por hoy. Mañana sigue."
             case .refused: "Claude no pudo ayudar con este texto."
             case .busy: "Claude está ocupado. Prueba otra vez en un momento."
+            case .server: "Algo falló al pedírselo a Claude. Prueba otra vez en un momento."
             case .other: "No se pudo hablar con Claude. Revisa la conexión y prueba otra vez."
             case .onDevice: "El iPhone no pudo hacerlo esta vez. Prueba otra vez."
             }
@@ -253,9 +257,9 @@ enum Tutor {
         case 429: throw .allowance
         case 422: throw .refused
         case 503: throw .busy
-        default: throw .other
+        default: throw .server
         }
-        guard let reply = try? JSONDecoder().decode(R.self, from: data) else { throw .other }
+        guard let reply = try? JSONDecoder().decode(R.self, from: data) else { throw .server }
         return reply
     }
 }

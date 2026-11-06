@@ -13,7 +13,7 @@ CHECK_MAX_TOKENS = "12000"
 GLOSS_MAX_TOKENS = "6000"
 # 40 example sentences, each with its English, write about 2,000.
 EXAMPLES_MAX_TOKENS = "6000"
-# Listing every word of about a page, each with its forms and level, writes about 4,000.
+# Listing every word of a full page, each with its forms and level, writes about 3,500, with thinking off for this route.
 WORDS_MAX_TOKENS = "10000"
 # 40 levels write very little.
 LEVELS_MAX_TOKENS = "1500"
