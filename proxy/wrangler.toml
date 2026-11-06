@@ -13,6 +13,8 @@ CHECK_MAX_TOKENS = "12000"
 GLOSS_MAX_TOKENS = "6000"
 # 40 example sentences, each with its English, write about 2,000.
 EXAMPLES_MAX_TOKENS = "6000"
+# Choosing up to 40 words from a scanned page writes about 800.
+PICK_MAX_TOKENS = "4000"
 # Each call sets aside its whole max_tokens until it's answered, then keeps only what it used.
 # One phone per UTC day: about 25 checks and as many glosses. At most 6 cents a day.
 DEVICE_DAILY_OUTPUT_TOKENS = "120000"

@@ -24,6 +24,11 @@ struct ReadingCardsView: View {
     @State private var loading = false
     @State private var error: String?
     @State private var askConsent = false
+    @State private var askScanConsent = false
+    @State private var status = "Preparando las tarjetas…"
+
+    /// A scanned page whose words haven't been chosen yet. Words tapped by hand count as chosen.
+    private var needsPick: Bool { reading.book != nil && reading.marks.isEmpty && reading.carded.isEmpty }
 
     private var pending: [Run] {
         Lectura.runs(lines: reading.lines, marks: reading.marks).filter { !reading.carded.contains($0.id) }
@@ -37,8 +42,15 @@ struct ReadingCardsView: View {
                 Section {
                     HStack(spacing: 12) {
                         ProgressView()
-                        Text("Preparando las tarjetas…").foregroundStyle(Palette.muted)
+                        Text(status).foregroundStyle(Palette.muted)
                     }
+                }
+            } else if needsPick {
+                Section {
+                    if let error { Text(error).foregroundStyle(Palette.again) }
+                    Button("Elegir las palabras", systemImage: "sparkles", action: pick)
+                } footer: {
+                    Text("Claude elige las palabras difíciles de la página. También puedes cerrar esto y tocarlas tú al leer.")
                 }
             } else if drafts.isEmpty {
                 Section { Text("Todas las palabras marcadas ya están en tus tarjetas.").foregroundStyle(Palette.muted) }
@@ -70,9 +82,15 @@ struct ReadingCardsView: View {
             if Tutor.onDeviceAvailable { Button("Solo en el iPhone") { fetch(claude: false) } }
             Button("Cancelar", role: .cancel) {}
         } message: { Text(Tutor.consentMessage) }
+        .alert("¿Enviar la página a Claude?", isPresented: $askScanConsent) {
+            Button("Enviar") { Tutor.scanConsented = true; pick() }
+            Button("Cancelar", role: .cancel) {}
+        } message: { Text(Tutor.scanConsentMessage) }
         .onAppear {
             build()
-            if Tutor.available, !Tutor.needsConsent, needsGloss { fetch() }
+            if needsPick {
+                pick()
+            } else if Tutor.available, !Tutor.needsConsent, needsGloss { fetch() }
         }
     }
 
@@ -107,7 +125,7 @@ struct ReadingCardsView: View {
             }
         } footer: {
             if draft.include, draft.existing == nil {
-                Text(reading.lines[safe: draft.run.line] ?? "").font(Typo.sentence(13))
+                Text(sentence(draft.run)).font(Typo.sentence(13))
             }
         }
     }
@@ -134,6 +152,29 @@ struct ReadingCardsView: View {
         }
     }
 
+    /// Claude chooses the page's words, they're marked on the reading, and their cards are drafted as for marked words.
+    private func pick() {
+        guard Tutor.scanConsented else { askScanConsent = true; return }
+        status = "Buscando las palabras difíciles…"
+        loading = true
+        error = nil
+        Task {
+            do throws(Tutor.Failure) {
+                let lines = reading.lines
+                let got = try await Tutor.pick(lines: lines, known: Lectura.knownWords(cards).sorted(), max: Lectura.pickCount(lines))
+                reading.marks = Lectura.marks(for: got, lines: lines)
+                try? ctx.save()
+                if reading.marks.isEmpty { error = "Claude no encontró palabras difíciles en esta página." }
+            } catch {
+                self.error = error.message
+            }
+            status = "Preparando las tarjetas…"
+            loading = false
+            build()
+            if Tutor.available, !Tutor.needsConsent, needsGloss { fetch() }
+        }
+    }
+
     private func fetch() { fetch(claude: true) }
 
     private func fetch(claude: Bool) {
@@ -141,7 +182,7 @@ struct ReadingCardsView: View {
         let have = reading.glosses
         let want = drafts.filter { $0.existing == nil && have[$0.id] == nil }.map(\.run)
         guard !want.isEmpty else { return }
-        let items = want.map { Tutor.GlossInput(text: $0.text, sentence: reading.lines[safe: $0.line] ?? "") }
+        let items = want.map { Tutor.GlossInput(text: $0.text, sentence: sentence($0)) }
         loading = true
         error = nil
         Task {

@@ -9,6 +9,8 @@
 			<string>Cinco</string>
 		</dict>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Para escanear la página del libro que vas a leer. La foto no sale del iPhone.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoadsInWebContent</key>

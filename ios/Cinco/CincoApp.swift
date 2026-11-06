@@ -67,7 +67,10 @@ struct RootView: View {
             }
         }
         #if DEBUG
-        .sheet(item: $demoReading) { r in NavigationStack { ReadingView(reading: r) }.preferredColorScheme(scheme) }
+        .sheet(item: $demoReading) { r in
+            NavigationStack { ReadingView(reading: r, startCards: ProcessInfo.processInfo.arguments.contains("-openScan")) }
+                .preferredColorScheme(scheme)
+        }
         .sheet(isPresented: $demoLecturas) { NavigationStack { LecturasView() }.preferredColorScheme(scheme) }
         .task { startDemo() }
         #endif
@@ -107,6 +110,14 @@ struct RootView: View {
         // `-openLecturas` opens Lecturas.
         if args.contains("-openLecturas") {
             demoLecturas = true
+            return
+        }
+        // `-openScan` opens a sample scanned page, as if just scanned.
+        if args.contains("-openScan") {
+            let r = Reading(title: "Mi libro · pág. 47", lines: ScanCard.sample)
+            r.book = "Mi libro"
+            ctx.insert(r)
+            demoReading = r
             return
         }
         // `-openReading` opens a sample reading, some of it marked.

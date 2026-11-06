@@ -12,7 +12,9 @@ final class Reading {
     var opened: Date = Date.now
     /// The Spanish, one sentence per entry. A paragraph marked on the article's own page is added when it isn't one.
     var lines: [String] = []
-    /// The article's page, for a reading made from a link: it can be read there, as it was published.
+    /// The article's page, for a reading made from a link: it can be read there, as it was published. For a scanned
+    /// page of a book, "libro:" and the book's name (`book`): a new property would need the CloudKit schema deployed
+    /// again before TestFlight builds could sync it.
     var url: String = ""
     /// No longer written: the learner's translations each way, from when Lecturas had them. Kept so the CloudKit
     /// schema only ever grows.
@@ -32,6 +34,14 @@ final class Reading {
         self.id = UUID().uuidString
         self.title = title
         self.lines = lines
+    }
+
+    private static let bookPrefix = "libro:"
+
+    /// The book this page was scanned from, for a reading that is one.
+    var book: String? {
+        get { url.hasPrefix(Self.bookPrefix) ? String(url.dropFirst(Self.bookPrefix.count)) : nil }
+        set { url = newValue.map { Self.bookPrefix + $0 } ?? "" }
     }
 
     var glosses: [String: Tutor.Gloss] {

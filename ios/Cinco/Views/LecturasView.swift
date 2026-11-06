@@ -6,6 +6,8 @@ struct LecturasView: View {
     @Environment(\.modelContext) private var ctx
     @Query(sort: \Reading.opened, order: .reverse) private var readings: [Reading]
     @State private var open: Reading?
+    /// The page just scanned: it opens on choosing its words.
+    @State private var scanned: String?
 
     var body: some View {
         List {
@@ -15,6 +17,19 @@ struct LecturasView: View {
                     .listRowBackground(Color.clear)
             } footer: {
                 Text("Se abre la página tal cual. Toca las palabras que no conoces, o selecciona una frase; al terminar, lo que marques pasa a tus tarjetas.")
+            }
+
+            if ScanCard.available {
+                Section {
+                    ScanCard { r in
+                        scanned = r.id
+                        open = r
+                    }
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    .listRowBackground(Color.clear)
+                } footer: {
+                    Text("Hasta \(PageScan.maxPages) páginas cada vez. Las fotos se quedan en el iPhone.")
+                }
             }
 
             Section {
@@ -29,7 +44,7 @@ struct LecturasView: View {
                 }
             } footer: {
                 if !readings.isEmpty {
-                    Text("Una lectura que no abras en \(Lectura.keepDays) días se borra sola. Las tarjetas que hiciste con ella se quedan.")
+                    Text("Una lectura que no abras en \(Lectura.keepDays) días se borra sola. Las tarjetas que hiciste con ella se quedan, y las páginas de un libro también.")
                 }
             }
             .listRowBackground(Palette.paper)
@@ -38,7 +53,7 @@ struct LecturasView: View {
         .scrollContentBackground(.hidden)
         .background(Backdrop())
         .navigationTitle("Lecturas")
-        .navigationDestination(item: $open) { ReadingView(reading: $0) }
+        .navigationDestination(item: $open) { ReadingView(reading: $0, startCards: $0.id == scanned) }
     }
 
     private func row(_ r: Reading) -> some View {

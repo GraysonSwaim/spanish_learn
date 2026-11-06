@@ -121,6 +121,22 @@ nonisolated enum Lectura {
         return nil
     }
 
+    /// Marks for the words Claude chose on a scanned page, skipping any it can't find in its line.
+    static func marks(for picks: [Tutor.Pick], lines: [String]) -> [String] {
+        var out: [String] = []
+        for p in picks {
+            guard let line = lines[safe: p.line], let places = find(p.text, in: line),
+                  let first = places.first, let last = places.last else { continue }
+            mark(&out, line: p.line, first: first, last: last)
+        }
+        return out
+    }
+
+    /// How many words to choose from a page: about 20 from a full one, a few less from a short one.
+    static func pickCount(_ lines: [String]) -> Int {
+        min(40, max(8, lines.joined().count / 100))
+    }
+
     // MARK: on the article's own page
 
     /// The word places a stretch of a paragraph touches, `start..<end` counted in UTF-16 units as the page counts them.
@@ -205,9 +221,11 @@ extension Lectura {
         try? ctx.save()
     }
 
-    /// Deletes readings not opened in `keepDays`, and the oldest past `keepCount`.
+    /// Deletes readings not opened in `keepDays`, and the oldest past `keepCount`. Pages of a book stay, however slowly
+    /// the book goes.
     static func recycle(_ ctx: ModelContext, now: Date = .now) {
-        let all = (try? ctx.fetch(FetchDescriptor<Reading>(sortBy: [SortDescriptor(\.opened, order: .reverse)]))) ?? []
+        let all = ((try? ctx.fetch(FetchDescriptor<Reading>(sortBy: [SortDescriptor(\.opened, order: .reverse)]))) ?? [])
+            .filter { $0.book == nil }
         let cutoff = now.addingTimeInterval(-Double(keepDays) * 86_400)
         var changed = false
         for (i, r) in all.enumerated() where i >= keepCount || r.opened < cutoff {

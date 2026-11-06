@@ -83,6 +83,17 @@ enum Tutor {
     static let consentTitle = "¿Enviar a Claude?"
     static let consentMessage = "Para rellenar las tarjetas, las palabras que marques y sus frases se envían a Claude, la IA de Anthropic. No se envía nada más tuyo, y no se guarda para entrenar modelos."
 
+    /// A scanned page sends far more than a few marked words, so it's asked about on its own. A yes covers the words too.
+    static var scanConsented: Bool {
+        get { UserDefaults.standard.bool(forKey: "tutorScanConsent") }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "tutorScanConsent")
+            if newValue { consented = true }
+        }
+    }
+
+    static let scanConsentMessage = "Para elegir las palabras, el texto de la página y las palabras de tu mazo se envían a Claude, la IA de Anthropic. La foto se queda en el iPhone, y nada se guarda para entrenar modelos."
+
     /// The phone this is, to the proxy: a random ID made once, so each phone's allowance is counted on its own.
     private static var device: String {
         let key = "tutorDevice"
@@ -124,6 +135,34 @@ enum Tutor {
             GlossInput(text: String($0.text.prefix(120)), sentence: String($0.sentence.prefix(600)))
         })
         let reply: Reply = try await post("gloss", body, timeout: 60)
+        return reply.items
+    }
+
+    /// A word or phrase Claude chose on a scanned page: the line it's in, and the words as they stand there.
+    nonisolated struct Pick: Codable, Equatable {
+        var line: Int
+        var text: String
+    }
+
+    /// The words of a scanned page worth studying before reading it. Only Claude does this: choosing them takes judging
+    /// Spanish, which the on-device model does badly.
+    static func pick(lines: [String], known: [String], max: Int) async throws(Failure) -> [Pick] {
+        if demo {
+            try? await Task.sleep(for: .milliseconds(700))
+            return lines.enumerated().compactMap { i, line in
+                Lectura.words(line).map { String(line[$0]) }.max { $0.count < $1.count }.map { Pick(line: i, text: $0) }
+            }
+        }
+        struct Body: Encodable { let device: String; let lines: [String]; let known: [String]; let max: Int }
+        struct Reply: Decodable { let items: [Pick] }
+        // As many whole paragraphs as the proxy takes.
+        var room = 16_000
+        let sent = lines.prefix { line in
+            room -= line.count
+            return room >= 0
+        }.map { String($0.prefix(6000)) }
+        let body = Body(device: device, lines: sent, known: known.prefix(500).map { String($0.prefix(60)) }, max: max)
+        let reply: Reply = try await post("pick", body, timeout: 60)
         return reply.items
     }
 

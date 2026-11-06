@@ -75,7 +75,15 @@ the example. A word already in the deck is brought forward for review instead.
 New words from a reading are filed in the reading's theme (`Chunks.forReading`), and each word keeps the reading's
 title and its own sentence (`Lectura.sentence`, cut from the paragraph) in `Card.sources`, which outlive the reading.
 
-Readings not opened for 30 days are deleted.
+Readings not opened for 30 days are deleted, except pages of a book.
+
+**Scanning a book** (`ScanCard`, `Logic/PageScan.swift`): for reading on paper, with the study before the reading. Apple's
+document camera takes up to 5 pages, and Vision reads them on the phone; the photos go no further. `PageText` puts the
+printed lines back into paragraphs from where they sit on the page (first-line indents, dialogue dashes, gaps, words
+hyphenated across lines), and sets aside the page number and running head. Claude picks the words to study (`Tutor.pick`,
+the proxy's `/pick`), which are marked on the reading and drafted as usual in `ReadingCardsView`. A page's theme sits
+inside its book's (`Chunks.forReading`), and the reading offers to study it (`ReadingView`), which comes back to the page.
+The book's name is kept in `Reading.url` (`Reading.book`), so there's no new CloudKit field.
 
 **The article's text** (`ReadingView.readArticle`, when a reading from a link has no lines yet): `ArticleReader` loads the page in an
 offscreen `WKWebView`, so sites that turn away a plain download still answer, and runs `Resources/ArticleExtract.js`

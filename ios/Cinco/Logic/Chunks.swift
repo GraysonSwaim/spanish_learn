@@ -126,9 +126,22 @@ enum Chunks {
         try? ctx.save()
     }
 
-    /// The chunk a reading's words go into, named after it: made the first time.
+    /// The chunk a reading's words go into, named after it: made the first time. A scanned page's goes inside its
+    /// book's, so a page can be studied before reading it and the book stays one line on Home.
     static func forReading(_ r: Reading, ctx: ModelContext) -> Chunk {
-        if let c = all(ctx).first(where: { $0.readingID == r.id }) { return c }
+        let existing = all(ctx)
+        if let c = existing.first(where: { $0.readingID == r.id }) { return c }
+        if let book = r.book {
+            let shelf = existing.first { $0.readingID == r.url } ?? {
+                let s = create(book, ctx: ctx)
+                s.readingID = r.url
+                return s
+            }()
+            let c = create(PageScan.pageName(r.title, book: book), parent: shelf.id, ctx: ctx)
+            c.readingID = r.id
+            try? ctx.save()
+            return c
+        }
         let c = create(r.title.isEmpty ? "Lectura" : r.title, ctx: ctx)
         c.readingID = r.id
         try? ctx.save()

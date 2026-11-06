@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 import SwiftData
+import UIKit
 @testable import Cinco
 
 /// Expected values are fixed: they were taken from the original web app, and card ids must never drift from them.
@@ -530,6 +531,139 @@ struct LecturaTests {
         Lectura.recycle(ctx, now: now)
         let left = try ctx.fetch(FetchDescriptor<Reading>()).map(\.title)
         #expect(left == ["nueva"])
+    }
+}
+
+/// Scanning a page of a book: printed lines back into paragraphs, and what becomes of them.
+struct PageScanTests {
+    /// A line of a page, by its place: rows go down from the top, one row every 0.035 of the page.
+    private func line(_ text: String, row: Double, indent: Double = 0, end: Double = 0.86) -> ScannedLine {
+        ScannedLine(text: text, minX: 0.09 + indent, maxX: end, midY: 0.9 - row * 0.035, height: 0.025)
+    }
+
+    /// As Vision read a rendered page of a book, boxes rounded.
+    private var page: [ScannedLine] {
+        [line("CAPÍTULO TRES", row: 0, indent: 0.22, end: 0.55),
+         line("Aquella mañana, cuando el coronel abrió la ventana, le", row: 2, indent: 0.05),
+         line("pareció que el pueblo entero se había quedado dormido bajo", row: 3),
+         line("el peso de la lluvia. ¿Quién iba a pensar que tanta desdi-", row: 4),
+         line("cha cabría en una sola semana?", row: 5, end: 0.5),
+         line("Bajó las escaleras sin hacer ruido.", row: 6, indent: 0.05, end: 0.56),
+         line("—¿Adónde vas tan temprano? —le preguntó su mujer, sin", row: 7, indent: 0.05),
+         line("—levantar la vista.", row: 8, end: 0.4),
+         line("—A ninguna parte.", row: 9, indent: 0.05, end: 0.4),
+         line("47", row: 11, indent: 0.27, end: 0.4)]
+    }
+
+    @Test func linesBecomeParagraphs() {
+        let got = PageText.assemble(page)
+        #expect(got.paragraphs == [
+            "Aquella mañana, cuando el coronel abrió la ventana, le pareció que el pueblo entero se había quedado dormido bajo el peso de la lluvia. ¿Quién iba a pensar que tanta desdicha cabría en una sola semana?",
+            "Bajó las escaleras sin hacer ruido.",
+            "—¿Adónde vas tan temprano? —le preguntó su mujer, sin —levantar la vista.",
+            "—A ninguna parte.",
+        ])
+    }
+
+    @Test func thePageNumberAndRunningHeadAreNotText() {
+        let got = PageText.assemble(page)
+        #expect(got.number == 47)
+        #expect(!got.paragraphs.joined().contains("CAPÍTULO"))
+        // A number printed in the running head is found too.
+        var head = page.dropLast().map { $0 }
+        head[0].text = "47  CAPÍTULO TRES"
+        #expect(PageText.assemble(head).number == 47)
+    }
+
+    @Test func piecesOfOneRowAreOneLine() {
+        let got = PageText.assemble([
+            ScannedLine(text: "dos piezas", minX: 0.5, maxX: 0.8, midY: 0.5, height: 0.03),
+            ScannedLine(text: "Una línea en", minX: 0.1, maxX: 0.45, midY: 0.502, height: 0.03),
+        ])
+        #expect(got.paragraphs == ["Una línea en dos piezas"])
+    }
+
+    @Test func aParagraphRunsOverThePage() {
+        let pages = [ScannedPage(paragraphs: ["Fin de una idea.", "Y luego otra desdi-"], number: 1),
+                     ScannedPage(paragraphs: ["cha enorme.", "Otra."], number: 2),
+                     ScannedPage(paragraphs: ["Nueva página."], number: 3)]
+        #expect(PageText.joined(pages) == ["Fin de una idea.", "Y luego otra desdicha enorme.", "Otra.", "Nueva página."])
+        #expect(PageText.label([47]) == "pág. 47")
+        #expect(PageText.label([47, 48, 49]) == "págs. 47–49")
+        #expect(PageText.label([]) == nil)
+    }
+
+    @Test func picksBecomeMarksOnTheirWords() {
+        let lines = ["Se encogió de hombros, sin más.", "Echó de menos a su hermano."]
+        let marks = Lectura.marks(for: [.init(line: 0, text: "encogió de hombros"), .init(line: 1, text: "ECHÓ DE MENOS"),
+                                        .init(line: 1, text: "no está"), .init(line: 9, text: "Echó")], lines: lines)
+        #expect(Lectura.runs(lines: lines, marks: marks).map(\.text) == ["encogió de hombros", "Echó de menos"])
+    }
+
+    @Test func howManyToChooseFollowsThePage() {
+        #expect(Lectura.pickCount(["Corta."]) == 8)
+        #expect(Lectura.pickCount([String(repeating: "a", count: 2000)]) == 20)
+        #expect(Lectura.pickCount([String(repeating: "a", count: 12000)]) == 40)
+    }
+
+    @Test @MainActor func aPageStaysAndItsThemeSitsInItsBooks() throws {
+        let schema = Schema([Card.self, DayLog.self, Reading.self, Chunk.self])
+        let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+        let ctx = c.mainContext
+        let one = Reading(title: "Mi libro · pág. 47", lines: ["Hola."])
+        let two = Reading(title: "Mi libro · pág. 48", lines: ["Adiós."])
+        one.book = "Mi libro"; two.book = "Mi libro"
+        #expect(one.book == "Mi libro" && one.url == "libro:Mi libro")
+        one.opened = .now.addingTimeInterval(-90 * 86_400)
+        ctx.insert(one); ctx.insert(two)
+
+        Lectura.recycle(ctx)
+        #expect(try ctx.fetch(FetchDescriptor<Reading>()).count == 2)
+
+        let a = Chunks.forReading(one, ctx: ctx)
+        let b = Chunks.forReading(two, ctx: ctx)
+        #expect(a.name == "Pág. 47" && b.name == "Pág. 48")
+        #expect(a.parentID == b.parentID)
+        let top = Chunks.top(Chunks.all(ctx))
+        #expect(top.map(\.name) == ["Mi libro"] && top[0].id == a.parentID)
+        #expect(Chunks.forReading(one, ctx: ctx) === a)
+    }
+
+    @Test @MainActor func aPagesSavedWordsCanBeStudiedStraightAway() throws {
+        let schema = Schema([Card.self, DayLog.self, Reading.self, Chunk.self])
+        let c = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+        let ctx = c.mainContext
+        let r = Reading(title: "Mi libro · pág. 47", lines: ["Echó de menos a su hermano."])
+        r.book = "Mi libro"
+        ctx.insert(r)
+        Lectura.save(r, new: [(CardRecord(es: "echar de menos", en: "to miss"), "Echó de menos a su hermano.")], existing: [], ctx: ctx)
+        let theme = Chunks.forReading(r, ctx: ctx)
+        let words = Deck.allCards(ctx).filter { $0.chunkID == theme.id }
+        #expect(words.map(\.es) == ["echar de menos"])
+        let session = StudySession(queue: Scheduler.dailyQueue(words), tab: .vocab, label: theme.name, key: "page:" + r.id, pool: words,
+                                   fresh: Scheduler.unseen(words, staggerTenses: false, verbs: []), continuous: true, ctx: ctx)
+        #expect(!session.isFinished)
+    }
+
+    /// The real recognizer on a drawn page.
+    @Test func visionReadsAPageIntoParagraphs() {
+        let size = CGSize(width: 800, height: 1000)
+        let text = ["Aquella mañana, cuando el coronel abrió la ventana, le",
+                    "pareció que el pueblo entero se había quedado dormido.",
+                    "—¿Adónde vas tan temprano? —le preguntó su mujer."]
+        let image = UIGraphicsImageRenderer(size: size, format: { let f = UIGraphicsImageRendererFormat(); f.scale = 2; return f }()).image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            let attrs: [NSAttributedString.Key: Any] = [.font: UIFont(name: "TimesNewRomanPSMT", size: 25)!, .foregroundColor: UIColor.black]
+            for (i, l) in text.enumerated() {
+                (l as NSString).draw(at: CGPoint(x: i == 1 ? 70 : 110, y: 100 + CGFloat(i) * 38), withAttributes: attrs)
+            }
+        }
+        let lines = PageScan.recognize(image)
+        #expect(PageText.assemble(lines).paragraphs == [
+            "Aquella mañana, cuando el coronel abrió la ventana, le pareció que el pueblo entero se había quedado dormido.",
+            "—¿Adónde vas tan temprano? —le preguntó su mujer.",
+        ])
     }
 }
 

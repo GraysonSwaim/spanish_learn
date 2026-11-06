@@ -1,6 +1,6 @@
 # Choca Cinco tutor proxy
 
-A Cloudflare Worker between the app and Claude, for Lecturas (pasted readings) and example sentences on cards. The API key lives only here, never in
+A Cloudflare Worker between the app and Claude, for Lecturas (readings and scanned book pages) and example sentences on cards. The API key lives only here, never in
 the app.
 
 | Route | The app sends | Claude returns |
@@ -8,8 +8,9 @@ the app.
 | `POST /check` | a reading's lines and the learner's translations, `es-en` or `en-es` (Al revés) | per line a verdict (`good`, `close`, `off`, `blank`), a comment and a better version; words they missed; up to 3 notes on the text |
 | `POST /gloss` | the words and phrases marked while reading, each with its sentence | a card for each: dictionary form, meaning in context, a short note |
 | `POST /examples` | flashcards (Spanish, meaning, and their sentence when they have one) | for each, a short example sentence (their own, untouched, when they have one), its English, and the card's words as they appear in it |
+| `POST /pick` | a scanned book page's paragraphs, the words already in the deck, and how many to choose | the words and phrases worth studying before reading it, each copied exactly from its line |
 
-Both take a `device`: a random ID the phone makes once, so each phone's allowance is counted on its own.
+All take a `device`: a random ID the phone makes once, so each phone's allowance is counted on its own.
 
 The model is `MODEL` in `wrangler.toml` (Claude Haiku 5.5). With Sonnet or Opus, declined requests are handed on to
 another model with server-side fallbacks (`fallbacks: "default"`); Haiku has none, so a request it declines comes back
@@ -50,7 +51,7 @@ The backstop is the workspace's spend limit in the Anthropic Console.
 
 | Status | Body | Meaning |
 |---|---|---|
-| 400 | `bad_request` | Over the request limits (80 lines of 600 characters, 40 marked words or cards) |
+| 400 | `bad_request` | Over the request limits (80 lines of 600 characters, 40 marked words or cards, a page of 16,000 characters) |
 | 429 | `budget` | This phone, or everyone, is out for today |
 | 422 | `refused` | Claude declined |
 | 502 | `too_long`, `bad_reply`, `upstream` | Reply cut off or malformed, or the API call failed |

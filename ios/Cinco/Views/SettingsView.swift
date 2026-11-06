@@ -120,7 +120,7 @@ struct HowView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Tu diccionario lo haces tú: las palabras llegan de Añadir, una a una, y de Lecturas, donde marcas las que no conoces. Las de una lectura entran juntas en un tema con su nombre; si marcas una que ya tenías, guarda también esa lectura y su frase, para que la recuerdes por más sitios.")
+                Text("Tu diccionario lo haces tú: las palabras llegan de Añadir, una a una, y de Lecturas, donde marcas las que no conoces o escaneas una página de un libro. Las de una lectura entran juntas en un tema con su nombre; si marcas una que ya tenías, guarda también esa lectura y su frase, para que la recuerdes por más sitios.")
                 Text("Las que añades a mano esperan en Sueltas hasta que las juntas en un tema. Junta las que pasan en el mismo sitio (en la estación: el andén, la maleta, el retraso) más que las del mismo tipo (frutas, colores): se recuerdan mejor juntas. En Inicio, arrastra un tema sobre otro para hacer uno más grande; los dos siguen dentro y puedes estudiar uno solo o todo junto.")
                 Text("Toca un tema para estudiarlo. Cada tarjeta sube cinco etapas, cada una más difícil que la anterior. Si aciertas, sube (toca ¡La sé! o desliza a la derecha). Si fallas (toca Otra vez o desliza a la izquierda), baja una etapa y vuelve unas tarjetas después.")
                 Text("En cada tema, de la 1 a la 4 caben pocas tarjetas a la vez: 5 en cada etapa, o las que digas en Ajustes. Así estudias pocas y las aprendes bien. Una tarjeta solo sube si en la siguiente etapa hay sitio; si no, queda lista y sube en cuanto lo hay. Una nueva entra cuando hay sitio en la 1. Un fallo baja la tarjeta aunque la etapa de abajo esté llena, y no entra ninguna nueva hasta que un acierto vuelve a hacer sitio.")
@@ -137,7 +137,7 @@ struct HowView: View {
                 }
                 Text("En Vocabulario ves la palabra o la expresión (¿Dónde está el baño?, Me da igual), su significado y una frase de ejemplo: con la palabra resaltada cuando la ves en español, y con un hueco cuando eres tú quien la dice o la escribe. Si a una tarjeta le falta la frase, Claude la escribe (Ajustes › Frases de ejemplo).")
                 Text("En Conjugación cada tiempo de cada verbo es una tarjeta: primero ves el verbo, luego su significado y después conjugas la tabla. Primero la estudias, luego la dices en voz alta y te calificas, y desde la etapa 4 escribes las formas. El pronombre es opcional.")
-                Text("Las tarjetas llegan de dos sitios: Añadir, una palabra cada vez, y Lecturas, donde marcas las que no conoces. Si una ya está en el mazo, no se repite.")
+                Text("Las tarjetas llegan de dos sitios: Añadir, una palabra cada vez, y Lecturas, donde marcas las que no conoces o escaneas una página de un libro. Si una ya está en el mazo, no se repite.")
                 Text("Si fallas una tarjeta, puedes escribir en ese momento una mnemotecnia: un truco para recordarla. Aparece con la respuesta la próxima vez. Se puede desactivar en Ajustes.")
                 Text("Tus tarjetas y tu progreso se guardan en iCloud y se sincronizan entre todos tus dispositivos con la misma cuenta. Los ajustes, como las tarjetas por etapa, se quedan en cada dispositivo.")
             }
