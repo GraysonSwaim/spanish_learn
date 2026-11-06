@@ -36,8 +36,10 @@ Before shipping to the App Store, deploy the CloudKit schema to Production in th
 
 ## Where cards come from
 
-Only two places: **Añadir** (one word or phrase, typed in; Siri's "Add a card to Choca Cinco" does the same) and
-**Lecturas** (words marked while reading). There is no bundled deck and no bulk import. `Cinco/Logic/Intents.swift`
+Only two places, both behind the **+** button: **Lecturas** (words marked while reading) and **Añadir una palabra** (one
+word or phrase and its meaning; Claude corrects how it's written, and its example sentence and level follow in the
+background). Siri's "Add a card to Choca Cinco" saves what it's told, and the background fills in the
+sentence and level. There is no bundled deck and no bulk import. `Cinco/Logic/Intents.swift`
 also gives Shortcuts **Tarjetas pendientes**.
 
 ## Development
