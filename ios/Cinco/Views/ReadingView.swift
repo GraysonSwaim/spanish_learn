@@ -495,13 +495,22 @@ nonisolated struct ReadingLibrary: Equatable, Sendable {
 /// itself has to stay, as it holds the page, and looks at no card: it only redraws when one of these answers changes.
 private struct LibraryWatch: View, Equatable {
     let reading: Reading
+    /// Which reading, for comparing: SwiftUI may compare off the main actor, where `reading` can't be touched.
+    private let readingID: ObjectIdentifier
     let highlight: Bool
     @Binding var library: ReadingLibrary
     @Query(sort: \Card.order) private var cards: [Card]
 
+    init(reading: Reading, highlight: Bool, library: Binding<ReadingLibrary>) {
+        self.reading = reading
+        readingID = ObjectIdentifier(reading)
+        self.highlight = highlight
+        _library = library
+    }
+
     /// A binding never compares equal, and the work here shouldn't be redone each time the reading redraws.
     nonisolated static func == (a: LibraryWatch, b: LibraryWatch) -> Bool {
-        a.reading === b.reading && a.highlight == b.highlight
+        a.readingID == b.readingID && a.highlight == b.highlight
     }
 
     var body: some View {

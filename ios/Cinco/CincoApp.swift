@@ -161,7 +161,7 @@ struct RootView: View {
         let args = ProcessInfo.processInfo.arguments
         // `-loadSample` fills an empty deck with the sample cards, for the flags below.
         if args.contains("-loadSample") && Deck.allCards(ctx).isEmpty {
-            Deck.loadSample(ctx)
+            _ = Deck.loadSample(ctx)
         }
         // `-dueSample` makes every word a Dominada card waiting to be tested, for Home's count of reviews.
         if args.contains("-dueSample") {
