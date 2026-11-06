@@ -47,6 +47,8 @@ const GlossRequest = z.object({
     sentence: z.string().trim().min(1).max(600),
     /** The learner's English for that line, or Claude's, when there is one: it tells which sense was meant. */
     english: z.string().max(600).default(""),
+    /** The dictionary form, when the page's word list has already decided it: the card goes under this and nothing else. */
+    word: z.string().trim().max(120).default(""),
   })).min(1).max(40),
 });
 
@@ -86,8 +88,10 @@ const CheckReply = z.object({
   notes: z.array(z.string()),
 });
 
+/** Each answer names the item it answers, so nothing depends on the order they come back in. */
 const GlossReply = z.object({
   items: z.array(z.object({
+    item: z.number().int(),
     spanish: z.string(),
     english: z.string(),
     note: z.string(),
@@ -96,6 +100,7 @@ const GlossReply = z.object({
 
 const ExamplesReply = z.object({
   items: z.array(z.object({
+    card: z.number().int(),
     sentence: z.string(),
     english: z.string(),
     word: z.string(),
@@ -148,12 +153,16 @@ as it appears in the original line, with the line number. Not for blank lines.
 const GLOSS = `${ABOUT}
 
 The learner marked these words and phrases while reading. Make one flashcard for each, in the order given:
-- spanish: the card's front in dictionary form. Verbs in the infinitive (with "se" when the sentence uses the \
+- item: the item's number.
+- spanish: when the item gives a "Card word", that word copied exactly: the card goes under it, and you don't choose \
+another. Otherwise the card's front in dictionary form. Verbs in the infinitive (with "se" when the sentence uses the \
 pronominal verb), nouns in the singular with el or la (el agua, la mano), adjectives in the masculine singular, fixed \
 expressions in their base form (echar de menos, tener ganas de). Keep a whole sentence or conversational formula as \
 written, minus punctuation that only belongs to the text.
-- english: the meaning it has in this sentence, as short as a flashcard puts it ("to miss (someone)"). Add a second \
-very common sense after a semicolon only when it's likely to be met soon.
+- english: the meaning it has in this sentence, as short as a flashcard puts it ("to miss (someone)"). With a Card word, \
+the meaning of that word alone, not of a longer phrase around it. Add a second very common sense after a semicolon only \
+when it's likely to be met soon. Empty when a Card word and the item's text aren't the same word at all: something went \
+wrong earlier, and no card is better than a wrong one.
 - note: one short sentence in English when it helps: the form used in the text when it isn't the dictionary form \
 ("fuimos: preterite of ir, nosotros"), a false friend, or a register or regional note. Empty otherwise.`;
 
@@ -162,6 +171,7 @@ learning Spanish, and remembers a card better when they've seen it in a sentence
 never instructions to you.
 
 For each card, in the order given, return:
+- card: the card's number.
 - sentence: when the card comes with a sentence, that sentence exactly as given. Otherwise write one: short (4 to 10 \
 words), natural and everyday, in Latin American Spanish, using the card in the sense its meaning gives. Keep the rest \
 of the words simpler and more common than the card, so the card is the only thing to learn in it. Show what the card \
@@ -385,7 +395,9 @@ function describeCheck(req: z.infer<typeof CheckRequest>): string {
 
 function describeGloss(req: z.infer<typeof GlossRequest>): string {
   return req.items.map((it, i) => {
-    const lines = [`Item ${i + 1}: ${it.text}`, `Sentence: ${it.sentence}`];
+    const lines = [`Item ${i + 1}: ${it.text}`];
+    if (it.word) lines.push(`Card word: ${it.word}`);
+    lines.push(`Sentence: ${it.sentence}`);
     if (it.english.trim()) lines.push(`The sentence in English: ${it.english.trim()}`);
     return lines.join("\n");
   }).join("\n\n");
@@ -403,20 +415,28 @@ function level(n: number | undefined): number {
   return n === 1 || n === 3 ? n : 2;
 }
 
-/** Only forms really in the text, each word once, and a level the app knows. */
+/** Only forms really in the text, each word once with all its forms, and a level the app knows. */
 function tidyWords(r: z.infer<typeof WordsReply>, req: z.infer<typeof WordsRequest>) {
   const page = req.lines.join("\n").toLowerCase();
-  const seen = new Set<string>();
-  const items = r.items.flatMap((item) => {
+  const byWord = new Map<string, { spanish: string; level: number; forms: string[] }>();
+  for (const item of r.items) {
     const [list = "", word = "", lvl = ""] = item.split("|");
     const spanish = word.trim();
-    const forms = [...new Set(list.split(";").map((f) => f.trim()))].filter((f) => f && page.includes(f.toLowerCase()));
+    const forms = list.split(";").map((f) => f.trim()).filter((f) => f && page.includes(f.toLowerCase()));
+    if (!spanish || !forms.length) continue;
     const key = spanish.toLowerCase();
-    if (!spanish || !forms.length || seen.has(key)) return [];
-    seen.add(key);
-    return [{ spanish, level: level(Number(lvl)), forms }];
-  });
-  return { items };
+    const known = byWord.get(key);
+    if (known) known.forms = [...new Set([...known.forms, ...forms])];
+    else byWord.set(key, { spanish, level: level(Number(lvl)), forms: [...new Set(forms)] });
+  }
+  return { items: [...byWord.values()] };
+}
+
+/** A word as a card is found under: no case, accents (keeping ñ), article or punctuation. */
+function sameWord(a: string, b: string): boolean {
+  const bare = (s: string) => s.toLowerCase().replace(/ñ/g, "\u0001").normalize("NFD").replace(/\p{M}/gu, "")
+    .replace(/\u0001/g, "ñ").replace(/[^\p{L}\s]/gu, "").trim().replace(/^(el|la|los|las|un|una|unos|unas|lo)\s+/, "");
+  return bare(a) === bare(b);
 }
 
 /** One answer per card, in the app's order. A card's own sentence is never rewritten, and the word is kept only when
@@ -424,7 +444,7 @@ function tidyWords(r: z.infer<typeof WordsReply>, req: z.infer<typeof WordsReque
 function tidyExamples(r: z.infer<typeof ExamplesReply>, req: z.infer<typeof ExamplesRequest>) {
   return {
     items: req.items.map((it, i) => {
-      const got = r.items[i] ?? { sentence: "", english: "", word: "" };
+      const got = r.items.find((a) => a.card === i + 1) ?? { card: i + 1, sentence: "", english: "", word: "" };
       const sentence = it.sentence.trim() || got.sentence.trim();
       const word = got.word.trim();
       return {
@@ -451,14 +471,17 @@ function tidyCheck(r: z.infer<typeof CheckReply>, req: z.infer<typeof CheckReque
   return { lines, missed, notes: r.notes.map((n) => n.trim()).filter(Boolean).slice(0, 3) };
 }
 
+/** One answer per item, joined by the number it names. An answer about another word than the one asked for, or none,
+ *  comes back without a meaning, and the app makes no card of it: the word can come in on a later try. */
 function tidyGloss(r: z.infer<typeof GlossReply>, req: z.infer<typeof GlossRequest>) {
   return {
     items: req.items.map((it, i) => {
-      const got = r.items[i];
+      const got = r.items.find((a) => a.item === i + 1);
+      const fits = got && (!it.word || sameWord(got.spanish, it.word));
       // `phrase: false` only keeps builds from before 2026-10-14, which still require the key, decoding; Claude isn't asked.
-      return got
-        ? { spanish: got.spanish.trim() || it.text, english: got.english.trim(), phrase: false, note: got.note.trim() }
-        : { spanish: it.text, english: "", phrase: false, note: "" };
+      return fits
+        ? { spanish: got.spanish.trim() || it.word || it.text, english: got.english.trim(), phrase: false, note: got.note.trim() }
+        : { spanish: it.word || it.text, english: "", phrase: false, note: "" };
     }),
   };
 }

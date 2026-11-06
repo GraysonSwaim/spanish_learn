@@ -841,3 +841,80 @@ struct MosaicTests {
         #expect(a.pieces.map(\.rect) == b.pieces.map(\.rect))
     }
 }
+
+/// A card's word and its meaning must come from the same answer about the same word.
+struct CardWordTests {
+    private func gloss(_ es: String) -> Tutor.Gloss { Tutor.Gloss(spanish: es, english: "x", note: "") }
+
+    @MainActor @Test func anAnswerAboutTheSameWordIsKept() {
+        #expect(Library.cardWord("oler", from: gloss("oler")) == "oler")
+        #expect(Library.cardWord("papel", from: gloss("el papel")) == "el papel")
+        #expect(Library.cardWord("el sillón", from: gloss("Sillon")) == "Sillon")
+    }
+
+    /// The bugs that made oler "paper": the list said one word, the answer was about another, and the two were paired.
+    @MainActor @Test(arguments: [("oler", "el papel"), ("el papel", "oler"), ("se", "quedarse"), ("quedarse", "quedarse dormido"),
+                                 ("pensar", "ir a pensar"), ("hacer", "sin hacer"), ("año", "ano")])
+    func anAnswerAboutAnotherWordIsRefused(word: String, answer: String) {
+        #expect(Library.cardWord(word, from: gloss(answer)) == nil)
+    }
+}
+
+struct MeaningCheckTests {
+    @Test(arguments: [
+        ("to smell (of)", ["to smell"]),
+        ("to smell", ["paper", "It smells of coffee."]),
+        ("to carry out", ["carried out"]),
+        ("barely; with great difficulty", ["with difficulty"]),
+        ("to miss (someone)", ["She missed her brother."]),
+        ("tear", ["the tears"]),
+    ])
+    func meaningsThatMatch(meaning: String, translations: [String]) {
+        #expect(MeaningCheck.agrees(meaning: meaning, with: translations))
+    }
+
+    @Test(arguments: [
+        ("paper", ["to smell", "smelled", "The kitchen smelled of coffee."]),
+        ("to smell", ["the paper", "There was a folded sheet on the table."]),
+        // Only filler in common.
+        ("to be in", ["to the"]),
+        ("role", []),
+    ])
+    func meaningsThatDoNot(meaning: String, translations: [String]) {
+        #expect(!MeaningCheck.agrees(meaning: meaning, with: translations))
+    }
+
+    /// Only a match on the word itself counts: the sentence holds the words around it too.
+    @Test func aMeaningFromElsewhereInTheSentenceIsDoubtful() {
+        let sentence = "The paper smells like tobacco."
+        #expect(MeaningCheck.settled(meaning: "paper", word: ["to smell", "smells"], sentence: sentence) == .doubtful)
+        #expect(MeaningCheck.settled(meaning: "to smell", word: ["to smell", "smells"], sentence: sentence) == .agrees)
+        #expect(MeaningCheck.settled(meaning: "to smell", word: ["the paper", "paper"], sentence: sentence) == .doubtful)
+    }
+
+    /// A word's other sense: Apple's word isn't in the sentence, so this is left to the model.
+    @Test func anotherSenseIsLeftOpen() {
+        #expect(MeaningCheck.settled(meaning: "role", word: ["the paper"], sentence: "He played a sad role.") == nil)
+        #expect(MeaningCheck.settled(meaning: "wrist", word: ["the doll"], sentence: "The wrist broke.") == nil)
+    }
+
+    @Test func whatTheModelLeavesOpen() {
+        let v = { MeaningCheck.unsettled(meaning: "role", word: $0, sentence: $1, modelAccepts: $2) }
+        #expect(v(["the paper"], "He played a sad role.", true) == .modelAccepts)
+        #expect(v(["the paper"], "He played a sad role.", false) == .doubtful)
+        #expect(v(["the paper"], "He played a sad role.", nil) == .agrees)
+        #expect(v(["the paper"], "It was sad.", nil) == .doubtful)
+        #expect(v([], "", true) == .modelAccepts)
+        #expect(v([], "", false) == .doubtful)
+        #expect(v([], "", nil) == .noOpinion)
+    }
+
+    @Test func applesWordAsACardWouldPutIt() {
+        #expect(MeaningCheck.candidate("the paper", of: "el papel") == "paper")
+        #expect(MeaningCheck.candidate("The  doll ", of: "la muñeca") == "doll")
+        #expect(MeaningCheck.candidate("to smell", of: "oler") == "to smell")
+        // It only gave the word back: no answer at all.
+        #expect(MeaningCheck.candidate("zaguán", of: "el zaguán").isEmpty)
+    }
+}
+

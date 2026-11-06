@@ -102,7 +102,7 @@ enum Library {
         let batch = Array(newWords(reading.pageWords ?? [], index: index(Deck.allCards(ctx))).prefix(limit))
         guard !batch.isEmpty else { return 0 }
         let places = batch.map { place(of: $0, in: reading.lines) }
-        let items = places.map { Tutor.GlossInput(text: $0.form, sentence: $0.sentence) }
+        let items = zip(batch, places).map { Tutor.GlossInput(text: $1.form, sentence: $1.sentence, word: $0.spanish) }
         let glosses = try await Tutor.gloss(items)
 
         // Looked at again: a tap may have added one of them while Claude was answering.
@@ -111,8 +111,8 @@ enum Library {
         var sentences: [String: String] = [:]
         for (i, g) in glosses.prefix(batch.count).enumerated() where !g.english.isEmpty {
             let w = batch[i]
-            guard find(w.spanish, in: index) == nil else { continue }
-            let es = spanish(of: w.spanish, from: g)
+            // An answer about another word makes no card: the word is still new, so it comes in on a later try.
+            guard find(w.spanish, in: index) == nil, let es = cardWord(w.spanish, from: g) else { continue }
             recs.append(CardRecord(es: es, en: g.english, ex: places[i].sentence, exWord: places[i].form, notes: g.note,
                                    tags: "lectura nivel\(w.level)"))
             sentences[TextMatch.cardID(es)] = places[i].sentence
@@ -124,9 +124,10 @@ enum Library {
         return recs.count
     }
 
-    /// The word as the page's list has it, with the article Claude's card gave it when that's all that differs.
-    nonisolated private static func spanish(of lemma: String, from g: Tutor.Gloss) -> String {
-        TextMatch.noArticle(g.spanish) == TextMatch.noArticle(lemma) ? g.spanish : lemma
+    /// What a card asked for under `word` goes under: the answer's own spelling, which may add the article. nil when the
+    /// answer is about another word, whose meaning must never be put on this one.
+    nonisolated static func cardWord(_ word: String, from g: Tutor.Gloss) -> String? {
+        TextMatch.noArticle(g.spanish) == TextMatch.noArticle(word) ? g.spanish : nil
     }
 
     /// Where a word first turns up: the form written there, and its sentence.
@@ -162,13 +163,13 @@ enum Library {
         let gloss: Tutor.Gloss
         if let have = reading.glosses[run.id] {
             gloss = have
-        } else if let g = try await Tutor.gloss([Tutor.GlossInput(text: run.text, sentence: sentence)], claude: claude).first {
+        } else if let g = try await Tutor.gloss([Tutor.GlossInput(text: run.text, sentence: sentence, word: onPage?.spanish ?? "")], claude: claude).first {
             gloss = g
         } else {
             throw .other
         }
         // Now its dictionary form is known ("tengo" is tener), and another tap may have added it meanwhile.
-        let es = onPage.map { spanish(of: $0.spanish, from: gloss) } ?? gloss.spanish
+        guard let es = onPage == nil ? gloss.spanish : cardWord(onPage!.spanish, from: gloss) else { throw .other }
         if let c = find(es, in: index(Deck.allCards(ctx))) {
             settle(run, in: reading, card: c, sentence: sentence, isNew: false)
             return

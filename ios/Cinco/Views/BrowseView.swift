@@ -137,6 +137,7 @@ struct CardDetailView: View {
     @Environment(\.dismiss) private var dismiss
     let card: Card
     @State private var editing: EditTarget?
+    @State private var checking = false
 
     var body: some View {
         let verb = card.isConj ? try? ctx.fetch(FetchDescriptor<Card>(predicate: verbPredicate)).first : nil
@@ -169,6 +170,8 @@ struct CardDetailView: View {
                         MenuRow(title: "Editar el verbo", sub: "Las tablas se cambian en la tarjeta de «\(verb.es)»") { editing = EditTarget(card: verb) }
                     }
                 } else {
+                    MenuRow(title: "¿Está bien?", sub: "Compara el significado con Apple Traducir y Apple Intelligence") { checking = true }
+                    Divider().overlay(Palette.line)
                     MenuRow(title: "Editar tarjeta", sub: nil) { editing = EditTarget(card: card) }
                 }
                 Divider().overlay(Palette.line)
@@ -187,6 +190,7 @@ struct CardDetailView: View {
         }
         .background(Backdrop())
         .sheet(item: $editing) { t in NavigationStack { EditCardView(card: t.card) } }
+        .sheet(isPresented: $checking) { CheckMeaningSheet(card: card).checkSheetStyle() }
     }
 
     private var verbPredicate: Predicate<Card> {

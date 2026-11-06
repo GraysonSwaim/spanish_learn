@@ -14,6 +14,8 @@ struct StudyView: View {
     @State private var undos = 0
     /// Whether the card's sentences are open under the answer.
     @State private var showSentences = false
+    /// The card whose meaning is being doubted (`CheckMeaningSheet`).
+    @State private var checkingMeaning: Card?
     /// The card just missed, while its mnemonic sheet is up.
     @State private var mnemonicFor: Card?
     /// A short note after a card is set aside, with a way to take it back.
@@ -54,8 +56,12 @@ struct StudyView: View {
             typed = ""; grid = [:]; dragX = 0; showSentences = false
         }
         #if DEBUG
-        .onAppear { if ProcessInfo.processInfo.arguments.contains("-openMnemonic") { mnemonicFor = session.current } }
+        .onAppear {
+            if ProcessInfo.processInfo.arguments.contains("-openMnemonic") { mnemonicFor = session.current }
+            if ProcessInfo.processInfo.arguments.contains("-checkDemo") { checkingMeaning = session.current }
+        }
         #endif
+        .sheet(item: $checkingMeaning) { c in CheckMeaningSheet(card: c).checkSheetStyle() }
         .sheet(item: $mnemonicFor) { c in
             MnemonicSheet(card: c, meaning: c.isConj ? session.verb(of: c)?.en ?? "" : c.en)
                 .presentationDetents([.medium, .large])
@@ -420,6 +426,12 @@ struct StudyView: View {
     private func moreAbout(_ c: Card) -> some View {
         let sources = c.sourceList
         let list = sentences(c)
+        if !c.isConj {
+            Button("¿Está bien?") { checkingMeaning = c }
+                .font(Typo.text(14, .bold)).foregroundStyle(Palette.muted)
+                .padding(.top, 12)
+                .accessibilityHint("Compara el significado con Apple Traducir y Apple Intelligence")
+        }
         if !sources.isEmpty || !list.isEmpty {
             moreChip(sources.isEmpty ? "Más frases" : sources.count == 1 ? "Dónde la leíste" : "Dónde la leíste · \(sources.count)",
                      icon: sources.isEmpty ? "text.bubble.fill" : "book.fill")

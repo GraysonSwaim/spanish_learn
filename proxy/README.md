@@ -6,7 +6,7 @@ the app.
 | Route | The app sends | Claude returns |
 |---|---|---|
 | `POST /check` | a reading's lines and the learner's translations, `es-en` or `en-es` (Al revés) | per line a verdict (`good`, `close`, `off`, `blank`), a comment and a better version; words they missed; up to 3 notes on the text |
-| `POST /gloss` | the words and phrases marked while reading, each with its sentence | a card for each: dictionary form, meaning in context, a short note |
+| `POST /gloss` | the words and phrases marked while reading, each with its sentence, and the dictionary form when the page's word list has decided it | a card for each: dictionary form, meaning in context, a short note. Answers are joined by item number, and one about another word than the one asked for comes back without a meaning, so no card is made of it |
 | `POST /examples` | flashcards (Spanish, meaning, and their sentence when they have one) | for each, a short example sentence (their own, untouched, when they have one), its English, and the card's words as they appear in it |
 | `POST /words` | up to about a page of scanned text | every different word in it, once: dictionary form, level (1 foundational, 2 intermediate, 3 advanced), and its forms as they stand in the text |
 | `POST /levels` | up to 40 words from the library | each one's level |
