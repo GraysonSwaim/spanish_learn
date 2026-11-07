@@ -66,8 +66,8 @@ struct HomeView: View {
     }
 }
 
-/// The day's mosaic, the library of words, and one button to study it. Verbs' tables, when there are any, are studied by
-/// tense below.
+/// The day's mosaic, the library of words, one button to study it, and how much of it is learned. Verbs' tables, when
+/// there are any, are studied by tense below.
 private struct HomePage: View {
     @Environment(\.study) private var study
     @Query(sort: \Card.order) private var cards: [Card]
@@ -99,9 +99,9 @@ private struct HomePage: View {
                         .font(Typo.text(17)).foregroundStyle(Palette.muted).padding(.top, 32)
                 } else {
                     library.padding(.top, 18)
+                    LibraryProgress(words: words)
                 }
                 conjugation
-                if !words.isEmpty { LibraryProgress(words: words) }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)

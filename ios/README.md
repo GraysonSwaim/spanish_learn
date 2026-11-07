@@ -84,14 +84,9 @@ No new fields: this is `due`, `interval`, `lastReviewed`, which were already syn
 
 ## Progress on Home
 
-Below the study button, worked out from what's already stored (`Stats`, `LibraryProgress`). Words only, except the answers per day.
-
-- **Tu biblioteca:** each level's words by standing. *A largo plazo* means right through 24, 48 and 96 hours, or checked right
-  after "Ya la sé"; reaching Dominada takes one sitting, so it isn't enough.
-- **Cómo vas:** *recordadas al volver* is the share right when tested after a wait (`RecallLog`), since a miss while first
-  learning a word is expected. It's kept per device, as a new `DayLog` field would need the CloudKit schema deployed. The columns
-  are every answer per day, from `DayLog`, tables included.
-- **Lo que viene:** the next 14 days if every answer is right, so a word on 24 hours shows up 2 and 6 days on (`Stats.ahead`).
+**Tu biblioteca**, right below the study button, worked out from the cards (`Stats`, `LibraryProgress`). Words only: each
+level's words by standing. *A largo plazo* means right through 24, 48 and 96 hours, or checked right after "Ya la sé"; reaching
+Dominada takes one sitting, so it isn't enough.
 
 ## Keeping cards quick
 

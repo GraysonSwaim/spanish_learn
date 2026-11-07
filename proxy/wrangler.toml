@@ -8,8 +8,14 @@ compatibility_flags = ["nodejs_compat"]
 # "claude-sonnet-5-5" costs 20 times as much and gives sharper feedback on translations; "claude-opus-5-5" 40 times.
 # Haiku has no server-side fallback: a request it declines comes back as a 422.
 MODEL = "claude-haiku-5-5"
-# Longest reply, thinking included. A 30-line check writes about 3,000 tokens; a gloss of 20 words about 1,500.
-CHECK_MAX_TOKENS = "12000"
+# /check alone, asked for only when the learner picks words and says yes: Claude Sonnet 5.5, $2 per million input tokens
+# and $10 output, 20 times Haiku. The caps below are in Haiku's tokens, so each of Sonnet's counts 20 times.
+CHECK_MODEL = "claude-sonnet-5-5"
+CHECK_COST_WEIGHT = "20"
+# Longest reply, thinking included. Checking 15 words writes about 1,000 tokens, plus thinking. Counted 20 times, it sets
+# aside 100,000 of a phone's 120,000 a day: on an ordinary phone, about one check a day; on the owner's, about 12.
+CHECK_MAX_TOKENS = "5000"
+# A gloss of 20 words writes about 1,500.
 GLOSS_MAX_TOKENS = "6000"
 # 40 example sentences, each with its English, write about 2,000.
 EXAMPLES_MAX_TOKENS = "6000"

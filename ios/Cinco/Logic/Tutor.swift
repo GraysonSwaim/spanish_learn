@@ -4,7 +4,8 @@ import os
 import FoundationModels
 #endif
 
-/// Claude for the library: lists a scanned page's words, makes cards of them and of words tapped while reading, and writes example sentences. The app never holds
+/// Claude for the library: lists a scanned page's words, makes cards of them and of words tapped while reading, writes
+/// example sentences, and checks the meanings of words the learner picks. The app never holds
 /// the API key; it asks the proxy in `proxy/`, which holds the key, writes the prompts and keeps each phone to a daily
 /// allowance. When Claude can't answer (today's allowance used, offline, busy) or isn't asked, Apple's on-device model
 /// helps instead, on phones that have it, with a smaller job (see "On the phone").
@@ -259,6 +260,51 @@ enum Tutor {
         }
         if let e = await onDeviceExamples(items) { return e }
         throw failure
+    }
+
+    nonisolated struct CheckInput: Encodable {
+        var spanish: String
+        var english: String
+        /// The card's sentence, or "".
+        var sentence: String
+    }
+
+    nonisolated struct CheckResult: Decodable, Equatable {
+        enum Verdict: String, Decodable {
+            case right, fix
+            /// Claude skipped this one.
+            case none
+        }
+        var verdict: Verdict
+        /// For `fix`, the meaning to put on the card.
+        var english: String
+        var note: String
+    }
+
+    /// How many cards one check takes: the proxy refuses more.
+    static let checkLimit = 15
+
+    static let checkConsentMessage = "Claude Sonnet, el modelo más preciso, mira si cada significado es correcto en su frase. Cuesta mucho más que lo demás, así que solo se hace cuando lo pides. Se envían las palabras, sus significados y sus frases, y nada se guarda para entrenar modelos."
+
+    /// Claude Sonnet's opinion of each card's meaning, in order. Only ever asked when the learner has picked the cards and
+    /// said yes, since it costs 20 times what the rest does; Claude alone, as Apple's tools have their own check
+    /// (`CheckMeaningSheet`).
+    static func check(_ items: [CheckInput]) async throws(Failure) -> [CheckResult] {
+        if demo {
+            try? await Task.sleep(for: .milliseconds(900))
+            return items.indices.map { i in
+                i == 0 ? CheckResult(verdict: .fix, english: "(demo) to smell", note: "(demo) Oler is to smell; huele is its él form.")
+                    : CheckResult(verdict: .right, english: "", note: i == 1 ? "(demo) A nuance worth knowing." : "")
+            }
+        }
+        struct Body: Encodable { let device: String; let items: [CheckInput] }
+        struct Reply: Decodable { let items: [CheckResult] }
+        let sent = items.prefix(checkLimit).map {
+            CheckInput(spanish: String($0.spanish.prefix(120)), english: String($0.english.prefix(200)), sentence: String($0.sentence.prefix(400)))
+        }
+        let reply: Reply = try await post("check", Body(device: device, items: Array(sent)), timeout: 120)
+        guard reply.items.count == sent.count else { throw .server }
+        return reply.items
     }
 
     private static func post<B: Encodable, R: Decodable>(_ path: String, _ body: B, timeout: TimeInterval) async throws(Failure) -> R {

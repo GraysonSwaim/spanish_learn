@@ -55,6 +55,7 @@ struct RootView: View {
     @State private var demoReading: Reading?
     @State private var demoLecturas = false
     @State private var demoReview = false
+    @State private var demoCheck = false
     @State private var demoSettings = false
     @State private var demoNew: Reading?
     #endif
@@ -106,6 +107,9 @@ struct RootView: View {
         }
         .sheet(isPresented: $demoLecturas) { NavigationStack { LecturasView() }.preferredColorScheme(scheme) }
         .sheet(isPresented: $demoReview) { NavigationStack { ReviewLibraryView() }.preferredColorScheme(scheme) }
+        .sheet(isPresented: $demoCheck) {
+            CheckWordsSheet(cards: Array(Deck.allCards(ctx).filter { !$0.isConj }.prefix(4))).checkSheetStyle().preferredColorScheme(scheme)
+        }
         .sheet(isPresented: $demoSettings) { NavigationStack { SettingsView() }.preferredColorScheme(scheme) }
         .task { startDemo() }
         #endif
@@ -141,17 +145,6 @@ struct RootView: View {
             (c.stage, c.interval, c.reps, c.lapses) = (5, interval, 6, 0)
             c.due = Calendar.current.date(byAdding: .day, value: days, to: now)!
             c.lastReviewed = Calendar.current.date(byAdding: .day, value: -interval, to: c.due)
-        }
-        for back in 0..<14 where back % 5 != 3 {
-            let date = Calendar.current.date(byAdding: .day, value: -back, to: now)!
-            let log = Deck.today(ctx, date: date)
-            log.reviewed = 20 + back * 7 % 40
-            log.correct = log.reviewed * (70 + back) / 100
-        }
-        RecallLog.clear()
-        for back in 0..<28 {
-            let date = Calendar.current.date(byAdding: .day, value: -back, to: now)!
-            for i in 0..<4 { RecallLog.add(right: i < 3 || back % (back < 14 ? 3 : 2) == 0, on: date) }
         }
     }
 
@@ -192,6 +185,11 @@ struct RootView: View {
         // `-openReview` opens Revisar mi biblioteca, with the first few words in doubt.
         if args.contains("-openReview") {
             demoReview = true
+            return
+        }
+        // `-openCheck` opens Revisar con Claude on the first 4 words; with `-tutorDemo`, it gets canned answers.
+        if args.contains("-openCheck") {
+            demoCheck = true
             return
         }
         // `-openScan` opens a sample scanned page, as if just scanned.

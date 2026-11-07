@@ -1,7 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// Every word, or every conjugation table, searchable, with dropped ones kept apart.
+/// Every word, or every conjugation table, searchable, with dropped ones kept apart. Words chosen here can be checked by
+/// Claude Sonnet (`CheckWordsSheet`), only after the learner says yes, as it costs far more than anything else.
 struct BrowseView: View {
     @Environment(\.modelContext) private var ctx
     @Query(sort: \Card.order) private var cards: [Card]
@@ -12,6 +13,17 @@ struct BrowseView: View {
     @State private var selecting = false
     @State private var selection = Set<String>()
     @State private var confirmDelete = false
+    @State private var confirmCheck = false
+    @State private var tooManyToCheck = false
+    @State private var checking: CheckBatch?
+
+    private struct CheckBatch: Identifiable {
+        let id = UUID()
+        let cards: [Card]
+    }
+
+    /// Choosing active words, where Claude can be asked to check them.
+    private var canCheck: Bool { selecting && !showDropped && Tab(rawValue: tabRaw) != .conj && Tutor.base != nil }
 
     private var list: [Card] {
         let tab = Tab(rawValue: tabRaw) ?? .vocab
@@ -41,6 +53,8 @@ struct BrowseView: View {
             .pickerStyle(.segmented)
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets())
+
+            if canCheck { quickPicks }
 
             if showDropped && !list.isEmpty {
                 Text("Están fuera de la rotación. Si recuperas una, vuelve en la etapa donde se quedó.")
@@ -93,12 +107,35 @@ struct BrowseView: View {
                     }
                     .disabled(picked.isEmpty)
                     Spacer()
+                    if canCheck {
+                        Button("Revisar") {
+                            if picked.count > Tutor.checkLimit { tooManyToCheck = true } else { confirmCheck = true }
+                        }
+                        .disabled(picked.isEmpty)
+                        Spacer()
+                    }
                     Button("Borrar", role: .destructive) { confirmDelete = true }
                         .tint(Palette.again)
                         .disabled(picked.isEmpty)
                 }
             }
         }
+        .confirmationDialog(picked.count == 1 ? "¿Revisar 1 palabra con Claude?" : "¿Revisar \(picked.count) palabras con Claude?",
+                            isPresented: $confirmCheck, titleVisibility: .visible) {
+            Button("Revisar") {
+                checking = CheckBatch(cards: picked)
+                selection = []
+                selecting = false
+            }
+        } message: {
+            Text(Tutor.checkConsentMessage)
+        }
+        .alert("Claude revisa hasta \(Tutor.checkLimit) a la vez", isPresented: $tooManyToCheck) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Has elegido \(picked.count). Quita algunas y vuelve a tocar Revisar.")
+        }
+        .sheet(item: $checking) { b in CheckWordsSheet(cards: b.cards).checkSheetStyle() }
         .onChange(of: showDropped) { selection = [] }
         .onChange(of: tabRaw) { selection = [] }
         .confirmationDialog(picked.count == 1 ? "¿Borrar 1 tarjeta?" : "¿Borrar \(picked.count) tarjetas?",
@@ -113,6 +150,36 @@ struct BrowseView: View {
                  ? "Esas tablas se quitan de sus verbos, con su progreso, en todos tus dispositivos. No se puede deshacer."
                  : "Desaparecen del mazo, con su progreso, en todos tus dispositivos. No se puede deshacer.")
         }
+    }
+
+    /// One tap to choose the words worth checking: the ones being missed, and the ones Revisar mi biblioteca doubts.
+    @ViewBuilder
+    private var quickPicks: some View {
+        let words = cards.filter { !$0.isConj && !$0.isDropped }
+        let hard = Stats.struggling(words, limit: Tutor.checkLimit)
+        let doubts = Array(MeaningReview.doubtful(words, entries: MeaningReview.entries).prefix(Tutor.checkLimit))
+        if !hard.isEmpty || !doubts.isEmpty {
+            HStack(spacing: 8) {
+                if !hard.isEmpty { pick("Te cuestan", hard) }
+                if !doubts.isEmpty { pick("En duda", doubts) }
+            }
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
+        }
+    }
+
+    private func pick(_ name: String, _ chosen: [Card]) -> some View {
+        Button { selection = Set(chosen.map(\.id)) } label: {
+            HStack(spacing: 6) {
+                Text(name).font(Typo.text(15, .heavy)).foregroundStyle(Palette.ink)
+                Text("\(chosen.count)").font(Typo.text(14, .bold)).foregroundStyle(Palette.muted)
+            }
+            .padding(.horizontal, 14).frame(minHeight: 40)
+            .background(Palette.sunk, in: .rect(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Palette.edge, lineWidth: 1))
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel("Elegir las que \(name == "Te cuestan" ? "te cuestan" : "están en duda"): \(chosen.count)")
     }
 
     private func row(_ c: Card) -> some View {

@@ -49,9 +49,6 @@ nonisolated enum Palette {
     static let reviewing = dyn(0x7455B8, 0x8A6BC4)
     static let learning = dyn(0xA993DA, 0x4F3D78)
     static let notBegun = edge
-    /// Answers right and wrong in the charts. Not green and red, which many colour-blind readers can't tell apart.
-    static let answerRight = dyn(0x2D5DA8, 0x5F8FDC)
-    static let answerWrong = dyn(0xC66A1E, 0xD27A34)
 
     static func mood(_ m: Mood) -> Color {
         switch m {
