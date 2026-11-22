@@ -308,7 +308,12 @@ struct ReadingView: View {
         problem = nil
         Task {
             do throws(Tutor.Failure) {
-                if reading.pageWords == nil { reading.pageWords = try await Tutor.words(lines: Tutor.firstPages(reading.lines)) }
+                if reading.pageWords == nil {
+                    let page = try await Tutor.words(lines: Tutor.firstPages(reading.lines))
+                    reading.pageWords = page
+                    // Before any of its new words come in: what the page shows is what was known on arriving.
+                    PageScores.record(reading, page: page, cards: Deck.allCards(ctx))
+                }
                 try? ctx.save()
                 working = "Preparando tus tarjetas…"
                 try await Library.addNext(from: reading, limit: Prefs.current.newPerScan, ctx: ctx)

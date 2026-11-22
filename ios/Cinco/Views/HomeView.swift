@@ -100,6 +100,7 @@ private struct HomePage: View {
                 } else {
                     library.padding(.top, 18)
                     LibraryProgress(words: words)
+                    PageProgress()
                 }
                 conjugation
             }

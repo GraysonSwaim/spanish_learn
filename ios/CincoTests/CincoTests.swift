@@ -1372,3 +1372,47 @@ struct ReadingLibraryTests {
     }
 }
 
+
+struct PageScoreTests {
+    private func card(_ es: String, stage: Int, reps: Int) -> Card {
+        let c = Card(id: UUID().uuidString, es: es, en: "x", order: 0)
+        c.stage = stage
+        c.reps = reps
+        return c
+    }
+
+    /// Counted over the running text: "la" twice weighs twice. Only tested Dominada words count as known; "Ya la sé"
+    /// words are kept apart, and words still in training or not in the library count against.
+    @Test func aPageIsScoredOverItsRunningTextAndOnlyTestedWordsCount() throws {
+        let page = [PageWord(spanish: "el", level: 1, forms: ["la", "La"]),
+                    PageWord(spanish: "la casa", level: 1, forms: ["casa"]),
+                    PageWord(spanish: "ser", level: 1, forms: ["era"]),
+                    PageWord(spanish: "grande", level: 1, forms: ["grande"]),
+                    PageWord(spanish: "el perro", level: 2, forms: ["perro"])]
+        let cards = [card("el", stage: 5, reps: 3), card("la casa", stage: 5, reps: 0), card("ser", stage: 3, reps: 2),
+                     card("grande", stage: 5, reps: 4)]
+        let s = try #require(PageScores.score(id: "p", title: "Libro · pág. 1", lines: ["La casa era grande.", "¡La Nadia y el perro!"],
+                                              page: page, index: Library.index(cards)))
+        // La, casa, era, grande, La, el, perro: "Nadia" and "y" aren't among the page's words, so they aren't counted.
+        #expect(s.total == 7)
+        #expect(s.known == 4)
+        #expect(s.claimed == 1)
+        #expect(s.newWords == 1)
+    }
+
+    @Test func aSetAsideWordIsNotKnown() throws {
+        let c = card("grande", stage: 5, reps: 4)
+        c.dropped = .now
+        let s = try #require(PageScores.score(id: "p", title: "t", lines: ["grande"],
+                                              page: [PageWord(spanish: "grande", level: 1, forms: ["grande"])],
+                                              index: Library.index([c])))
+        #expect(s.known == 0 && s.total == 1 && s.newWords == 0)
+    }
+
+    @Test func theTrendComparesTheFirstAndLastPages() {
+        let at = { (k: Int) in PageScore(id: "\(k)", title: "", date: .now, known: k, claimed: 0, total: 100, newWords: 0) }
+        #expect(PageScores.trend([at(50)]) == nil)
+        let t = PageScores.trend([at(50), at(60), at(70), at(80), at(90), at(100), at(90)])
+        #expect(abs((t?.first ?? 0) - 0.6) < 1e-9 && abs((t?.last ?? 0) - 2.8 / 3) < 1e-9)
+    }
+}
