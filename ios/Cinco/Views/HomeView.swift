@@ -70,6 +70,7 @@ struct HomeView: View {
 /// there are any, are studied by tense below.
 private struct HomePage: View {
     @Environment(\.study) private var study
+    @Environment(\.takePrueba) private var takePrueba
     @Query(sort: \Card.order) private var cards: [Card]
 
     @Binding var session: StudySession?
@@ -100,6 +101,7 @@ private struct HomePage: View {
                 } else {
                     library.padding(.top, 18)
                     LibraryProgress(words: words)
+                    PruebaProgress()
                     PageProgress()
                 }
                 conjugation
@@ -139,6 +141,12 @@ private struct HomePage: View {
                 .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white, size: 18))
             } else {
                 Text("Nada por estudiar ahora. Escanea otra página.").font(Typo.text(15, .bold)).foregroundStyle(Palette.muted)
+            }
+            if cards.count(where: { !$0.isConj && !$0.isDropped && $0.stage == 5 }) >= Prueba.least {
+                Button { takePrueba() } label: {
+                    Label("Hacer una prueba", systemImage: "pencil.and.list.clipboard").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SoftButtonStyle(fill: Palette.paper, text: Palette.ink, size: 17))
             }
         }
     }

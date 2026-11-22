@@ -86,8 +86,24 @@ final class Card {
 
     /// The tags without the level, for showing.
     var visibleTags: [String] {
-        tags.split(separator: " ").filter { Self.level(in: $0) == nil }.map(String.init)
+        tags.split(separator: " ").filter { Self.level(in: $0) == nil && $0 != Self.claimTag }.map(String.init)
     }
+
+    private static let claimTag = "yalase"
+
+    /// Said to be known ("Ya la sé") and waiting for the typed test that proves it. A hidden tag, like the level: a new
+    /// property would need the CloudKit schema deployed again.
+    var claimed: Bool {
+        get { tags.split(separator: " ").contains { $0 == Self.claimTag } }
+        set {
+            var parts = tags.split(separator: " ").map(String.init).filter { $0 != Self.claimTag }
+            if newValue { parts.append(Self.claimTag) }
+            tags = parts.joined(separator: " ")
+        }
+    }
+
+    /// The different pages it's been met on: how common it is in what the learner reads.
+    var pages: Int { Set(sourceList.map(\.title)).count }
 
     private static func level(in tag: Substring) -> Int? {
         tag.hasPrefix("nivel") ? Int(tag.dropFirst(5)) : nil

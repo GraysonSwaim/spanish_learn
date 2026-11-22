@@ -190,9 +190,11 @@ struct SchedulerTests {
         let now = Date()
         let threeDaysAgo = now.addingTimeInterval(-3 * 86_400)
         let long = card(5, due: threeDaysAgo.addingTimeInterval(-3600))
-        long.interval = 56
+        long.interval = 7
         let short = card(5, due: threeDaysAgo)
         short.interval = 1
+        // Answered before: a Dominada card never answered is an unproven "Ya la sé", which a prueba takes.
+        (long.reps, short.reps) = (4, 1)
         #expect(Scheduler.dailyQueue([long, short], now: now).map(\.id) == [short.id, long.id])
     }
 
@@ -264,6 +266,7 @@ struct SchedulerTests {
         w2.lastReviewed = now.addingTimeInterval(-600)
         let due = card(5, due: now.addingTimeInterval(-3600))
         let notYet = card(5, due: now.addingTimeInterval(86400))
+        (due.reps, notYet.reps) = (3, 3)
         let q = Scheduler.dailyQueue([fresh, w1, w2, due, notYet], now: now)
         #expect(q.map(\.id) == [w2.id, due.id, w1.id])
         #expect(Scheduler.counts([fresh, w1, w2, due, notYet], now: now).due == 3)
@@ -892,7 +895,7 @@ struct LibraryTests {
         var reviews: [Card] = []
         for i in 0...Scheduler.reviewsFirst {
             let c = add("palabra\(i)", level: 1, ctx: ctx)
-            (c.stage, c.interval, c.due) = (5, 1, .distantPast)
+            (c.stage, c.interval, c.due, c.reps) = (5, 1, .distantPast, 3)
             reviews.append(c)
         }
         let over = Library.plan(Deck.allCards(ctx), first: [onPage.id])
@@ -1414,5 +1417,139 @@ struct PageScoreTests {
         #expect(PageScores.trend([at(50)]) == nil)
         let t = PageScores.trend([at(50), at(60), at(70), at(80), at(90), at(100), at(90)])
         #expect(abs((t?.first ?? 0) - 0.6) < 1e-9 && abs((t?.last ?? 0) - 2.8 / 3) < 1e-9)
+    }
+}
+
+struct PruebaTests {
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    private func card(_ es: String = "x", stage: Int = 5, interval: Int = 1, reps: Int = 3, dueIn days: Double = 0,
+                      waited: Bool = true) -> Card {
+        let c = Card(id: UUID().uuidString, es: es, en: "en " + es, order: 0)
+        c.stage = stage
+        c.interval = interval
+        c.reps = reps
+        c.due = now.addingTimeInterval(days * 86_400)
+        c.lastReviewed = waited ? Calendar.current.date(byAdding: .day, value: -interval, to: now) : now
+        return c
+    }
+
+    private struct Fixed: RandomNumberGenerator {
+        var state: UInt64 = 42
+        mutating func next() -> UInt64 { state = state &* 6364136223846793005 &+ 1; return state }
+    }
+
+    @Test func aClaimIsAHiddenTagAndUndoable() {
+        let c = card(stage: 2)
+        c.tags = "lectura nivel1"
+        Scheduler.alreadyKnown(c, now: now)
+        #expect(c.claimed && c.visibleTags == ["lectura"] && c.level == 1)
+        #expect(Scheduler.isClaimed(c) && Scheduler.owedToTest(c, now: now.addingTimeInterval(7 * 86_400)))
+        c.claimed = false
+        #expect(c.tags == "lectura nivel1")
+    }
+
+    @Test func wordsOwedToATestLeavePractice() {
+        let atTwoWeeks = card("a", interval: 14), atAWeek = card("b", interval: 7), claim = card("c", interval: 7, reps: 0)
+        let queue = Scheduler.dailyQueue([atTwoWeeks, atAWeek, claim], now: now)
+        #expect(queue.map(\.es) == ["b"])
+    }
+
+    @Test func passingTheTwoWeekWaitOrAClaimGraduates() {
+        let two = card(interval: 14)
+        Scheduler.tested(two, right: true, now: now)
+        #expect(Scheduler.isGraduated(two) && !Scheduler.isDue(two, now: now.addingTimeInterval(400 * 86_400)))
+        #expect(Stats.standing(two) == .learned)
+
+        let claim = card(interval: 7)
+        claim.claimed = true
+        Scheduler.tested(claim, right: true, now: now)
+        #expect(Scheduler.isGraduated(claim) && !claim.claimed)
+
+        let week = card(interval: 7)
+        Scheduler.tested(week, right: true, now: now)
+        #expect(!Scheduler.isGraduated(week) && week.interval == 14)
+    }
+
+    @Test func aSampledWordAskedEarlyKeepsItsSchedule() {
+        let c = card(interval: 4, dueIn: 2)
+        let due = c.due
+        Scheduler.tested(c, right: true, now: now)
+        #expect(c.interval == 4 && c.due == due)
+    }
+
+    @Test func aMissCostsOneRungAndPracticePicksItUp() {
+        let grad = card(interval: Scheduler.graduated, dueIn: 1000)
+        Scheduler.tested(grad, right: false, now: now)
+        #expect(grad.interval == 7 && grad.due == now && grad.lapses == 1 && grad.stage == 5)
+        let two = card(interval: 14)
+        Scheduler.tested(two, right: false, now: now)
+        #expect(two.interval == 7)
+        let four = card(interval: 4)
+        Scheduler.tested(four, right: false, now: now)
+        #expect(four.interval == 2 && Scheduler.dailyQueue([four], now: now).count == 1)
+    }
+
+    @Test func aSheetIsAtLeastHalfSampleAndNeverSamplesAFreshClaim() {
+        var rng = Fixed()
+        let owed = (0..<9).map { card("owed\($0)", interval: 14) }
+        let fresh = card("claim", interval: 7, reps: 0, dueIn: 6)
+        let grad = (0..<9).map { card("grad\($0)", interval: Scheduler.graduated, dueIn: 1000) }
+        let picked = Prueba.pick(owed + [fresh] + grad, now: now, using: &rng)
+        #expect(picked.count == Prueba.size)
+        #expect(picked.count { $0.kind == .graduation } == Prueba.maxOwed)
+        #expect(picked.count { $0.kind == .sample } == Prueba.size - Prueba.maxOwed)
+        #expect(!picked.contains { $0.card === fresh })
+    }
+
+    @Test func commonWordsAreWrittenRareOnesMatchedAndProofsWritten() {
+        var rng = Fixed()
+        let common = card("de"); common.tags = "nivel1"
+        let proof = card("claim", interval: 7); proof.claimed = true; proof.tags = "nivel3"
+        let rare = (0..<3).map { i -> Card in let c = card("raro\(i)"); c.tags = "nivel3"; return c }
+        let items = Prueba.layout([(common, .sample), (proof, .proof)] + rare.map { ($0, .sample) }, using: &rng)
+        #expect(items.map(\.format) == [.write, .write, .match, .match, .match])
+
+        let twoRare = Prueba.layout(rare.prefix(2).map { ($0, .sample) }, using: &rng)
+        #expect(twoRare.allSatisfy { $0.format == .write })
+    }
+
+    @Test func onlyAFewSampledWordsWithASentenceAreOfferedAsGaps() {
+        var rng = Fixed()
+        let words = (0..<5).map { i -> Card in
+            let c = card("palabra\(i)"); c.tags = "nivel3"
+            c.ex = "Vi la palabra\(i) ayer."; c.exWord = "palabra\(i)"
+            return c
+        }
+        let items = Prueba.layout(words.map { ($0, .sample) }, using: &rng)
+        #expect(items.count { !$0.sentence.isEmpty } == Prueba.maxGaps)
+        #expect(items.first { !$0.sentence.isEmpty }?.gapped.contains("_____") == true)
+    }
+
+    @Test func thePhoneMarksSlipsAsRightWithANote() {
+        let w = PruebaItem(id: "a", kind: .sample, format: .write, spanish: "el árbol", english: "tree")
+        #expect(Prueba.markHere(w, typed: "el árbol", matched: nil, chosen: nil) == PruebaMark(right: true))
+        #expect(Prueba.markHere(w, typed: "el arbol", matched: nil, chosen: nil).near)
+        #expect(Prueba.markHere(w, typed: "árbol", matched: nil, chosen: nil).right)
+        #expect(!Prueba.markHere(w, typed: "", matched: nil, chosen: nil).right)
+        var m = w; m.format = .match
+        #expect(Prueba.markHere(m, typed: nil, matched: "a", chosen: nil).right)
+        var g = w; g.format = .cloze; g.form = "árbol"
+        #expect(!Prueba.markHere(g, typed: nil, matched: nil, chosen: "casa").right)
+    }
+
+    @Test func theEstimateIsTheSampleOverThirtyDays() {
+        let old = PruebaRecord(date: now.addingTimeInterval(-40 * 86_400), total: 12, right: 0, learned: 0, sampleTotal: 10, sampleRight: 0)
+        let recent = PruebaRecord(date: now, total: 12, right: 10, learned: 2, sampleTotal: 8, sampleRight: 6)
+        #expect(PruebaLog.held([old], now: now) == nil)
+        #expect(PruebaLog.held([old, recent], now: now)?.share == 0.75)
+    }
+
+    @Test func aPageIsKeptOnTheLibraryWordsItHas() {
+        let c = card("la casa")
+        let r = Reading(title: "Libro · pág. 2", lines: ["Volvimos a la casa tarde."])
+        Library.notePage(r, page: [PageWord(spanish: "la casa", level: 1, forms: ["casa"])], cards: [c])
+        Library.notePage(r, page: [PageWord(spanish: "la casa", level: 1, forms: ["casa"])], cards: [c])
+        #expect(c.pages == 1 && c.sourceList.first?.sentence == "Volvimos a la casa tarde.")
     }
 }

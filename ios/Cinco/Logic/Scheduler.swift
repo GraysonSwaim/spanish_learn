@@ -79,6 +79,10 @@ enum Scheduler {
     static let knownInterval = 7
     /// A Dominada card due within this window counts as due now, so the same time tomorrow needn't be to the minute.
     nonisolated static let lookahead: TimeInterval = 4 * 3600
+    /// The wait whose test, passed, graduates a word: two weeks.
+    static let graduateAt = 14
+    /// A graduated word's interval: it's off the schedule, and only a prueba's sample brings it back.
+    static let graduated = 100_000
 
     /// The wait after a right answer: 1, 2 and 4 days, a week, then double.
     static func nextInterval(_ days: Int) -> Int {
@@ -100,6 +104,20 @@ enum Scheduler {
 
     static func isDue(_ c: Card, now: Date = .now) -> Bool {
         c.stage > 0 && (c.stage < 5 || c.due <= now.addingTimeInterval(lookahead))
+    }
+
+    /// Learned: passed the two-week wait, or proved a "Ya la sé" in a prueba. Never due again.
+    static func isGraduated(_ c: Card) -> Bool { c.stage == 5 && c.interval >= graduated }
+
+    /// Said to be known and not yet proved. Words marked "Ya la sé" before the tag existed are the untested Dominada ones.
+    static func isClaimed(_ c: Card) -> Bool {
+        c.stage == 5 && !isGraduated(c) && (c.claimed || c.reps == 0)
+    }
+
+    /// Due, and owed to a prueba rather than practice: a "Ya la sé" whose week is up, or a word at the two-week wait.
+    /// Passing it there graduates it.
+    static func owedToTest(_ c: Card, now: Date = .now) -> Bool {
+        !c.isDropped && c.stage == 5 && !isGraduated(c) && isDue(c, now: now) && (isClaimed(c) || c.interval >= graduateAt)
     }
 
     static func counts(_ cards: [Card], now: Date = .now) -> DeckCounts {
@@ -145,7 +163,7 @@ enum Scheduler {
         let live = cards.filter { !$0.isDropped }
         let working = live.filter { $0.stage > 0 && $0.stage < 5 }
             .sorted { ($0.lastReviewed ?? .distantPast) < ($1.lastReviewed ?? .distantPast) }
-        let mastered = live.filter { $0.stage == 5 && isDue($0, now: now) }.sorted { lateness($0, now: now) > lateness($1, now: now) }
+        let mastered = live.filter { $0.stage == 5 && isDue($0, now: now) && !owedToTest($0, now: now) }.sorted { lateness($0, now: now) > lateness($1, now: now) }
         var out: [Card] = []
         for i in 0..<max(working.count, mastered.count) {
             if i < working.count { out.append(working[i]) }
@@ -173,9 +191,10 @@ enum Scheduler {
         c.seen = now
     }
 
-    /// A new word the learner already knows skips the training: it's in the library as Dominada, and checked in a week.
-    /// Right, it goes on from there; a miss sends it to Producir like any other.
+    /// A word the learner already knows skips the rest of its training: it's in the library as Dominada, and a prueba
+    /// tests it, typed, in a week. Right, it graduates; a miss puts it back to be reviewed.
     static func alreadyKnown(_ c: Card, now: Date = .now) {
+        c.claimed = true
         c.stage = 5
         c.ready = false
         c.interval = knownInterval
@@ -198,6 +217,43 @@ enum Scheduler {
             c.lastReviewed = now
             c.ready = true
             settle(pool + [c], cap: cap, now: now)
+        }
+    }
+
+    /// A prueba's answer. Right, a word owed to the test graduates, a due one goes on to its next wait as in practice, and
+    /// one asked early in the sample keeps its schedule. Wrong costs one rung, not the ladder: a graduated or claimed
+    /// word goes back to a week, any other to the wait below, and it's due now so practice picks it up.
+    static func tested(_ c: Card, right: Bool, now: Date = .now) {
+        let owed = owedToTest(c, now: now), graduatedBefore = isGraduated(c), claimedBefore = isClaimed(c)
+        c.reps += 1
+        guard right else {
+            c.lapses += 1
+            c.lastReviewed = now
+            c.interval = graduatedBefore || claimedBefore ? knownInterval : stepBack(c.interval)
+            c.claimed = false
+            c.due = now
+            return
+        }
+        guard !graduatedBefore, c.stage == 5 else { return }
+        if owed && (claimedBefore || waitedOut(c, now: now)) {
+            c.interval = graduated
+            c.due = .distantFuture
+            c.lastReviewed = now
+            c.claimed = false
+        } else if isDue(c, now: now) {
+            if waitedOut(c, now: now) { c.interval = nextInterval(c.interval) }
+            c.due = day(c.interval, after: now)
+            c.lastReviewed = now
+        }
+    }
+
+    /// One rung down the ladder: 2 weeks to 1, a week to 4 days, 4 to 2, 2 to 1.
+    static func stepBack(_ days: Int) -> Int {
+        switch days {
+        case 14...: days / 2
+        case 7...13: 4
+        case 4...6: 2
+        default: 1
         }
     }
 

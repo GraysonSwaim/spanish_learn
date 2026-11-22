@@ -129,6 +129,18 @@ struct StudyView: View {
                 }
             }
             Spacer(minLength: 0)
+            if let c = session.current, session.canClaim {
+                Button {
+                    session.claimKnown()
+                    droppedNote = "«\(c.es)» irá a una prueba dentro de una semana."
+                } label: {
+                    Text("Ya la sé").font(Typo.text(14, .heavy)).foregroundStyle(Palette.good)
+                        .padding(.horizontal, 12).frame(minHeight: 32)
+                        .background(Palette.goodSoft, in: .capsule)
+                        .frame(minHeight: 44).contentShape(.rect)
+                }
+                .accessibilityHint("Deja de estudiarla. Dentro de una semana la escribes en una prueba: si aciertas, queda aprendida.")
+            }
             undoButton
         }
         .lineLimit(1).minimumScaleFactor(0.75)

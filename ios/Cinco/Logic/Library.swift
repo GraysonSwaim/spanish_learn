@@ -78,6 +78,22 @@ enum Library {
 
     // MARK: feeding it a page
 
+    /// How many pages a word keeps: enough to tell a common word, and a few of its sentences from the book.
+    static let pagesKept = 20
+
+    /// A page met: each library word on it keeps the page and its sentence there. That's how common it is in the book,
+    /// which decides how a prueba asks it, and its sentences outlive the page.
+    static func notePage(_ reading: Reading, page: [PageWord], cards: [Card]) {
+        let index = index(cards)
+        for w in page {
+            guard let c = find(w.spanish, in: index), !c.isConj, c.sources.count < pagesKept,
+                  !c.sourceList.contains(where: { $0.title == reading.title }) else { continue }
+            // Not found in the text, `place` gives back the word itself, which is no sentence.
+            let (form, sentence) = place(of: w, in: reading.lines)
+            if !sentence.isEmpty && sentence != form { c.addSource(title: reading.title, sentence: sentence) }
+        }
+    }
+
     /// The page's words not in the library yet, foundational first, and in reading order within a level.
     static func newWords(_ page: [PageWord], index: [String: Card]) -> [PageWord] {
         let new = page.filter { find($0.spanish, in: index) == nil }

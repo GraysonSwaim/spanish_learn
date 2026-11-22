@@ -15,6 +15,11 @@ CHECK_COST_WEIGHT = "20"
 # Longest reply, thinking included. Checking 15 words writes about 1,000 tokens, plus thinking. Counted 20 times, it sets
 # aside 100,000 of a phone's 120,000 a day: on an ordinary phone, about one check a day; on the owner's, about 12.
 CHECK_MAX_TOKENS = "5000"
+# A prueba's gaps (/quiz, at most 6) and its second look at written answers (/grade, at most 12) use CHECK_MODEL too,
+# and write a few hundred tokens each. Counted 20 times, each sets aside 40,000: an ordinary phone gets about 3 a day,
+# the owner's about 30, which is about 15 pruebas.
+QUIZ_MAX_TOKENS = "2000"
+GRADE_MAX_TOKENS = "2000"
 # A gloss of 20 words writes about 1,500.
 GLOSS_MAX_TOKENS = "6000"
 # 40 example sentences, each with its English, write about 2,000.

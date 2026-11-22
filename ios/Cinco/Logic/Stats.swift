@@ -5,10 +5,11 @@ enum Stats {
     /// How far a word has come. Dominada is split in two, as reaching it takes one sitting and proves little: a word is in
     /// long-term memory once it's been right through the 24, 48 and 96 hours (or tested right after saying "Ya la sé").
     enum Standing: CaseIterable {
-        case longTerm, reviewing, learning, fresh
+        case learned, longTerm, reviewing, learning, fresh
 
         var name: String {
             switch self {
+            case .learned: "Aprendidas"
             case .longTerm: "A largo plazo"
             case .reviewing: "En repaso"
             case .learning: "Aprendiendo"
@@ -20,13 +21,10 @@ enum Stats {
     static func standing(_ c: Card) -> Standing {
         switch c.stage {
         case 0: .fresh
-        case 5: inLongTerm(interval: c.interval, tested: c.reps > 0) ? .longTerm : .reviewing
+        case 5 where Scheduler.isGraduated(c): .learned
+        case 5: c.interval >= Scheduler.knownInterval && !Scheduler.isClaimed(c) ? .longTerm : .reviewing
         default: .learning
         }
-    }
-
-    private static func inLongTerm(interval: Int, tested: Bool) -> Bool {
-        interval >= Scheduler.knownInterval && tested
     }
 
     /// One level's words by standing, or those not given a level yet.
@@ -56,7 +54,7 @@ enum Stats {
 
     /// The words that are giving the most trouble now: missed at least twice, and not yet held in long-term memory.
     static func struggling(_ words: [Card], limit: Int = 3) -> [Card] {
-        let hard = words.filter { $0.lapses >= 2 && $0.stage > 0 && standing($0) != .longTerm }
+        let hard = words.filter { $0.lapses >= 2 && $0.stage > 0 && ![.longTerm, .learned].contains(standing($0)) }
             .sorted { ($0.lapses, $1.order) > ($1.lapses, $0.order) }
         return Array(hard.prefix(limit))
     }

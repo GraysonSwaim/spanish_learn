@@ -10,8 +10,15 @@ struct StudyAction {
     }
 }
 
+/// Opens a prueba on its own, from Home.
+struct PruebaAction {
+    var run: () -> Void = {}
+    func callAsFunction() { run() }
+}
+
 extension EnvironmentValues {
     @Entry var study = StudyAction()
+    @Entry var takePrueba = PruebaAction()
     /// A study session is covering the screen. Nothing can be seen under it, and what's under it depends on every card, so
     /// redoing it after each answer is what makes the next card slow to come: Home and the readings hold still until it closes.
     @Entry var sessionCovers = false
@@ -49,6 +56,8 @@ struct RootView: View {
     @AppStorage(PrefKey.theme) private var theme = "auto"
 
     @State private var session: StudySession?
+    /// The sheet after a session, or one asked for from Home: it takes the session's place under the cover.
+    @State private var prueba: Prueba?
     @State private var studying = false
     @State private var covered = false
     #if DEBUG
@@ -68,6 +77,7 @@ struct RootView: View {
                 #endif
         }
         .environment(\.study, StudyAction(run: start))
+        .environment(\.takePrueba, PruebaAction(run: openPrueba))
         .environment(\.sessionCovers, covered)
         // Once the session has finished sliding up, so nothing changes under it as it comes.
         .task(id: studying) {
@@ -78,12 +88,14 @@ struct RootView: View {
         .tint(Palette.accentInk)
         // Capturing the session makes this view depend on it. Without that, a session created in the same
         // tap that opens the cover (a theme) wasn't seen yet and the cover came up empty until a redraw.
-        .fullScreenCover(isPresented: $studying) { [current = session] in
+        .fullScreenCover(isPresented: $studying) { [current = session, sheet = prueba] in
             Group {
-                if let s = current, !s.isFinished {
-                    StudyView(session: s) { closeStudy() }
+                if let p = sheet {
+                    PruebaView(prueba: p) { closePrueba() }
+                } else if let s = current, !s.isFinished {
+                    StudyView(session: s) { endSession(s) }
                 } else if let s = current {
-                    DoneView(done: s.done, onUndo: s.canUndo ? { s.undo() } : nil) { closeStudy(); session = nil }
+                    DoneView(done: s.done, onUndo: s.canUndo ? { s.undo() } : nil) { endSession(s); session = nil }
                 }
             }
             .preferredColorScheme(scheme)
@@ -119,6 +131,27 @@ struct RootView: View {
     private func closeStudy() {
         covered = false
         studying = false
+    }
+
+    /// Every session that answered something ends with a prueba, when enough has been mastered to make one.
+    private func endSession(_ s: StudySession) {
+        guard s.answered + s.done > 0, let p = Prueba.make(ctx) else { closeStudy(); return }
+        prueba = p
+    }
+
+    /// The sheet stays under the cover while it slides away.
+    private func closePrueba() {
+        closeStudy()
+        Task {
+            try? await Task.sleep(for: .seconds(0.6))
+            if !studying { prueba = nil }
+        }
+    }
+
+    private func openPrueba() {
+        guard let p = Prueba.make(ctx) else { return }
+        prueba = p
+        studying = true
     }
 
     /// Starts a session going round stages 1–4, with new cards coming in as there's room. A tense picks up the session
@@ -170,6 +203,11 @@ struct RootView: View {
             r.url = url.absoluteString
             ctx.insert(r)
             demoNew = r
+            return
+        }
+        // `-openPrueba` opens a prueba; with `-tutorDemo`, its gaps get canned choices.
+        if args.contains("-openPrueba") {
+            openPrueba()
             return
         }
         // `-openSettings` opens Ajustes.

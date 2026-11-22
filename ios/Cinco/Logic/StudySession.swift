@@ -32,15 +32,19 @@ final class StudySession {
     private struct CardState {
         let stage: Int, ready: Bool, due: Date, interval: Int, reps: Int, lapses: Int
         let seen: Date?, lastReviewed: Date?, dropped: Date?
+        /// For "Ya la sé", which is a hidden tag.
+        let claimed: Bool
 
         init(_ c: Card) {
             (stage, ready, due, interval, reps, lapses) = (c.stage, c.ready, c.due, c.interval, c.reps, c.lapses)
             (seen, lastReviewed, dropped) = (c.seen, c.lastReviewed, c.dropped)
+            claimed = c.claimed
         }
 
         func restore(_ c: Card) {
             (c.stage, c.ready, c.due, c.interval, c.reps, c.lapses) = (stage, ready, due, interval, reps, lapses)
             (c.seen, c.lastReviewed, c.dropped) = (seen, lastReviewed, dropped)
+            if c.claimed != claimed { c.claimed = claimed }
         }
     }
 
@@ -236,6 +240,25 @@ final class StudySession {
         Deck.today(ctx).newVocab += 1
         done += 1
         queue.removeFirst()
+        if continuous { admit() }
+        try? ctx.save()
+        next()
+    }
+
+    /// A word in training or review the learner is sure of: it stops here, and a prueba tests it, typed, in a week.
+    var canClaim: Bool {
+        guard let c = current, !c.isConj, c.stage > 0, phase != .intro else { return false }
+        return !Scheduler.isGraduated(c) && !(c.stage == 5 && Scheduler.isClaimed(c))
+    }
+
+    func claimKnown() {
+        guard let c = current, canClaim else { return }
+        snapshot(c)
+        Scheduler.alreadyKnown(c)
+        // The place it left can go to a ready card below, or a new one.
+        Scheduler.settle(pool, cap: prefs.stageCap)
+        done += 1
+        queue.removeAll { $0 === c }
         if continuous { admit() }
         try? ctx.save()
         next()

@@ -312,7 +312,9 @@ struct ReadingView: View {
                     let page = try await Tutor.words(lines: Tutor.firstPages(reading.lines))
                     reading.pageWords = page
                     // Before any of its new words come in: what the page shows is what was known on arriving.
-                    PageScores.record(reading, page: page, cards: Deck.allCards(ctx))
+                    let all = Deck.allCards(ctx)
+                    PageScores.record(reading, page: page, cards: all)
+                    Library.notePage(reading, page: page, cards: all)
                 }
                 try? ctx.save()
                 working = "Preparando tus tarjetas…"

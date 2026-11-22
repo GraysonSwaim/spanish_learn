@@ -307,6 +307,78 @@ enum Tutor {
         return reply.items
     }
 
+    // MARK: pruebas, with Claude Sonnet
+
+    nonisolated struct QuizInput: Encodable, Equatable {
+        var spanish: String
+        var english: String
+        var sentence: String
+        /// The word as it's written in the sentence: the gap.
+        var form: String
+    }
+
+    nonisolated struct QuizItem: Decodable, Equatable {
+        /// Three wrong choices for the gap, in the same form as the word; empty when Claude gave none worth using.
+        var options: [String]
+        /// The sentence's English, shown once the sheet is marked.
+        var english: String
+    }
+
+    nonisolated struct GradeInput: Encodable, Equatable {
+        var english: String
+        var spanish: String
+        var typed: String
+    }
+
+    nonisolated struct GradeResult: Decodable, Equatable {
+        enum Verdict: String, Decodable {
+            case right, close, wrong
+            /// Claude skipped this one: the phone's mark stands.
+            case none
+        }
+        var verdict: Verdict
+        var note: String
+    }
+
+    /// How many gaps one sheet asks for, and how many written answers it has looked at again: the proxy refuses more.
+    static let quizLimit = 6
+    static let gradeLimit = 12
+
+    /// Wrong choices for each gap, in order. Claude Sonnet, since a wrong choice that fits too has to be avoided.
+    static func quiz(_ items: [QuizInput]) async throws(Failure) -> [QuizItem] {
+        if demo {
+            try? await Task.sleep(for: .milliseconds(600))
+            return items.map { _ in QuizItem(options: ["(demo) uno", "(demo) dos", "(demo) tres"], english: "(demo) The sentence in English.") }
+        }
+        guard base != nil, consented else { throw .other }
+        struct Body: Encodable { let device: String; let items: [QuizInput] }
+        struct Reply: Decodable { let items: [QuizItem] }
+        let sent = items.prefix(quizLimit).map {
+            QuizInput(spanish: String($0.spanish.prefix(120)), english: String($0.english.prefix(200)),
+                      sentence: String($0.sentence.prefix(400)), form: String($0.form.prefix(120)))
+        }
+        let reply: Reply = try await post("quiz", Body(device: device, items: Array(sent)), timeout: 60)
+        guard reply.items.count == sent.count else { throw .server }
+        return reply.items
+    }
+
+    /// Claude Sonnet's second look at written answers the phone marked wrong, in order.
+    static func grade(_ items: [GradeInput]) async throws(Failure) -> [GradeResult] {
+        if demo {
+            try? await Task.sleep(for: .milliseconds(600))
+            return items.map { _ in GradeResult(verdict: .wrong, note: "(demo) Not this word.") }
+        }
+        guard base != nil, consented else { throw .other }
+        struct Body: Encodable { let device: String; let items: [GradeInput] }
+        struct Reply: Decodable { let items: [GradeResult] }
+        let sent = items.prefix(gradeLimit).map {
+            GradeInput(english: String($0.english.prefix(200)), spanish: String($0.spanish.prefix(120)), typed: String($0.typed.prefix(120)))
+        }
+        let reply: Reply = try await post("grade", Body(device: device, items: Array(sent)), timeout: 60)
+        guard reply.items.count == sent.count else { throw .server }
+        return reply.items
+    }
+
     private static func post<B: Encodable, R: Decodable>(_ path: String, _ body: B, timeout: TimeInterval) async throws(Failure) -> R {
         guard let base else { throw .other }
         var request = URLRequest(url: base.appending(path: path), timeoutInterval: timeout)

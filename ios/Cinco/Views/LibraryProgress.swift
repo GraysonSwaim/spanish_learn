@@ -19,7 +19,8 @@ struct LibraryProgress: View {
         let count = { (s: Stats.Standing) in standings.count { $0 == s } }
         let rungs = Stats.rungs(words).map { "\($0.name) \($0.count)" }.joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 14) {
-            headline("\(count(.longTerm))", "a largo plazo", sub: "de \(words.count == 1 ? "1 palabra" : "\(words.count) palabras")")
+            headline("\(count(.learned))", count(.learned) == 1 ? "aprendida" : "aprendidas",
+                     sub: "de \(words.count == 1 ? "1 palabra" : "\(words.count) palabras"). Una palabra se aprende al acertarla en una prueba tras dos semanas, o al demostrar un «Ya la sé».")
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(Stats.levels(words), id: \.name) { levelRow($0) }
             }
@@ -40,7 +41,7 @@ struct LibraryProgress: View {
             HStack {
                 Text(l.name).font(Typo.text(15, .bold)).foregroundStyle(Palette.ink)
                 Spacer()
-                Text("\(l.count(.longTerm)) de \(l.total)").font(Typo.text(14)).foregroundStyle(Palette.muted)
+                Text("\(l.count(.learned)) de \(l.total)").font(Typo.text(14)).foregroundStyle(Palette.muted)
             }
             SplitBar(parts: order.map { (l.count($0), color($0)) })
         }
@@ -50,6 +51,7 @@ struct LibraryProgress: View {
 
     private func color(_ s: Stats.Standing) -> Color {
         switch s {
+        case .learned: Palette.good
         case .longTerm: Palette.longTerm
         case .reviewing: Palette.reviewing
         case .learning: Palette.learning
