@@ -1529,8 +1529,8 @@ struct PruebaTests {
     @Test func thePhoneMarksSlipsAsRightWithANote() {
         let w = PruebaItem(id: "a", kind: .sample, format: .write, spanish: "el árbol", english: "tree")
         #expect(Prueba.markHere(w, typed: "el árbol", matched: nil, chosen: nil) == PruebaMark(right: true))
-        #expect(Prueba.markHere(w, typed: "el arbol", matched: nil, chosen: nil).near)
-        #expect(Prueba.markHere(w, typed: "árbol", matched: nil, chosen: nil).right)
+        #expect(Prueba.markHere(w, typed: "el arbol", matched: nil, chosen: nil) == PruebaMark(right: true, near: true, note: "Se escribe con acento: árbol."))
+        #expect(Prueba.markHere(w, typed: "árbol", matched: nil, chosen: nil) == PruebaMark(right: true))
         #expect(!Prueba.markHere(w, typed: "", matched: nil, chosen: nil).right)
         var m = w; m.format = .match
         #expect(Prueba.markHere(m, typed: nil, matched: "a", chosen: nil).right)
@@ -1630,5 +1630,24 @@ struct PruebaRefreshTests {
         #expect(missed.interval == 2 && missed.lapses == 0)
         #expect(words.dropFirst().allSatisfy { $0.lapses == 1 })
         #expect(p.missed.count == 4 && p.missed.contains(missed.id))
+    }
+}
+
+struct PruebaWordOnlyTests {
+    private func mark(_ typed: String, for es: String) -> PruebaMark {
+        Prueba.markHere(PruebaItem(id: "a", kind: .sample, format: .write, spanish: es, english: "x"), typed: typed, matched: nil, chosen: nil)
+    }
+
+    /// The article and a little word joined on aren't asked for: getting them different is simply right, not a slip.
+    @Test(arguments: [("tema", "el tema"), ("la tema", "el tema"), ("El Tema", "el tema"), ("entre de", "entre"),
+                      ("darse cuenta", "darse cuenta de"), ("hablar con", "hablar"), ("un coche", "el coche / el carro"),
+                      ("carro", "el coche / el carro")])
+    func onlyTheWordCounts(_ typed: String, _ es: String) {
+        #expect(mark(typed, for: es) == PruebaMark(right: true))
+    }
+
+    @Test(arguments: [("en", "entre"), ("serio", "en serio"), ("tener", "tener ganas de"), ("de", "de")])
+    func anotherWordIsStillWrong(_ typed: String, _ es: String) {
+        #expect(mark(typed, for: es).right == (typed == "de"))
     }
 }

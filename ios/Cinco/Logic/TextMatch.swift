@@ -24,6 +24,11 @@ nonisolated enum TextMatch {
         return String(String.UnicodeScalarView(scalars)).replacingOccurrences(of: "\u{1}", with: "ñ")
     }
 
+    /// Without its article, as written: "el árbol" → "árbol".
+    static func noArticleKeepingAccents(_ s: String) -> String {
+        s.trimmingCharacters(in: .whitespaces).replacing(/^(?i:el|la|los|las|un|una|unos|unas|lo)\s+/, with: "")
+    }
+
     static func noArticle(_ s: String) -> String {
         strip(s).replacing(/^(el|la|los|las|un|una|unos|unas|lo)\s+/, with: "")
     }

@@ -149,7 +149,7 @@ struct PruebaView: View {
 
     private var writeSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionTitle("I", "Escribe en español", "Con el artículo si es un sustantivo.")
+            sectionTitle("I", "Escribe en español", "Solo la palabra: el artículo no hace falta.")
             ForEach(prueba.section(.write)) { item in
                 if let mark = prueba.marks[item.id] { writeResult(item, mark) } else { writeRow(item) }
             }
@@ -180,10 +180,18 @@ struct PruebaView: View {
         let typed = prueba.answer(item)
         return result(item, mark) {
             Text(item.english).font(Typo.text(15)).foregroundStyle(Palette.muted)
-            if mark.right && !mark.near {
+            if mark.right {
                 Text(typed).font(Typo.sentence(19)).foregroundStyle(Palette.good)
+                // The card's own form, for its article and spelling: shown, never marked.
+                if TextMatch.norm(typed) != TextMatch.norm(item.spanish) {
+                    Text(item.spanish).font(Typo.text(14)).foregroundStyle(Palette.muted)
+                }
+                if !mark.note.isEmpty {
+                    Text(mark.note).font(Typo.text(14)).foregroundStyle(Palette.good)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             } else {
-                answered(typed, wrong: !mark.right)
+                answered(typed, wrong: true)
                 Text(item.spanish).font(Typo.sentence(19)).fontWeight(.bold).foregroundStyle(Palette.ink)
             }
         }
@@ -364,7 +372,7 @@ struct PruebaView: View {
                 Text("\(prueba.number(item.id))").font(Typo.text(13, .heavy)).foregroundStyle(Palette.muted)
             }
             .accessibilityElement(children: .combine)
-            if !mark.right || mark.near { explanation(item, mark) }
+            if !mark.right { explanation(item, mark) }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)

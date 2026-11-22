@@ -229,19 +229,31 @@ final class Prueba {
         await explain()
     }
 
-    /// What the phone can mark alone. A written answer is right with a slip when only an accent or the article is off.
+    /// What the phone can mark alone. A written answer is judged on the word itself: the article isn't asked for, nor a
+    /// little word joined to it ("entre de" for "entre", "darse cuenta" for "darse cuenta de"), so neither makes it wrong
+    /// or even a slip. Only a missing or wrong accent is pointed out, and it's still right.
     static func markHere(_ item: PruebaItem, typed: String?, matched: String?, chosen: String?) -> PruebaMark {
         switch item.format {
         case .write:
-            switch TextMatch.check(typed ?? "", against: item.spanish) {
-            case .exact: return PruebaMark(right: true)
-            case .accent: return PruebaMark(right: true, near: true, note: "Ojo con el acento.")
-            case .article: return PruebaMark(right: true, near: true, note: "Ojo con el artículo.")
-            case .skip, .wrong: return PruebaMark(right: false)
+            let t = typed ?? ""
+            guard !TextMatch.norm(t).isEmpty else { return PruebaMark(right: false) }
+            let alts = TextMatch.alternatives(item.spanish)
+            if alts.contains(where: { bare($0, accents: true) == bare(t, accents: true) }) { return PruebaMark(right: true) }
+            if let a = alts.first(where: { bare($0, accents: false) == bare(t, accents: false) }) {
+                return PruebaMark(right: true, near: true, note: "Se escribe con acento: \(TextMatch.noArticleKeepingAccents(a)).")
             }
+            return PruebaMark(right: false)
         case .match: return PruebaMark(right: matched == item.id)
         case .cloze: return PruebaMark(right: chosen == item.form)
         }
+    }
+
+    /// The word itself, for marking: no case, punctuation, article, or a little word after it. With `accents` false, no
+    /// accents either (ñ stays).
+    nonisolated static func bare(_ s: String, accents: Bool) -> String {
+        let base = accents ? TextMatch.norm(s) : TextMatch.strip(s)
+        return base.replacing(/^(el|la|los|las|un|una|unos|unas|lo)\s+/, with: "")
+            .replacing(/\s+(de|del|a|al|en|con|por|para|que)$/, with: "")
     }
 
     private func apply(_ out: [String: PruebaMark]) {
@@ -283,7 +295,7 @@ final class Prueba {
     /// Claude's tip for each miss: why the answer is what it is, set against what was answered, and a way to remember it.
     /// Without Claude, a miss is still explained by its card: its sentence, its note and its mnemonic.
     func explain() async {
-        let wrong = items.filter { marks[$0.id]?.right == false || marks[$0.id]?.near == true }
+        let wrong = items.filter { marks[$0.id]?.right == false }
         guard !wrong.isEmpty, tips.isEmpty, !explaining else { return }
         explaining = true
         defer { explaining = false }
