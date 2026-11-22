@@ -20,6 +20,8 @@ CHECK_MAX_TOKENS = "5000"
 # the owner's about 30, which is about 15 pruebas.
 QUIZ_MAX_TOKENS = "2000"
 GRADE_MAX_TOKENS = "2000"
+# The misses' tips (/explain, at most 12): about 60 tokens each, plus thinking.
+EXPLAIN_MAX_TOKENS = "3000"
 # A gloss of 20 words writes about 1,500.
 GLOSS_MAX_TOKENS = "6000"
 # 40 example sentences, each with its English, write about 2,000.

@@ -4,8 +4,9 @@ import SwiftData
 /// One question on a prueba's sheet.
 nonisolated struct PruebaItem: Identifiable, Equatable {
     /// Why the word is on the sheet. A proof or graduation question, passed, graduates the word; the sample is random,
-    /// and says how much of the library is holding.
-    enum Kind: String, Codable { case proof, graduation, sample }
+    /// and says how much of the library is holding. A new sheet asked for after one is marked brings back its misses
+    /// (`retry`) and words no sheet has asked yet (`unseen`); neither counts in the estimate, as neither is random.
+    enum Kind: String, Codable { case proof, graduation, sample, retry, unseen }
     /// I. Escribe en español: the English, and the Spanish typed. II. Une: matched to its meaning. III. Completa: the word
     /// picked for the gap in a sentence.
     enum Format { case write, match, cloze }
@@ -21,6 +22,11 @@ nonisolated struct PruebaItem: Identifiable, Equatable {
     var form = ""
     var options: [String] = []
     var sentenceEnglish = ""
+    /// For explaining a miss: the card's own sentence and its English, its note, and its mnemonic.
+    var example = ""
+    var exampleEnglish = ""
+    var note = ""
+    var mnemonic = ""
 
     /// The sentence with its word taken out.
     var gapped: String {
@@ -82,6 +88,9 @@ final class Prueba {
     private(set) var learned: [String] = []
     /// What Claude cost for this sheet: its gaps, and its second look at written answers.
     private(set) var cost = 0.0
+    /// Claude's tip for each miss, to remember it by. Asked for once the sheet is marked.
+    private(set) var tips: [String: String] = [:]
+    private(set) var explaining = false
 
     private init(items: [PruebaItem], cards: [String: Card], ctx: ModelContext, now: Date) {
         self.items = items
@@ -91,10 +100,12 @@ final class Prueba {
         meanings = items.filter { $0.format == .match }.shuffled()
     }
 
-    /// A sheet for now, or nil when too little has been mastered to make one.
-    static func make(_ ctx: ModelContext, now: Date = .now) -> Prueba? {
+    /// A sheet for now, or nil when too little has been mastered to make one. `refresh`: a new sheet asked for after one
+    /// is marked, which asks its misses (`again`) first and brings in words no sheet has asked yet.
+    static func make(_ ctx: ModelContext, refresh: Bool = false, again: [String] = [], now: Date = .now) -> Prueba? {
         var rng = SystemRandomNumberGenerator()
-        let picked = pick(Deck.allCards(ctx).filter { $0.kind == .word }, now: now, using: &rng)
+        let picked = pick(Deck.allCards(ctx).filter { $0.kind == .word }, again: again, unseenFirst: refresh,
+                          asked: PruebaLog.asked, now: now, using: &rng)
         guard picked.count >= least else { return nil }
         return Prueba(items: layout(picked, using: &rng), cards: Dictionary(picked.map { ($0.card.id, $0.card) }) { a, _ in a },
                       ctx: ctx, now: now)
@@ -104,14 +115,26 @@ final class Prueba {
 
     /// The owed words first, latest first, then a random sample of every other mastered word, graduated ones included.
     /// A "Ya la sé" isn't sampled before its week is up: right after saying it, a right answer proves nothing.
-    static func pick(_ words: [Card], size: Int = size, now: Date = .now,
+    /// A new sheet after a marked one asks its misses first (`again`), then the owed words, then (`unseenFirst`) words no
+    /// sheet has asked yet, and fills up with the sample.
+    static func pick(_ words: [Card], size: Int = size, again: [String] = [], unseenFirst: Bool = false,
+                     asked: Set<String> = [], now: Date = .now,
                      using rng: inout some RandomNumberGenerator) -> [(card: Card, kind: PruebaItem.Kind)] {
-        let owed = words.filter { Scheduler.owedToTest($0, now: now) }.sorted { $0.due < $1.due }.prefix(min(maxOwed, size))
-        let taken = Set(owed.map(\.id))
-        let rest = words.filter { c in
-            !c.isDropped && c.stage == 5 && !taken.contains(c.id) && !Scheduler.isClaimed(c)
-        }.shuffled(using: &rng).prefix(size - owed.count)
-        return owed.map { ($0, Scheduler.isClaimed($0) ? .proof : .graduation) } + rest.map { ($0, .sample) }
+        let byID = Dictionary(words.map { ($0.id, $0) }) { a, _ in a }
+        let retry = again.compactMap { byID[$0] }.filter { !$0.isDropped && $0.stage > 0 }.prefix(size)
+        var taken = Set(retry.map(\.id))
+        let owed = words.filter { !taken.contains($0.id) && Scheduler.owedToTest($0, now: now) }
+            .sorted { $0.due < $1.due }.prefix(min(maxOwed, size - retry.count))
+        taken.formUnion(owed.map(\.id))
+        let sampleable = { (c: Card) in !c.isDropped && c.stage == 5 && !taken.contains(c.id) && !Scheduler.isClaimed(c) }
+        var out = retry.map { ($0, PruebaItem.Kind.retry) } + owed.map { ($0, Scheduler.isClaimed($0) ? .proof : .graduation) }
+        if unseenFirst {
+            let unseen = words.filter { sampleable($0) && !asked.contains($0.id) }.shuffled(using: &rng).prefix(size - out.count)
+            taken.formUnion(unseen.map(\.id))
+            out += unseen.map { ($0, .unseen) }
+        }
+        let rest = words.filter(sampleable).shuffled(using: &rng).prefix(size - out.count)
+        return out + rest.map { ($0, .sample) }
     }
 
     /// Common words are written: they're the ones needed to say things. Rare ones are matched: reading needs them
@@ -123,7 +146,8 @@ final class Prueba {
             let c = p.card
             let common = c.level == 1 || c.pages >= 3
             var item = PruebaItem(id: c.id, kind: p.kind, format: p.kind == .proof || common ? .write : .match,
-                                  spanish: c.es, english: c.en)
+                                  spanish: c.es, english: c.en, example: c.ex, exampleEnglish: c.exEn,
+                                  note: c.notes, mnemonic: c.mnemonic)
             if hasGap(c) { (item.sentence, item.form) = (c.ex, c.exWord) }
             return item
         }
@@ -131,7 +155,7 @@ final class Prueba {
             for i in out.indices where out[i].format == .match { out[i].format = .write }
         }
         // Rare words with a sentence first: a gap is kinder to them than writing.
-        let gaps = out.indices.filter { out[$0].kind == .sample && !out[$0].sentence.isEmpty }
+        let gaps = out.indices.filter { [.sample, .unseen].contains(out[$0].kind) && !out[$0].sentence.isEmpty }
             .sorted { (out[$0].format == .match ? 0 : 1) < (out[$1].format == .match ? 0 : 1) }
         let candidates = Set(gaps.prefix(maxGaps))
         for i in out.indices where !candidates.contains(i) { (out[i].sentence, out[i].form) = ("", "") }
@@ -202,6 +226,7 @@ final class Prueba {
             }
         }
         apply(out)
+        await explain()
     }
 
     /// What the phone can mark alone. A written answer is right with a slip when only an accent or the article is off.
@@ -224,7 +249,8 @@ final class Prueba {
         for item in items {
             guard let c = cards[item.id], c.modelContext != nil, let m = out[item.id] else { continue }
             let was = Scheduler.isGraduated(c)
-            Scheduler.tested(c, right: m.right, now: date)
+            // A miss asked again straight away has already paid for it: missing it twice in a few minutes costs nothing more.
+            if !(item.kind == .retry && !m.right) { Scheduler.tested(c, right: m.right, now: date) }
             if !was && Scheduler.isGraduated(c) { learned.append(c.es) }
             day.reviewed += 1
             if m.right { day.correct += 1 }
@@ -232,12 +258,54 @@ final class Prueba {
         try? ctx.save()
         marks = out
         let sample = items.filter { $0.kind == .sample }
+        PruebaLog.markAsked(items.map(\.id))
         PruebaLog.add(PruebaRecord(date: date, total: items.count, right: out.values.count(where: \.right), learned: learned.count,
                                    sampleTotal: sample.count, sampleRight: sample.count { out[$0.id]?.right == true }, cost: cost))
         state = .marked
     }
 
     var score: Int { marks.values.count(where: \.right) }
+
+    /// The ids missed, in the sheet's order, for a new sheet that asks them again.
+    var missed: [String] {
+        (section(.write) + section(.match) + section(.cloze)).filter { marks[$0.id]?.right == false }.map(\.id)
+    }
+
+    /// What was answered, as the learner put it: typed, the meaning matched, or the word picked.
+    func answer(_ item: PruebaItem) -> String {
+        switch item.format {
+        case .write: typed[item.id] ?? ""
+        case .match: items.first { $0.id == matched[item.id] }?.english ?? ""
+        case .cloze: chosen[item.id] ?? ""
+        }
+    }
+
+    /// Claude's tip for each miss: why the answer is what it is, set against what was answered, and a way to remember it.
+    /// Without Claude, a miss is still explained by its card: its sentence, its note and its mnemonic.
+    func explain() async {
+        let wrong = items.filter { marks[$0.id]?.right == false || marks[$0.id]?.near == true }
+        guard !wrong.isEmpty, tips.isEmpty, !explaining else { return }
+        explaining = true
+        defer { explaining = false }
+        let input = wrong.map {
+            Tutor.ExplainInput(spanish: $0.spanish, english: $0.english, answered: answer($0),
+                               sentence: $0.format == .cloze ? $0.sentence : $0.example,
+                               question: $0.format == .write ? "write" : $0.format == .match ? "match" : "gap")
+        }
+        guard let (got, spent) = try? await Tutor.explain(input), got.count == wrong.count else { return }
+        cost += spent
+        PruebaLog.addCost(spent, at: date)
+        for (item, tip) in zip(wrong, got) where !tip.isEmpty { tips[item.id] = tip }
+    }
+
+    /// Keeps Claude's tip as the word's mnemonic, so practice shows it too. Only for a word that has none.
+    func keepTip(_ id: String) {
+        guard let tip = tips[id], let c = cards[id], c.modelContext != nil, c.mnemonic.isEmpty,
+              let i = items.firstIndex(where: { $0.id == id }) else { return }
+        c.mnemonic = tip
+        items[i].mnemonic = tip
+        try? ctx.save()
+    }
 }
 
 /// Every prueba handed in on this device. Kept here, like `PageScores`, so the CloudKit schema needn't change.
@@ -254,7 +322,28 @@ enum PruebaLog {
     static var all: [PruebaRecord] { UserDefaults.standard.data(forKey: key).map(decode) ?? [] }
 
     static func add(_ r: PruebaRecord) {
-        UserDefaults.standard.set(try? JSONEncoder().encode(Array((all + [r]).suffix(keep))), forKey: key)
+        save(Array((all + [r]).suffix(keep)))
+    }
+
+    private static func save(_ records: [PruebaRecord]) {
+        UserDefaults.standard.set(try? JSONEncoder().encode(records), forKey: key)
+    }
+
+    /// The explanations come after the sheet is kept, so their cost is added to it then.
+    static func addCost(_ dollars: Double, at date: Date) {
+        var records = all
+        guard let i = records.lastIndex(where: { $0.date == date }) else { return }
+        records[i].cost = (records[i].cost ?? 0) + dollars
+        save(records)
+    }
+
+    private static let askedKey = "pruebaAsked"
+
+    /// Every word a sheet has asked on this device, for a new sheet to bring in the ones not asked yet.
+    static var asked: Set<String> { Set(UserDefaults.standard.stringArray(forKey: askedKey) ?? []) }
+
+    static func markAsked(_ ids: [String]) {
+        UserDefaults.standard.set(Array(asked.union(ids)), forKey: askedKey)
     }
 
     /// The share of sampled words right over the last 30 days, and how many were asked. nil before any.

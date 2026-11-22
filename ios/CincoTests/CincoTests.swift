@@ -1585,3 +1585,50 @@ struct CostLogTests {
         #expect(try JSONDecoder().decode(CallUsage.Envelope.self, from: Data(#"{"items":[]}"#.utf8)).usage == nil)
     }
 }
+
+struct PruebaRefreshTests {
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    private func card(_ es: String, interval: Int = 4) -> Card {
+        let c = Card(id: UUID().uuidString, es: es, en: "en " + es, order: 0)
+        (c.stage, c.interval, c.reps) = (5, interval, 3)
+        c.due = now.addingTimeInterval(10 * 86_400)
+        c.lastReviewed = now
+        return c
+    }
+
+    @Test func aNewSheetAsksTheMissesThenWordsNotAskedYet() {
+        var rng = SystemRandomNumberGenerator()
+        let missed = (0..<2).map { card("fallo\($0)") }
+        let asked = (0..<10).map { card("vista\($0)") }
+        let fresh = (0..<4).map { card("nueva\($0)") }
+        let picked = Prueba.pick(missed + asked + fresh, again: missed.map(\.id), unseenFirst: true,
+                                 asked: Set((missed + asked).map(\.id)), now: now, using: &rng)
+        #expect(picked.prefix(2).map(\.kind) == [.retry, .retry])
+        #expect(Set(picked.prefix(2).map(\.card.id)) == Set(missed.map(\.id)))
+        #expect(Set(picked.filter { $0.kind == .unseen }.map(\.card.id)) == Set(fresh.map(\.id)))
+        #expect(picked.count == Prueba.size && picked.count { $0.kind == .sample } == Prueba.size - 6)
+    }
+
+    @Test func anOrdinarySheetDoesNotReachForUnaskedWords() {
+        var rng = SystemRandomNumberGenerator()
+        let words = (0..<14).map { card("w\($0)") }
+        let picked = Prueba.pick(words, asked: [], now: now, using: &rng)
+        #expect(picked.allSatisfy { $0.kind == .sample })
+    }
+
+    @Test func aMissAskedAgainAndMissedAgainCostsNothingMore() async throws {
+        let schema = Schema([Card.self, DayLog.self, Chunk.self])
+        let ctx = ModelContext(try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)))
+        let words = (0..<4).map { card("palabra\($0)") }
+        words.forEach(ctx.insert)
+        let missed = words[0]
+        (missed.interval, missed.due) = (2, now)
+        let p = try #require(Prueba.make(ctx, refresh: true, again: [missed.id], now: now))
+        #expect(p.items.first { $0.id == missed.id }?.kind == .retry)
+        await p.handIn() // every answer blank: all wrong
+        #expect(missed.interval == 2 && missed.lapses == 0)
+        #expect(words.dropFirst().allSatisfy { $0.lapses == 1 })
+        #expect(p.missed.count == 4 && p.missed.contains(missed.id))
+    }
+}

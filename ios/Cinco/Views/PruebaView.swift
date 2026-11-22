@@ -1,10 +1,13 @@
 import SwiftUI
 
-/// A prueba on paper: the whole sheet at once, answered in any order, and nothing marked until it's handed in. Then the
-/// red pen goes over it: a tick or a cross by each question, the right answer beside a wrong one, and the score circled.
+/// A prueba on paper: the whole sheet at once, answered in any order, and nothing marked until it's handed in. Marked,
+/// each answer turns green or red: a miss shows what was answered beside the right answer, and why, with a way to
+/// remember it. Then a new sheet can ask the misses again, with words no sheet has asked yet.
 struct PruebaView: View {
     @Bindable var prueba: Prueba
     let onDone: () -> Void
+    /// A new sheet: the misses of this one (their ids) first, then words not asked yet.
+    let onRefresh: ([String]) -> Void
 
     /// Section II: the Spanish word picked, waiting for its meaning.
     @State private var picking: String?
@@ -29,10 +32,12 @@ struct PruebaView: View {
             #endif
         }
         .background(Backdrop())
+        .animation(.easeInOut(duration: 0.25), value: prueba.state)
+        .animation(.easeInOut(duration: 0.25), value: prueba.tips)
         .task {
             await prueba.fillGaps()
             #if DEBUG
-            // `-handIn` answers about half right, half wrong, and hands it in, to see the red pen.
+            // `-handIn` answers about half right, half wrong, and hands it in, to see it marked.
             if ProcessInfo.processInfo.arguments.contains("-handIn") {
                 for (i, item) in prueba.items.enumerated() {
                     let right = i % 2 == 0
@@ -64,6 +69,8 @@ struct PruebaView: View {
         .zIndex(1)
     }
 
+    private var marked: Bool { prueba.state == .marked }
+
     // MARK: the sheet
 
     private var sheet: some View {
@@ -87,26 +94,40 @@ struct PruebaView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("PRUEBA").font(Typo.text(14, .heavy)).tracking(2).foregroundStyle(Palette.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Text(prueba.date.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "es"))))
-                    .font(Typo.text(14)).foregroundStyle(Palette.muted)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("PRUEBA").font(Typo.text(14, .heavy)).tracking(2).foregroundStyle(Palette.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    Text(prueba.date.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "es"))))
+                        .font(Typo.text(14)).foregroundStyle(Palette.muted)
+                }
+                Spacer()
+                score
             }
-            Spacer()
-            score
+            if marked {
+                let wrong = prueba.items.count - prueba.score
+                HStack(spacing: 16) {
+                    Label("\(prueba.score) bien", systemImage: "checkmark.circle.fill").foregroundStyle(Palette.good)
+                    if wrong > 0 {
+                        Label("\(wrong) por repasar", systemImage: "xmark.circle.fill").foregroundStyle(Self.pen)
+                    }
+                }
+                .font(Typo.text(15, .heavy))
+            }
         }
     }
 
     @ViewBuilder
     private var score: some View {
         let total = prueba.items.count
-        if prueba.state == .marked {
+        if marked {
+            let good = Double(prueba.score) >= 0.8 * Double(total)
+            let ink = good ? Palette.good : Self.pen
             Text("\(prueba.score)/\(total)")
-                .font(Typo.display(28)).foregroundStyle(Self.pen)
+                .font(Typo.display(28)).foregroundStyle(ink)
                 .padding(.horizontal, 14).padding(.vertical, 8)
-                .overlay(Ellipse().stroke(Self.pen, lineWidth: 2.5).padding(-4))
+                .overlay(Ellipse().stroke(ink, lineWidth: 2.5).padding(-4))
                 .rotationEffect(.degrees(-6))
                 .padding(.trailing, 6).padding(.top, 2)
                 .accessibilityLabel("\(prueba.score) de \(total)")
@@ -120,22 +141,23 @@ struct PruebaView: View {
         VStack(alignment: .leading, spacing: 3) {
             Text("\(numeral). \(title)").font(Typo.text(17, .heavy)).foregroundStyle(Palette.ink)
                 .accessibilityAddTraits(.isHeader)
-            Text(hint).font(Typo.text(13)).foregroundStyle(Palette.muted)
+            if !marked { Text(hint).font(Typo.text(13)).foregroundStyle(Palette.muted) }
         }
     }
 
     // MARK: I. writing
 
     private var writeSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             sectionTitle("I", "Escribe en español", "Con el artículo si es un sustantivo.")
-            ForEach(prueba.section(.write)) { item in writeRow(item) }
+            ForEach(prueba.section(.write)) { item in
+                if let mark = prueba.marks[item.id] { writeResult(item, mark) } else { writeRow(item) }
+            }
         }
     }
 
     private func writeRow(_ item: PruebaItem) -> some View {
-        let mark = prueba.marks[item.id]
-        return HStack(alignment: .firstTextBaseline, spacing: 10) {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
             number(item.id)
             VStack(alignment: .leading, spacing: 6) {
                 Text(item.english).font(Typo.text(16)).foregroundStyle(Palette.ink)
@@ -150,9 +172,20 @@ struct PruebaView: View {
                     .padding(.bottom, 4)
                     .overlay(alignment: .bottom) { Rectangle().fill(Palette.edge).frame(height: 1) }
                     .accessibilityLabel("\(prueba.number(item.id)). \(item.english), en español")
-                if let mark { correction(mark, answer: item.spanish) }
             }
-            tick(mark)
+        }
+    }
+
+    private func writeResult(_ item: PruebaItem, _ mark: PruebaMark) -> some View {
+        let typed = prueba.answer(item)
+        return result(item, mark) {
+            Text(item.english).font(Typo.text(15)).foregroundStyle(Palette.muted)
+            if mark.right && !mark.near {
+                Text(typed).font(Typo.sentence(19)).foregroundStyle(Palette.good)
+            } else {
+                answered(typed, wrong: !mark.right)
+                Text(item.spanish).font(Typo.sentence(19)).fontWeight(.bold).foregroundStyle(Palette.ink)
+            }
         }
     }
 
@@ -164,26 +197,31 @@ struct PruebaView: View {
 
     // MARK: II. matching
 
+    @ViewBuilder
     private var matchSection: some View {
         let words = prueba.section(.match)
-        return VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 14) {
             sectionTitle("II", "Une cada palabra con su significado", "Toca una palabra y luego su significado.")
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(words) { item in matchWord(item) }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(prueba.meanings) { m in matchMeaning(m) }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            if prueba.state == .marked {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(words.filter { prueba.marks[$0.id]?.right == false }) { item in
-                        Text("\(prueba.number(item.id)). \(item.spanish): \(item.english)")
-                            .font(Typo.sentence(15)).italic().foregroundStyle(Self.pen)
+            if marked {
+                ForEach(words) { item in
+                    if let mark = prueba.marks[item.id] {
+                        result(item, mark) {
+                            Text(item.spanish).font(Typo.sentence(19)).fontWeight(.bold).foregroundStyle(mark.right ? Palette.good : Palette.ink)
+                            if !mark.right { answered(prueba.answer(item), wrong: true) }
+                            Text(item.english).font(Typo.text(16, .bold)).foregroundStyle(Palette.ink)
+                        }
                     }
+                }
+            } else {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(words) { item in matchWord(item) }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(prueba.meanings) { m in matchMeaning(m) }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
@@ -199,12 +237,10 @@ struct PruebaView: View {
         let pair = prueba.matched[item.id]
         let picked = picking == item.id
         return Button {
-            guard prueba.state == .answering else { return }
             picking = picked ? nil : item.id
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                // Once marked, the pen's tick takes the number's place: the column is narrow.
-                if let mark = prueba.marks[item.id] { tick(mark) } else { number(item.id) }
+                number(item.id)
                 Text(item.spanish).font(Typo.text(16, .bold)).foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 2)
@@ -219,7 +255,7 @@ struct PruebaView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(prueba.number(item.id)). \(item.spanish)" + (pair.map { ", unida con \(meaning($0))" } ?? ""))
-        .accessibilityHint(prueba.state == .answering ? "Tócala y luego toca su significado" : "")
+        .accessibilityHint("Tócala y luego toca su significado")
     }
 
     private func meaning(_ id: String) -> String { prueba.meanings.first { $0.id == id }?.english ?? "" }
@@ -227,7 +263,7 @@ struct PruebaView: View {
     private func matchMeaning(_ m: PruebaItem) -> some View {
         let taken = prueba.matched.values.contains(m.id)
         return Button {
-            guard prueba.state == .answering, let w = picking else { return }
+            guard let w = picking else { return }
             // A meaning goes with one word: taking it from another word frees that one.
             for (k, v) in prueba.matched where v == m.id { prueba.matched[k] = nil }
             prueba.matched[w] = m.id
@@ -253,13 +289,25 @@ struct PruebaView: View {
     private var clozeSection: some View {
         VStack(alignment: .leading, spacing: 18) {
             sectionTitle("III", "Completa la frase", "Frases de tu libro. Elige la palabra que falta.")
-            ForEach(prueba.section(.cloze)) { item in clozeRow(item) }
+            ForEach(prueba.section(.cloze)) { item in
+                if let mark = prueba.marks[item.id] {
+                    result(item, mark) {
+                        filled(item, right: mark.right)
+                        if !mark.right { answered(prueba.answer(item), wrong: true) }
+                        if !item.sentenceEnglish.isEmpty {
+                            Text(item.sentenceEnglish).font(Typo.text(14)).foregroundStyle(Palette.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                } else {
+                    clozeRow(item)
+                }
+            }
         }
     }
 
     private func clozeRow(_ item: PruebaItem) -> some View {
-        let mark = prueba.marks[item.id]
-        return HStack(alignment: .firstTextBaseline, spacing: 10) {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
             number(item.id)
             VStack(alignment: .leading, spacing: 10) {
                 Text("«\(item.gapped)»").font(Typo.sentence(17)).foregroundStyle(Palette.ink)
@@ -267,39 +315,31 @@ struct PruebaView: View {
                 FlowRow(spacing: 8) {
                     ForEach(item.options, id: \.self) { o in option(o, item: item) }
                 }
-                if mark != nil, !item.sentenceEnglish.isEmpty {
-                    Text(item.sentenceEnglish).font(Typo.text(14)).foregroundStyle(Palette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
             }
-            tick(mark)
         }
+    }
+
+    /// The sentence with the right word back in its gap, picked out.
+    private func filled(_ item: PruebaItem, right: Bool) -> some View {
+        var text = AttributedString("«\(item.sentence)»")
+        if let r = text.range(of: item.form, options: .caseInsensitive) {
+            text[r].foregroundColor = right ? Palette.good : Palette.ink
+            text[r].font = Typo.sentence(17).bold()
+            text[r].underlineStyle = .single
+        }
+        return Text(text).font(Typo.sentence(17)).foregroundStyle(Palette.ink)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func option(_ o: String, item: PruebaItem) -> some View {
         let picked = prueba.chosen[item.id] == o
-        let marked = prueba.state == .marked
-        let isAnswer = o == item.form
         return Button {
-            guard prueba.state == .answering else { return }
             prueba.chosen[item.id] = picked ? nil : o
         } label: {
             Text(o).font(Typo.text(16, .bold)).foregroundStyle(Palette.ink)
                 .padding(.horizontal, 14).frame(minHeight: 44)
                 .overlay {
-                    if picked && !marked {
-                        Capsule().strokeBorder(Palette.ink, lineWidth: 2)
-                    } else if marked && isAnswer {
-                        // The red pen rings the right one.
-                        Ellipse().stroke(Self.pen, lineWidth: 2).padding(-2)
-                    } else {
-                        Capsule().strokeBorder(Palette.line, lineWidth: 1)
-                    }
-                }
-                .overlay(alignment: .center) {
-                    if marked && picked && !isAnswer {
-                        Rectangle().fill(Self.pen).frame(height: 2).padding(.horizontal, 8)
-                    }
+                    Capsule().strokeBorder(picked ? Palette.ink : Palette.line, lineWidth: picked ? 2 : 1)
                 }
                 .contentShape(.capsule)
         }
@@ -308,34 +348,91 @@ struct PruebaView: View {
         .accessibilityAddTraits(picked ? .isSelected : [])
     }
 
-    // MARK: the pen
+    // MARK: marked
+
+    /// One marked question: green when right, red when not, and a miss explained underneath.
+    private func result<Content: View>(_ item: PruebaItem, _ mark: PruebaMark, @ViewBuilder content: () -> Content) -> some View {
+        let ink = mark.right ? Palette.good : Self.pen
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Image(systemName: mark.right ? "checkmark" : "xmark")
+                    .font(.system(size: 17, weight: .heavy)).foregroundStyle(ink)
+                    .frame(width: 22)
+                    .accessibilityLabel(mark.right ? "Bien" : "Mal")
+                VStack(alignment: .leading, spacing: 4) { content() }
+                Spacer(minLength: 0)
+                Text("\(prueba.number(item.id))").font(Typo.text(13, .heavy)).foregroundStyle(Palette.muted)
+            }
+            .accessibilityElement(children: .combine)
+            if !mark.right || mark.near { explanation(item, mark) }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(mark.right ? Palette.goodSoft : Palette.againSoft, in: .rect(cornerRadius: 6))
+    }
+
+    /// What was answered, crossed out when it was wrong.
+    private func answered(_ text: String, wrong: Bool) -> some View {
+        Group {
+            if text.isEmpty {
+                Text("Sin contestar")
+            } else {
+                Text("Pusiste ") + Text(text).strikethrough(wrong, color: Self.pen)
+            }
+        }
+        .font(Typo.text(15)).foregroundStyle(Self.pen)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// Why, and how to remember it: Claude's tip, then what the card itself says (its sentence, note and mnemonic).
+    private func explanation(_ item: PruebaItem, _ mark: PruebaMark) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if !mark.note.isEmpty {
+                Text(mark.note).font(Typo.text(14)).foregroundStyle(Palette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let tip = prueba.tips[item.id] {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: "lightbulb.fill").foregroundStyle(Palette.near)
+                    Text(tip).font(Typo.text(15)).foregroundStyle(Palette.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } else if prueba.explaining {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Claude está preparando cómo recordarla…").font(Typo.text(14)).foregroundStyle(Palette.muted)
+                }
+            }
+            if item.format != .cloze, !item.example.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("«\(item.example)»").font(Typo.sentence(16)).italic().foregroundStyle(Palette.ink)
+                    if !item.exampleEnglish.isEmpty {
+                        Text(item.exampleEnglish).font(Typo.text(14)).foregroundStyle(Palette.muted)
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            if !item.note.isEmpty {
+                Text(item.note).font(Typo.text(14)).foregroundStyle(Palette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if !item.mnemonic.isEmpty {
+                Text("Tu mnemotecnia: \(item.mnemonic)").font(Typo.text(14, .bold)).foregroundStyle(Palette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if prueba.tips[item.id] != nil {
+                Button { prueba.keepTip(item.id) } label: {
+                    Label("Guardarla como mnemotecnia", systemImage: "bookmark")
+                        .font(Typo.text(14, .heavy)).frame(minHeight: 44)
+                }
+                .tint(Palette.accentInk)
+            }
+        }
+        .padding(.leading, 32)
+    }
 
     private func number(_ id: String) -> some View {
         Text("\(prueba.number(id)).").font(Typo.text(15, .heavy)).foregroundStyle(Palette.muted)
             .frame(minWidth: 24, alignment: .trailing)
-    }
-
-    @ViewBuilder
-    private func tick(_ mark: PruebaMark?) -> some View {
-        if let mark {
-            Image(systemName: mark.right ? "checkmark" : "xmark")
-                .font(.system(size: 20, weight: .heavy)).foregroundStyle(Self.pen)
-                .rotationEffect(.degrees(mark.right ? -8 : 0))
-                .frame(width: 24)
-                .accessibilityLabel(mark.right ? "Bien" : "Mal")
-        }
-    }
-
-    @ViewBuilder
-    private func correction(_ mark: PruebaMark, answer: String) -> some View {
-        if !mark.right || mark.near || !mark.note.isEmpty {
-            VStack(alignment: .leading, spacing: 2) {
-                if !mark.right || mark.near { Text(answer).font(Typo.sentence(17)).italic() }
-                if !mark.note.isEmpty { Text(mark.note).font(Typo.text(13)) }
-            }
-            .foregroundStyle(Self.pen)
-            .fixedSize(horizontal: false, vertical: true)
-        }
     }
 
     // MARK: handing in
@@ -364,24 +461,35 @@ struct PruebaView: View {
             }
             .frame(maxWidth: .infinity).padding(.top, 6)
         case .marked:
+            let missed = prueba.missed
             VStack(alignment: .leading, spacing: 14) {
                 if !prueba.learned.isEmpty {
-                    Text(prueba.learned.count == 1 ? "1 palabra aprendida: \(prueba.learned[0])."
-                         : "\(prueba.learned.count) palabras aprendidas: \(prueba.learned.joined(separator: ", ")).")
-                        .font(Typo.sentence(17)).foregroundStyle(Self.pen)
+                    Label(prueba.learned.count == 1 ? "1 palabra aprendida: \(prueba.learned[0])."
+                          : "\(prueba.learned.count) palabras aprendidas: \(prueba.learned.joined(separator: ", ")).",
+                          systemImage: "star.fill")
+                        .font(Typo.text(16, .bold)).foregroundStyle(Palette.good)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                let missed = prueba.items.count - prueba.score
-                if missed > 0 {
-                    Text(missed == 1 ? "La que fallaste vuelve a tus repasos." : "Las \(missed) que fallaste vuelven a tus repasos.")
+                if !missed.isEmpty {
+                    Text(missed.count == 1 ? "La que fallaste vuelve también a tus repasos." : "Las \(missed.count) que fallaste vuelven también a tus repasos.")
                         .font(Typo.text(14)).foregroundStyle(Palette.muted)
                 }
                 if prueba.cost > 0 {
                     Text("Claude en esta prueba: \(CostLog.format(prueba.cost))")
                         .font(Typo.text(13)).foregroundStyle(Palette.muted)
                 }
+                Button { onRefresh(missed) } label: {
+                    VStack(spacing: 2) {
+                        Label("Nueva prueba", systemImage: "arrow.clockwise")
+                        Text(missed.isEmpty ? "con palabras que aún no te han preguntado"
+                             : "\(missed.count == 1 ? "tu fallo" : "tus \(missed.count) fallos") y palabras que aún no te han preguntado")
+                            .font(Typo.text(13)).opacity(0.85)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white, size: 18))
                 Button(action: onDone) { Text("Listo").frame(maxWidth: .infinity) }
-                    .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white, size: 18))
+                    .buttonStyle(SoftButtonStyle(fill: Palette.paper, text: Palette.ink, size: 17))
             }
             .padding(.top, 6)
         }

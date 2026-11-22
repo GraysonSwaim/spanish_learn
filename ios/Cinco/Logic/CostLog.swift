@@ -75,6 +75,7 @@ enum CostLog {
         case "check": "Revisar con Claude"
         case "quiz": "Prueba: opciones"
         case "grade": "Prueba: corrección"
+        case "explain": "Prueba: explicaciones"
         default: route
         }
     }

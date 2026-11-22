@@ -91,7 +91,11 @@ struct RootView: View {
         .fullScreenCover(isPresented: $studying) { [current = session, sheet = prueba] in
             Group {
                 if let p = sheet {
-                    PruebaView(prueba: p) { closePrueba() }
+                    PruebaView(prueba: p, onDone: closePrueba) { missed in
+                        // A fresh sheet in its place; with too little to ask, the cover just closes.
+                        if let next = Prueba.make(ctx, refresh: true, again: missed) { prueba = next } else { closePrueba() }
+                    }
+                    .id(ObjectIdentifier(p))
                 } else if let s = current, !s.isFinished {
                     StudyView(session: s) { endSession(s) }
                 } else if let s = current {

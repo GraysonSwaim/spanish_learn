@@ -340,6 +340,39 @@ enum Tutor {
         var note: String
     }
 
+    nonisolated struct ExplainInput: Encodable, Equatable {
+        var spanish: String
+        var english: String
+        /// What the learner answered: typed, the meaning they matched it with, or the word they put in the gap.
+        var answered: String
+        /// The word's sentence, or the gap's.
+        var sentence: String
+        /// "write", "match" or "gap".
+        var question: String
+    }
+
+    /// How many misses one sheet has explained: all of them, as a sheet has 12.
+    static let explainLimit = 12
+
+    /// A short tip for each miss, in order, to remember it by next time. Claude Sonnet, like the rest of the prueba.
+    static func explain(_ items: [ExplainInput]) async throws(Failure) -> (tips: [String], cost: Double) {
+        if demo {
+            try? await Task.sleep(for: .milliseconds(900))
+            CostLog.record(CallUsage(model: "demo", input: 900, output: 700, cost: 0.0088), route: "explain")
+            return (items.map { "(demo) «\($0.spanish)» is \($0.english); \($0.answered.isEmpty ? "it was left blank" : "«\($0.answered)» is another word") . Picture it in its sentence to keep them apart." }, 0.0088)
+        }
+        guard base != nil, consented else { throw .other }
+        struct Body: Encodable { let device: String; let items: [ExplainInput] }
+        struct Reply: Decodable { let items: [String] }
+        let sent = items.prefix(explainLimit).map {
+            ExplainInput(spanish: String($0.spanish.prefix(120)), english: String($0.english.prefix(200)),
+                         answered: String($0.answered.prefix(200)), sentence: String($0.sentence.prefix(400)), question: $0.question)
+        }
+        let (reply, cost): (Reply, Double) = try await costing("explain", Body(device: device, items: Array(sent)), timeout: 60)
+        guard reply.items.count == sent.count else { throw .server }
+        return (reply.items, cost)
+    }
+
     /// How many gaps one sheet asks for, and how many written answers it has looked at again: the proxy refuses more.
     static let quizLimit = 6
     static let gradeLimit = 12
