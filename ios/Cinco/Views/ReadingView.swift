@@ -3,7 +3,7 @@ import SwiftData
 
 /// One reading, set like the article it came from. A new reading, scanned or from a link, is read three times over: first
 /// the page itself, the words already in the library highlighted, while its new words go in; then those words as cards;
-/// then the page again. Tap a word you don't understand, or hold and
+/// then the page again, where whatever's still not understood can be tapped and studied once more. Tap a word you don't understand, or hold and
 /// slide across a phrase, and it's recorded: yellow if it's in the library already, green if it's new to it. Words you
 /// know are already highlighted, more palely, until that's turned off.
 /// A reading made from a link can also be read on the article's own page (`PageReader`), tapped the same way.
@@ -37,6 +37,8 @@ struct ReadingView: View {
     @State private var preparing: Bool
     /// Where a new reading is in read, study, read again.
     @State private var pass: Pass?
+    /// The taps already made when a session last opened from here: the ones since are the words to study again.
+    @State private var tappedBefore: Set<String>?
     /// A new reading turned out to have nothing to study.
     @State private var allKnown = false
     @State private var problem: String?
@@ -211,7 +213,8 @@ struct ReadingView: View {
     private var actions: some View {
         VStack(spacing: 8) {
             if let pass {
-                Text(pass == .first ? "Primero léelo. Luego estudias sus palabras y lo vuelves a leer." : "Ahora léelo otra vez.")
+                Text(pass == .first ? "Primero léelo. Luego estudias sus palabras y lo vuelves a leer."
+                     : "Ahora léelo otra vez. Toca lo que aún no entiendas y vuelve a estudiarlo.")
                     .font(Typo.text(14, .bold)).foregroundStyle(pass == .first ? Palette.muted : Palette.good)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -230,7 +233,12 @@ struct ReadingView: View {
                     Text("Ya sabes todas sus palabras.").font(Typo.text(14, .bold)).foregroundStyle(Palette.good)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                if library.toStudy > 0, !preparing {
+                if tappedSince > 0 {
+                    Button(action: studyTapped) {
+                        Text("Estudiar las que tocaste · \(tappedSince)").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white, size: 18))
+                } else if library.toStudy > 0, !preparing {
                     Button {
                         if pass == .first { pass = .again }
                         studyPage()
@@ -265,7 +273,28 @@ struct ReadingView: View {
     private func studyPage() {
         let all = Deck.allCards(ctx)
         let plan = Library.plan(all, first: Set(Library.cards(on: reading, in: all).map(\.id)))
+        tappedBefore = Set(reading.carded)
         study(plan.pool, queue: plan.queue, label: reading.title, fresh: plan.fresh)
+    }
+
+    /// The words tapped since the last session from here, each once: settled taps only, as they're the ones with a card.
+    private var tappedSince: Int {
+        guard let before = tappedBefore else { return 0 }
+        return Set(reading.carded.filter { !before.contains($0) }.compactMap { reading.glosses[$0]?.spanish }).count
+    }
+
+    /// Just the words tapped since the last session: cards already met come back where they are, and new ones are met
+    /// straight away, whatever room the stages have, since they were asked for.
+    private func studyTapped() {
+        guard let before = tappedBefore else { return }
+        let all = Deck.allCards(ctx)
+        let index = Library.index(all)
+        var seen = Set<String>()
+        let cards = reading.carded.filter { !before.contains($0) }
+            .compactMap { reading.glosses[$0].flatMap { Library.find($0.spanish, in: index) } }
+            .filter { !$0.isDropped && seen.insert($0.id).inserted }
+        tappedBefore = Set(reading.carded)
+        study(all.filter { $0.kind == .word }, queue: cards, label: reading.title, fresh: [])
     }
 
     /// What opening a reading sets going: an article's text if it hasn't got it yet, then, for a new one, its words.

@@ -38,7 +38,8 @@ from what you read, in three steps:
    scan (25 unless changed in Ajustes).
 2. **Read, study, read again.** The page opens first, the words you've already studied highlighted, while its new words
    go in. Once it's read, "Ya lo leí" turns its words into cards: each new word is one quick step, "Ya la sé" and it's
-   done, or "No la sé" and its training starts here, the page's own words first. Then you read the page again.
+   done, or "No la sé" and its training starts here, the page's own words first. Then you read the page again, and anything still not understood, card or not,
+   can be tapped and studied once more with "Estudiar las que tocaste".
 3. **Tap as you read.** Tap what you don't understand and it's recorded. Yellow: it's already in the library, and comes
    back for review. Green: it's new, and just went in.
 
