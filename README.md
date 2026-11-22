@@ -36,10 +36,11 @@ from what you read, in three steps:
 1. **Feed it pages.** Scan a page of your book in Lecturas. Claude lists every word on it in dictionary form, sorted into
    foundational, intermediate and advanced, and the new ones go into the library, foundational first, up to a limit per
    scan (25 unless changed in Ajustes).
-2. **Study.** Each new word is one quick step: "Ya la sé" and it's done, or "No la sé" and its training starts here. The
-   page's own words come first.
-3. **Read.** Tap what you don't understand and it's recorded. Yellow: it's already in the library, and comes back for
-   review. Green: it's new, and just went in.
+2. **Read, study, read again.** The page opens first, the words you've already studied highlighted, while its new words
+   go in. Once it's read, "Ya lo leí" turns its words into cards: each new word is one quick step, "Ya la sé" and it's
+   done, or "No la sé" and its training starts here, the page's own words first. Then you read the page again.
+3. **Tap as you read.** Tap what you don't understand and it's recorded. Yellow: it's already in the library, and comes
+   back for review. Green: it's new, and just went in.
 
 You study what you'll actually read, so there's no starter deck: the commonest words arrive first because they're on
 every page. Words can also be added one at a time with **+**, or marked on an article from a link.
