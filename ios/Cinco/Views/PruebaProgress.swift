@@ -37,6 +37,9 @@ struct PruebaProgress: View {
             Text(r.date.formatted(.dateTime.day().month(.abbreviated).hour().minute().locale(Locale(identifier: "es"))))
                 .font(Typo.text(15)).foregroundStyle(Palette.ink).lineLimit(1)
             Spacer()
+            if let c = r.cost, c > 0 {
+                Text(CostLog.format(c)).font(Typo.text(13)).foregroundStyle(Palette.muted)
+            }
             if r.learned > 0 {
                 Text(r.learned == 1 ? "1 aprendida" : "\(r.learned) aprendidas").font(Typo.text(13)).foregroundStyle(Palette.good)
             }

@@ -345,10 +345,11 @@ enum Tutor {
     static let gradeLimit = 12
 
     /// Wrong choices for each gap, in order. Claude Sonnet, since a wrong choice that fits too has to be avoided.
-    static func quiz(_ items: [QuizInput]) async throws(Failure) -> [QuizItem] {
+    static func quiz(_ items: [QuizInput]) async throws(Failure) -> (items: [QuizItem], cost: Double) {
         if demo {
             try? await Task.sleep(for: .milliseconds(600))
-            return items.map { _ in QuizItem(options: ["(demo) uno", "(demo) dos", "(demo) tres"], english: "(demo) The sentence in English.") }
+            CostLog.record(CallUsage(model: "demo", input: 900, output: 1100, cost: 0.0128), route: "quiz")
+            return (items.map { _ in QuizItem(options: ["(demo) uno", "(demo) dos", "(demo) tres"], english: "(demo) The sentence in English.") }, 0.0128)
         }
         guard base != nil, consented else { throw .other }
         struct Body: Encodable { let device: String; let items: [QuizInput] }
@@ -357,16 +358,17 @@ enum Tutor {
             QuizInput(spanish: String($0.spanish.prefix(120)), english: String($0.english.prefix(200)),
                       sentence: String($0.sentence.prefix(400)), form: String($0.form.prefix(120)))
         }
-        let reply: Reply = try await post("quiz", Body(device: device, items: Array(sent)), timeout: 60)
+        let (reply, cost): (Reply, Double) = try await costing("quiz", Body(device: device, items: Array(sent)), timeout: 60)
         guard reply.items.count == sent.count else { throw .server }
-        return reply.items
+        return (reply.items, cost)
     }
 
     /// Claude Sonnet's second look at written answers the phone marked wrong, in order.
-    static func grade(_ items: [GradeInput]) async throws(Failure) -> [GradeResult] {
+    static func grade(_ items: [GradeInput]) async throws(Failure) -> (items: [GradeResult], cost: Double) {
         if demo {
             try? await Task.sleep(for: .milliseconds(600))
-            return items.map { _ in GradeResult(verdict: .wrong, note: "(demo) Not this word.") }
+            CostLog.record(CallUsage(model: "demo", input: 700, output: 300, cost: 0.0044), route: "grade")
+            return (items.map { _ in GradeResult(verdict: .wrong, note: "(demo) Not this word.") }, 0.0044)
         }
         guard base != nil, consented else { throw .other }
         struct Body: Encodable { let device: String; let items: [GradeInput] }
@@ -374,12 +376,18 @@ enum Tutor {
         let sent = items.prefix(gradeLimit).map {
             GradeInput(english: String($0.english.prefix(200)), spanish: String($0.spanish.prefix(120)), typed: String($0.typed.prefix(120)))
         }
-        let reply: Reply = try await post("grade", Body(device: device, items: Array(sent)), timeout: 60)
+        let (reply, cost): (Reply, Double) = try await costing("grade", Body(device: device, items: Array(sent)), timeout: 60)
         guard reply.items.count == sent.count else { throw .server }
-        return reply.items
+        return (reply.items, cost)
     }
 
     private static func post<B: Encodable, R: Decodable>(_ path: String, _ body: B, timeout: TimeInterval) async throws(Failure) -> R {
+        try await costing(path, body, timeout: timeout).reply
+    }
+
+    /// The reply, and what the call cost. Every answer the proxy got from Claude says what it cost, even one that comes
+    /// back as an error, and it goes in `CostLog` either way: it was paid for.
+    private static func costing<B: Encodable, R: Decodable>(_ path: String, _ body: B, timeout: TimeInterval) async throws(Failure) -> (reply: R, cost: Double) {
         guard let base else { throw .other }
         var request = URLRequest(url: base.appending(path: path), timeoutInterval: timeout)
         request.httpMethod = "POST"
@@ -387,6 +395,8 @@ enum Tutor {
         request.httpBody = try? JSONEncoder().encode(body)
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               let status = (response as? HTTPURLResponse)?.statusCode else { throw .other }
+        let usage = (try? JSONDecoder().decode(CallUsage.Envelope.self, from: data))?.usage
+        if let usage { CostLog.record(usage, route: path) }
         switch status {
         case 200: break
         case 429: throw .allowance
@@ -395,7 +405,7 @@ enum Tutor {
         default: throw .server
         }
         guard let reply = try? JSONDecoder().decode(R.self, from: data) else { throw .server }
-        return reply
+        return (reply, usage?.cost ?? 0)
     }
 }
 

@@ -108,6 +108,7 @@ struct SettingsView: View {
             }
             Section {
                 NavigationLink("Revisar mi biblioteca") { ReviewLibraryView() }
+                NavigationLink("Coste de la API") { CostView() }
             } footer: {
                 Text("Busca significados equivocados, comparando tus palabras con Apple Traducir y Apple Intelligence.")
             }

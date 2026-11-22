@@ -450,20 +450,24 @@ async function ask<T extends z.ZodType>(env: Env, a: Ask<T>): Promise<Response> 
     });
     used = response.usage.output_tokens * weight;
     read = response.usage.input_tokens * weight;
-    console.log(JSON.stringify({
-      device: a.device, owner, model: response.model,
-      input: response.usage.input_tokens, output: response.usage.output_tokens, stop: response.stop_reason,
-    }));
+    // What the call cost, sent back with every answer Claude gave, even one that couldn't be used: it was paid for.
+    const usage = {
+      model: response.model,
+      input: response.usage.input_tokens,
+      output: response.usage.output_tokens,
+      cost: cost(response.model || model, response.usage.input_tokens, response.usage.output_tokens),
+    };
+    console.log(JSON.stringify({ device: a.device, owner, ...usage, stop: response.stop_reason }));
 
-    if (response.stop_reason === "refusal") return json({ error: "refused" }, 422);
+    if (response.stop_reason === "refusal") return json({ error: "refused", usage }, 422);
     // Cut off at the cap: the JSON is unfinished.
-    if (response.stop_reason === "max_tokens") return json({ error: "too_long" }, 502);
+    if (response.stop_reason === "max_tokens") return json({ error: "too_long", usage }, 502);
     const text = response.content.find((b) => b.type === "text")?.text ?? "";
     let raw: unknown;
-    try { raw = JSON.parse(text); } catch { return json({ error: "bad_reply" }, 502); }
+    try { raw = JSON.parse(text); } catch { return json({ error: "bad_reply", usage }, 502); }
     const out = a.schema.safeParse(raw);
-    if (!out.success) return json({ error: "bad_reply" }, 502);
-    return json(a.tidy(out.data));
+    if (!out.success) return json({ error: "bad_reply", usage }, 502);
+    return json({ ...(a.tidy(out.data) as object), usage });
   } catch (error) {
     if (error instanceof Anthropic.RateLimitError || error instanceof Anthropic.InternalServerError) {
       return json({ error: "busy" }, 503);
@@ -477,6 +481,19 @@ async function ask<T extends z.ZodType>(env: Env, a: Ask<T>): Promise<Response> 
     // What was set aside becomes what was spent (nothing, when the call failed).
     await budget.settle(counted, day, { output: used - outputCeiling, input: read - inputCeiling });
   }
+}
+
+/** Dollars per million tokens, input and output, at Anthropic's list prices for prompts under 100K tokens. Thinking is
+ *  billed as output. A model not listed is priced as Sonnet, so a cost is never shown lower than it was. */
+const PRICES: Record<string, [number, number]> = {
+  "claude-haiku-5-5": [0.10, 0.50],
+  "claude-sonnet-5-5": [2, 10],
+  "claude-opus-5-5": [4, 20],
+};
+
+function cost(model: string, input: number, output: number): number {
+  const [i, o] = Object.entries(PRICES).find(([m]) => model.startsWith(m))?.[1] ?? PRICES["claude-sonnet-5-5"];
+  return (input * i + output * o) / 1_000_000;
 }
 
 /** Whether this is one of the owner's phones. The app writes a device ID in capitals, and it's easy to paste in either. */

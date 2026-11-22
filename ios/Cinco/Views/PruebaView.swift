@@ -376,6 +376,10 @@ struct PruebaView: View {
                     Text(missed == 1 ? "La que fallaste vuelve a tus repasos." : "Las \(missed) que fallaste vuelven a tus repasos.")
                         .font(Typo.text(14)).foregroundStyle(Palette.muted)
                 }
+                if prueba.cost > 0 {
+                    Text("Claude en esta prueba: \(CostLog.format(prueba.cost))")
+                        .font(Typo.text(13)).foregroundStyle(Palette.muted)
+                }
                 Button(action: onDone) { Text("Listo").frame(maxWidth: .infinity) }
                     .buttonStyle(SoftButtonStyle(fill: Palette.accent, text: .white, size: 18))
             }

@@ -1553,3 +1553,35 @@ struct PruebaTests {
         #expect(c.pages == 1 && c.sourceList.first?.sentence == "Volvimos a la casa tarde.")
     }
 }
+
+struct CostLogTests {
+    @Test func callsAddUpByDayAndRoute() throws {
+        let day1 = Date(timeIntervalSince1970: 1_800_000_000), day2 = day1.addingTimeInterval(86_400)
+        var days: CostLog.Days = [:]
+        let add = { (route: String, cost: Double, at: Date) in
+            days[DayLog.key(for: at), default: [:]][route, default: CostEntry()].add(CostEntry(calls: 1, input: 100, output: 50, dollars: cost))
+        }
+        add("quiz", 0.01, day1); add("quiz", 0.02, day2); add("words", 0.001, day2)
+        let today = CostLog.total(days, on: DayLog.key(for: day2))
+        #expect(today.calls == 2 && abs(today.dollars - 0.021) < 1e-12)
+        #expect(abs(CostLog.total(days).dollars - 0.031) < 1e-12 && CostLog.total(days).output == 150)
+        #expect(CostLog.byRoute(days).map(\.route) == ["quiz", "words"])
+        #expect(CostLog.since(days) == DayLog.key(for: day1))
+    }
+
+    @Test func aFractionOfACentStillShows() {
+        #expect(CostLog.format(0) == "$0")
+        #expect(CostLog.format(0.00321) == "$0.0032")
+        #expect(CostLog.format(0.0421) == "$0.042")
+        #expect(CostLog.format(1.236) == "$1.24")
+    }
+
+    /// The proxy's usage rides beside the answer, and beside an error too.
+    @Test func usageIsReadFromAnyReply() throws {
+        let ok = #"{"items":[],"usage":{"model":"claude-sonnet-5-5","input":812,"output":640,"cost":0.008024}}"#
+        let failed = #"{"error":"bad_reply","usage":{"model":"claude-haiku-5-5","input":10,"output":5,"cost":0.0000035}}"#
+        #expect(try JSONDecoder().decode(CallUsage.Envelope.self, from: Data(ok.utf8)).usage?.cost == 0.008024)
+        #expect(try JSONDecoder().decode(CallUsage.Envelope.self, from: Data(failed.utf8)).usage?.model == "claude-haiku-5-5")
+        #expect(try JSONDecoder().decode(CallUsage.Envelope.self, from: Data(#"{"items":[]}"#.utf8)).usage == nil)
+    }
+}

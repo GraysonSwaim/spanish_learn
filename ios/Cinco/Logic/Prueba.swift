@@ -47,6 +47,8 @@ nonisolated struct PruebaRecord: Codable, Equatable {
     var learned: Int
     var sampleTotal: Int
     var sampleRight: Int
+    /// What Claude cost for it. Missing from sheets kept before it was counted.
+    var cost: Double?
 }
 
 /// A short test on paper, after each session or whenever asked for: the words owed a test (a "Ya la sé" whose week is
@@ -78,6 +80,8 @@ final class Prueba {
     private(set) var marks: [String: PruebaMark] = [:]
     /// Words that graduated when it was handed in.
     private(set) var learned: [String] = []
+    /// What Claude cost for this sheet: its gaps, and its second look at written answers.
+    private(set) var cost = 0.0
 
     private init(items: [PruebaItem], cards: [String: Card], ctx: ModelContext, now: Date) {
         self.items = items
@@ -156,9 +160,10 @@ final class Prueba {
     func fillGaps() async {
         let want = items.filter { !$0.sentence.isEmpty && $0.format != .cloze }
         guard !want.isEmpty, state == .answering,
-              let got = try? await Tutor.quiz(want.map { Tutor.QuizInput(spanish: $0.spanish, english: $0.english, sentence: $0.sentence, form: $0.form) }),
+              let (got, spent) = try? await Tutor.quiz(want.map { Tutor.QuizInput(spanish: $0.spanish, english: $0.english, sentence: $0.sentence, form: $0.form) }),
               got.count == want.count
         else { return }
+        cost += spent
         var rng = SystemRandomNumberGenerator()
         for (w, g) in zip(want, got) where g.options.count == 3 {
             guard let i = items.firstIndex(where: { $0.id == w.id }) else { continue }
@@ -184,8 +189,9 @@ final class Prueba {
         for item in items { out[item.id] = Self.markHere(item, typed: typed[item.id], matched: matched[item.id], chosen: chosen[item.id]) }
         let doubtful = items.filter { $0.format == .write && out[$0.id]?.right == false && !TextMatch.norm(typed[$0.id] ?? "").isEmpty }
         if !doubtful.isEmpty,
-           let again = try? await Tutor.grade(doubtful.map { Tutor.GradeInput(english: $0.english, spanish: $0.spanish, typed: typed[$0.id] ?? "") }),
+           let (again, spent) = try? await Tutor.grade(doubtful.map { Tutor.GradeInput(english: $0.english, spanish: $0.spanish, typed: typed[$0.id] ?? "") }),
            again.count == doubtful.count {
+            cost += spent
             for (item, g) in zip(doubtful, again) {
                 switch g.verdict {
                 case .right: out[item.id] = PruebaMark(right: true, note: g.note)
@@ -227,7 +233,7 @@ final class Prueba {
         marks = out
         let sample = items.filter { $0.kind == .sample }
         PruebaLog.add(PruebaRecord(date: date, total: items.count, right: out.values.count(where: \.right), learned: learned.count,
-                                   sampleTotal: sample.count, sampleRight: sample.count { out[$0.id]?.right == true }))
+                                   sampleTotal: sample.count, sampleRight: sample.count { out[$0.id]?.right == true }, cost: cost))
         state = .marked
     }
 

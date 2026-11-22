@@ -94,6 +94,7 @@ private struct HomePage: View {
                     .padding(14)
                 }
                 .padding(.top, 8)
+                CostLine().padding(.top, 6)
 
                 if words.isEmpty {
                     Text("Tu biblioteca empieza vacía. Toca + para escanear una página del libro que lees, y sus palabras entran aquí para que las estudies. También puedes añadirlas una a una.")
